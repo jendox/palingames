@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+import dj_database_url
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -9,7 +10,7 @@ env = environ.Env()
 
 env.read_env(os.path.join(BASE_DIR, ".env"))
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-_@rgw1w@i3d9x%s838dyv^c^og%tfmdc0f!ezra=zep30fw+z4")
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "apps.users.apps.UsersConfig",
 ]
 
 MIDDLEWARE = [
@@ -57,19 +59,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+AUTH_USER_MODEL = "users.CustomUser"
+
 # Database
 
+DATABASE_URL = env.str("DATABASE_URL")
+
 DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default=f"postgres://"
-                f"{env('POSTGRES_USER', default='palingames_user')}:"
-                f"{env('POSTGRES_PASSWORD', default='palingames_pass')}@"
-                f"{env('POSTGRES_HOST', default='localhost')}:"
-                f"{env('POSTGRES_PORT', default='5432')}/"
-                f"{env('POSTGRES_DB', default='palingames_dev')}",
+    "default": dj_database_url.parse(
+        url=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
     ),
 }
+
+# Password hashes
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
 
 # Password validation
 
@@ -90,7 +101,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 
-LANGUAGE_CODE = "ru-Ru"
+LANGUAGE_CODE = "ru-ru"
 
 TIME_ZONE = "Europe/Minsk"
 
@@ -111,3 +122,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # Default primary key field type
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+}
