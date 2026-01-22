@@ -25,6 +25,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # allauth core
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
+    # allauth social
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.yandex",
+    # my apps
     "apps.users.apps.UsersConfig",
 ]
 
@@ -36,7 +45,16 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # allauth
+    "allauth.account.middleware.AccountMiddleware",
 ]
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    # allauth
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
 
 ROOT_URLCONF = "config.urls"
 
@@ -130,3 +148,22 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
 }
+
+# All Auth
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"   # подтверждение обязательно
+ACCOUNT_UNIQUE_EMAIL = True
+
+ACCOUNT_CHANGE_EMAIL = True
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/accounts/email-confirmed/"
+ACCOUNT_EMAIL_NOTIFICATIONS = True
+
+HEADLESS_SERVE_SPECIFICATION = True
+HEADLESS_ONLY = True  # отключаем обычные account views
+
+LOGIN_REDIRECT_URL = "/"
+# ACCOUNT_LOGOUT_REDIRECT_URL = "/"
+
+SITE_ID = 1
