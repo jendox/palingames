@@ -1,0 +1,25 @@
+{# usage: {% include "base/_pagination.html" with page_obj=page_obj %} #}
+
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+  <nav class="mt-8 flex items-center justify-center gap-2 text-sm">
+
+    {% if page_obj.has_previous %}
+      <a class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
+        href="?page={{ page_obj.previous_page_number }}">Назад</a>
+    {% else %}
+      <span class="px-3 py-2 rounded-lg border bg-gray-100 text-gray-500">Назад</span>
+    {% endif %}
+
+    <span class="px-3 py-2 text-gray-600">
+      Страница <span class="font-semibold">{{ page_obj.number }}</span> из {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+      <a class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
+        href="?page={{ page_obj.next_page_number }}">Вперёд</a>
+    {% else %}
+      <span class="px-3 py-2 rounded-lg border bg-gray-100 text-gray-500">Вперёд</span>
+    {% endif %}
+
+  </nav>
+{% endif %}

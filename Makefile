@@ -4,7 +4,7 @@ UV ?= uv
 lint: ## Проверяет линтерами код в репозитории
 	ruff check .
 
-format: ## Запуск автоформатера
+fix: ## Запуск автоформатера
 	ruff check --fix .
 
 up-develop: ## Запустить окружение
@@ -24,6 +24,9 @@ migrate: ## Применить миграции
 
 admin: ## Создать администратора
 	$(UV) run python manage.py createsuperuser
+
+tailwind: ## Запустить сервер tailwind
+	$(UV) run python manage.py tailwind watch
 
 list: ## Отображает список доступных команд и их описания
 	@echo "Cписок доступных команд:"

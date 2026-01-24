@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     # allauth core
     "allauth",
     "allauth.account",
@@ -33,6 +34,8 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.yandex",
+
+    "django_tailwind_cli",
     # my apps
     "apps.users.apps.UsersConfig",
 ]
@@ -129,9 +132,12 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "assets"),
+    os.path.join(BASE_DIR, "static"),
+]
 
 # Media files
 MEDIA_URL = "/media/"
@@ -145,7 +151,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
 }
 
@@ -167,3 +173,15 @@ LOGIN_REDIRECT_URL = "/"
 # ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 
 SITE_ID = 1
+
+# Dev Email
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "localhost"  # или 'mailhog' при использовании Docker
+EMAIL_PORT = 25
+DEFAULT_FROM_EMAIL = "noreply@palingames.by"
+
+TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
+TAILWIND_CLI_DIST_CSS = "css/tailwind.css"
+TAILWIND_CLI_USE_MINIFY = False  # в dev удобнее
+TAILWIND_CLI_VERSION = "4.1.18"
+TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False

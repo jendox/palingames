@@ -9,6 +9,10 @@ repos:
 
   - repo: local
     hooks:
+      - id: editorconfig-checker
+        name: editorconfig-checker
+        entry: ec -config .editorconfig-checker.json
+        language: system
       - id: linters-ruff
         name: ruff
         entry: ruff check .

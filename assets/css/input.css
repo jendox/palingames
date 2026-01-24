@@ -1,0 +1,39 @@
+@import "./fonts.css";
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-white: #fbfbfb;
+    --color-black: #1f1f1f;
+    --color-grey: #c6c0c0;
+    --color-pink: #dd5e8d;
+    --color-orange: #fc795b;
+    --color-yellow: #e3c327;
+    --color-green: #80c11e;
+    --color-turquoise: #2dc0c2;
+    --color-purple: #b494c5;
+    --color-mint: #d1fbfa;
+    --color-lilac: #fde2ff;
+
+    /* hover */
+    --color-pink-hover: #eda4bf;
+    --color-orange-hover: #ffa38e;
+    --color-yellow-hover: #f3df7c;
+    --color-green-hover: #bee288;
+    --color-turquoise-hover: #82d8d9;
+    --color-purple-hover: #d2b5d4;
+
+    --shadow-default: 0px 4px 4px rgba(170, 170, 170, 0.5);
+  }
+
+  html {
+    font-size: 16px;
+    font-family: "Tilda Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-airfool {
+    font-family: "Airfool", ui-sans-serif, system-ui, sans-serif;
+  }
+}

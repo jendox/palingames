@@ -1,0 +1,74 @@
+{% load static i18n %}
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_main.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_main_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold text-[var(--color-pink)]">{% trans "Главная" %}</span>
+</a>
+
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_catalog_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold text-[var(--color-orange)]">{% trans "Каталог" %}</span>
+</a>
+
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_abc.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_abc_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold leading-4 text-[var(--color-yellow)]">
+    {% trans "Алфавитный" %}<br>{% trans "навигатор" %}
+  </span>
+</a>
+
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_order.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_order_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold text-[var(--color-green)]">{% trans "Игра на заказ" %}</span>
+</a>
+
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_about.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_about_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold text-[var(--color-turquoise)]">{% trans "О нас" %}</span>
+</a>
+
+<a href="#" class="group flex flex-col items-center text-center no-underline">
+  <span class="relative block size-16">
+    <img src="{% static 'images/header/menu_payment.svg' %}" alt="" class="size-16 group-hover:opacity-0">
+    <img
+      src="{% static 'images/header/menu_payment_hover.svg' %}"
+      alt=""
+      class="absolute inset-0 size-16 opacity-0 group-hover:opacity-100"
+    >
+  </span>
+  <span class="mt-3 text-sm font-semibold text-[var(--color-purple)]">{% trans "Оплата" %}</span>
+</a>

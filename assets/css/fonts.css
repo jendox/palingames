@@ -1,0 +1,45 @@
+/* Airfool */
+@font-face {
+  font-family: "Airfool";
+  src: url("/static/fonts/airfool.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tilda Sans — Regular (400) */
+@font-face {
+  font-family: "Tilda Sans";
+  src: url("/static/fonts/tilda-sans-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tilda Sans — Semibold (600) */
+@font-face {
+  font-family: "Tilda Sans";
+  src: url("/static/fonts/tilda-sans-semibold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tilda Sans — Bold (700) */
+@font-face {
+  font-family: "Tilda Sans";
+  src: url("/static/fonts/tilda-sans-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tilda Sans — Black (900) */
+@font-face {
+  font-family: "Tilda Sans";
+  src: url("/static/fonts/tilda-sans-black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+

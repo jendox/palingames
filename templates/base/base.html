@@ -1,0 +1,20 @@
+{% extends "base/_document.html" %}
+
+{% block body %}
+  {% include "includes/header.html" %}
+
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-gray-500">
+      © {{ now|date:"Y" }} PaliGames
+    </div>
+  </footer>
+
+  {# Подключим модалки один раз в base, чтобы были доступны на странице #}
+  {% include "components/modals/login_dialog.html" %}
+  {% include "components/modals/signup_dialog.html" %}
+  {% include "components/modals/password_reset_dialog.html" %}
+{% endblock %}

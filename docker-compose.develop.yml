@@ -18,5 +18,18 @@ services:
       timeout: 5s
       retries: 5
 
+  smtp4dev:
+    image: rnwood/smtp4dev:v3
+    ports:
+      - "5000:80"   # Веб-интерфейс
+      - "25:25"     # SMTP порт
+      - "143:143"   # IMAP порт (опционально)
+    volumes:
+      - smtp4dev-data:/smtp4dev
+    environment:
+      - ServerOptions__HostName=smtp4dev
+      - ServerOptions__Urls=http://*:80
+
 volumes:
   postgres_data:
+  smtp4dev-data:

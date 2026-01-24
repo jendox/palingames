@@ -1,0 +1,16 @@
+{# usage: {% include "base/_form_errors.html" with form=form %} #}
+
+{% if form.non_field_errors %}
+  <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+    {{ form.non_field_errors }}
+  </div>
+{% endif %}
+
+{% for field in form %}
+  {% if field.errors %}
+    <div class="mb-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+      <div class="font-medium">{{ field.label }}:</div>
+      {{ field.errors }}
+    </div>
+  {% endif %}
+{% endfor %}

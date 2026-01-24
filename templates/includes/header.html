@@ -1,0 +1,150 @@
+{% load static i18n %}
+<header class="relative bg-[var(--color-white)]">
+<!--  <div class="bg-black">-->
+<!--    <div class="mx-auto max-w-6xl px-4 py-2 text-xs text-white/70">-->
+<!--      {# TODO: заменить на реальные breadcrumbs из контекста/URL #}-->
+<!--      <span class="uppercase tracking-wide">{% trans "Каталог" %} / {% trans "Главная" %}</span>-->
+<!--    </div>-->
+<!--  </div>-->
+
+  <div class="mx-auto max-w-6xl px-4 pt-10">
+    <div class="flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3">
+        <img src="{% static 'images/logo.svg' %}" alt="PaliGames" class="h-16 w-auto sm:h-20">
+      </a>
+
+      <div class="flex items-center gap-6">
+        <a
+          href="#"
+          class="inline-flex items-center gap-2 rounded-xl bg-[var(--color-pink)] px-6 py-3 text-sm font-semibold text-[var(--color-white)] shadow-[var(--shadow-default)] hover:bg-[var(--color-pink-hover)]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="size-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20.8 5.8a5.5 5.5 0 0 0-7.8 0L12 6.8l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 22l7.8-7.4 1-1a5.5 5.5 0 0 0 0-7.8Z"/>
+          </svg>
+          <span>{% trans "Избранное" %}</span>
+        </a>
+
+        <a
+          href="#"
+          class="inline-flex items-center gap-2 rounded-xl bg-[var(--color-pink)] px-6 py-3 text-sm font-semibold text-[var(--color-white)] shadow-[var(--shadow-default)] hover:bg-[var(--color-pink-hover)]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            class="size-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 9h16l-1.6 11H5.6L4 9Z"/>
+            <path d="M9 9l3-6 3 6"/>
+            <path d="M10 13h4"/>
+          </svg>
+          <span>{% trans "Корзина" %}</span>
+        </a>
+
+        <details class="relative">
+          <summary
+            class="list-none inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--color-pink)] px-6 py-3 text-sm font-semibold text-[var(--color-white)] shadow-[var(--shadow-default)] hover:bg-[var(--color-pink-hover)] [&::-webkit-details-marker]:hidden"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              class="size-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span>{% trans "Аккаунт" %}</span>
+            <svg viewBox="0 0 20 20" class="size-4 fill-current opacity-90" aria-hidden="true">
+              <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"/>
+            </svg>
+          </summary>
+
+          <div class="absolute right-0 z-20 mt-3 w-72 rounded-2xl border border-black/10 bg-[var(--color-white)] p-4 shadow-xl">
+            {% if user.is_authenticated %}
+              <div class="mb-3 text-center text-sm font-semibold">
+                {% trans "Мы рады видеть вас," %}<br>{{ user.display_name }}!
+              </div>
+
+              <div class="space-y-2 text-sm font-semibold text-[var(--color-black)]">
+                <a href="#" class="flex items-center gap-2 hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                  {% trans "Корзина" %}
+                </a>
+                <a href="{% url 'catalog' %}" class="flex items-center gap-2 hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                  {% trans "Каталог" %}
+                </a>
+                <a href="#" class="flex items-center gap-2 hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                  {% trans "Игра на заказ" %}
+                </a>
+                <a href="#" class="flex items-center gap-2 hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                  {% trans "Личный кабинет" %}
+                </a>
+              </div>
+
+              <form method="post" action="{% url 'account_logout' %}" class="mt-4">
+                {% csrf_token %}
+                <button
+                  type="submit"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-[var(--color-white)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-mint)]"
+                >
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                  {% trans "Выйти" %}
+                </button>
+              </form>
+            {% else %}
+              <div class="mb-3 text-center text-sm font-semibold">
+                {% trans "Добро пожаловать" %}<br>{% trans "в Palin Games" %}
+              </div>
+
+              <button
+                type="button"
+                data-dialog-open="loginDialog"
+                class="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-pink)] px-4 py-2 text-sm font-semibold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)]"
+              >
+                {% trans "Войти" %}
+              </button>
+
+              <a href="#" class="mt-3 block text-center text-sm font-semibold text-[var(--color-black)] hover:underline">
+                {% trans "Корзина" %}
+              </a>
+            {% endif %}
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="py-14">
+      <nav class="grid grid-cols-3 place-items-center gap-10 sm:grid-cols-6">
+        {% include "includes/header_nav_desktop.html" %}
+      </nav>
+    </div>
+  </div>
+
+  <img
+    src="{% static 'images/clouds-group.svg' %}"
+    alt=""
+    class="pointer-events-none w-full select-none"
+    draggable="false"
+  >
+</header>

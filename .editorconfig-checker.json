@@ -1,0 +1,29 @@
+{
+  "Verbose": false,
+  "Debug": false,
+  "IgnoreDefaults": false,
+  "SpacesAfterTabs": false,
+  "NoColor": false,
+  "Exclude": [
+    "/__pycache__/",
+    "(^|/)\\.git/",
+    "(^|/)\\.idea/",
+    "(^|/)\\.venv/",
+    "(^|/)\\.ruff_cache/",
+    "(^|/)\\.django_tailwind_cli/",
+    "(^|/)node_modules/",
+    "(^|/)staticfiles/",
+    "(^|/)media/",
+    "(^|/)assets/css/tailwind\\.css$"
+  ],
+  "AllowedContentTypes": [],
+  "PassedFiles": [],
+  "Disable": {
+    "EndOfLine": false,
+    "Indentation": false,
+    "IndentSize": false,
+    "InsertFinalNewline": false,
+    "TrimTrailingWhitespace": false,
+    "MaxLineLength": false
+  }
+}

@@ -1,0 +1,17 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}PaliGames{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    <script src="{% static 'js/dialogs.js' %}" defer></script>
+
+    {% block head %}{% endblock %}
+  </head>
+  <body class="min-h-screen bg-gray-50 text-gray-900">
+    {% block body %}{% endblock %}
+  </body>
+</html>
