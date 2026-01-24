@@ -169,6 +169,16 @@ ACCOUNT_EMAIL_NOTIFICATIONS = True
 HEADLESS_SERVE_SPECIFICATION = True
 HEADLESS_ONLY = True  # отключаем обычные account views
 
+# Deep links for headless flows (used in emails and other redirects).
+# We keep users on the home page and let frontend JS open the needed modal.
+HEADLESS_FRONTEND_URLS = {
+    "account_signup": "/?dialog=signup",
+    "account_confirm_email": "/?dialog=confirm-email&key={key}",
+    "account_reset_password": "/?dialog=password-reset",
+    "account_reset_password_from_key": "/?dialog=password-reset&key={key}",
+    "socialaccount_login_error": "/?dialog=login&social_error=1",
+}
+
 LOGIN_REDIRECT_URL = "/"
 # ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 

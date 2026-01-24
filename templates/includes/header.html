@@ -88,7 +88,7 @@
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
                   {% trans "Корзина" %}
                 </a>
-                <a href="{% url 'catalog' %}" class="flex items-center gap-2 hover:underline">
+                <a href="#" class="flex items-center gap-2 hover:underline">
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
                   {% trans "Каталог" %}
                 </a>
@@ -102,7 +102,7 @@
                 </a>
               </div>
 
-              <form method="post" action="{% url 'account_logout' %}" class="mt-4">
+              <form data-headless-logout-form class="mt-[50px]" method="post" action="#">
                 {% csrf_token %}
                 <button
                   type="submit"
@@ -120,7 +120,10 @@
               <button
                 type="button"
                 data-dialog-open="loginDialog"
-                class="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-pink)] px-4 py-2 text-sm font-semibold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)]"
+                class="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-pink)] px-4 py-2
+                      text-sm font-semibold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)]
+                      cursor-pointer
+                      "
               >
                 {% trans "Войти" %}
               </button>

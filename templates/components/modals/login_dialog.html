@@ -19,7 +19,20 @@
           {% trans "ВХОД" %}
         </h2>
 
-        <form class="mt-[50px]" method="post" action="#">
+        <div
+          data-form-errors
+          class="mt-6 hidden rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          role="alert"
+        ></div>
+
+        <form
+          data-headless-login-form
+          data-headless-endpoint="/_allauth/browser/v1/auth/login"
+          class="mt-[50px]"
+          method="post"
+          action="#"
+        >
+          {% csrf_token %}
           <div>
             <div class="space-y-[30px]">
               <div>
@@ -40,6 +53,7 @@
                   required
                   autofocus
                 />
+                <p data-field-error="email" class="mt-2 hidden text-sm text-red-700"></p>
               </div>
 
               <div>
@@ -59,6 +73,7 @@
                     focus:outline-none focus:ring-2 focus:ring-[var(--color-pink)]/20"
                   required
                 />
+                <p data-field-error="password" class="mt-2 hidden text-sm text-red-700"></p>
               </div>
             </div>
 

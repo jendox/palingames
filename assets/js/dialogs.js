@@ -15,6 +15,19 @@
     return null;
   }
 
+  function getCsrfToken(form) {
+    const cookieToken = getCookie("csrftoken");
+    if (cookieToken) return cookieToken;
+
+    const fromForm = form?.querySelector?.('input[name="csrfmiddlewaretoken"]')?.value;
+    if (fromForm) return fromForm;
+
+    const fromAnyForm = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    if (fromAnyForm) return fromAnyForm;
+
+    return null;
+  }
+
   function clearHeadlessFormState(form) {
     const errorsBox = form.closest("dialog")?.querySelector("[data-form-errors]");
     const successBox = form.closest("dialog")?.querySelector("[data-form-success]");
@@ -40,6 +53,30 @@
     }
   }
 
+  function resetPasswordResetDialog(dlg) {
+    const form = dlg.querySelector("form[data-headless-password-reset-form]");
+    if (!form) return;
+
+    const errorsBox = dlg.querySelector("[data-form-errors]");
+    const successWrap = dlg.querySelector("[data-password-reset-success]");
+    const successEmail = dlg.querySelector("[data-password-reset-email]");
+
+    if (errorsBox) {
+      errorsBox.textContent = "";
+      errorsBox.classList.add("hidden");
+    }
+    if (successEmail) {
+      successEmail.textContent = "";
+    }
+    if (successWrap) {
+      successWrap.classList.add("hidden");
+    }
+
+    form.classList.remove("hidden");
+    form.reset();
+    setDialogSubmitting(form, false);
+  }
+
   function setDialogSubmitting(form, submitting) {
     for (const input of form.querySelectorAll("input, button")) {
       input.disabled = submitting;
@@ -63,6 +100,7 @@
   }
 
   function showDialogMessage(dlg, selector, message) {
+    if (!dlg) return;
     const el = dlg.querySelector(selector);
     if (!el) return;
     el.textContent = message;
@@ -75,12 +113,15 @@
 
     if (!dlg.open) dlg.showModal();
 
-    const headlessForm = dlg.querySelector("form[data-headless-signup-form]");
-    if (headlessForm) {
+    for (const headlessForm of dlg.querySelectorAll(
+      "form[data-headless-signup-form], form[data-headless-login-form]",
+    )) {
       headlessForm.reset();
       setDialogSubmitting(headlessForm, false);
       clearHeadlessFormState(headlessForm);
     }
+
+    resetPasswordResetDialog(dlg);
 
     // следующий тик, чтобы transition отработал
     requestAnimationFrame(() => {
@@ -101,6 +142,103 @@
       if (dlg.open) dlg.close();
     }, 160);
   }
+
+  async function verifyEmailKey(key) {
+    const csrfToken = getCsrfToken();
+    const resp = await fetch("/_allauth/browser/v1/auth/email/verify", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+      },
+      body: JSON.stringify({ key }),
+    });
+    const payload = await resp.json().catch(() => null);
+    return { resp, payload };
+  }
+
+  function openDialogFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const dialog = params.get("dialog");
+    if (!dialog) return;
+
+    const cleanUrl = () => {
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, "", clean);
+    };
+
+    if (dialog === "signup") {
+      openDialog(getDialogById("signupDialog"), null);
+      cleanUrl();
+      return;
+    }
+
+    if (dialog === "login") {
+      openDialog(getDialogById("loginDialog"), null);
+      cleanUrl();
+      return;
+    }
+
+    if (dialog === "password-reset") {
+      const key = params.get("key");
+      openDialog(getDialogById("passwordResetDialog"), null);
+      if (!key) cleanUrl();
+      return;
+    }
+
+    if (dialog === "confirm-email") {
+      const key = params.get("key");
+      if (!key) {
+        const dlg = getDialogById("signupDialog");
+        openDialog(dlg, null);
+        showDialogMessage(dlg, "[data-form-errors]", "Некорректная ссылка подтверждения email.");
+        cleanUrl();
+        return;
+      }
+
+      // Покажем модалку, чтобы было понятно, что что-то происходит.
+      const dlg = getDialogById("signupDialog");
+      openDialog(dlg, null);
+      showDialogMessage(dlg, "[data-form-success]", "Подтверждаем email...");
+
+      verifyEmailKey(key)
+        .then(({ resp, payload }) => {
+          const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+          if (errors.length) {
+            const messages = errors
+              .map((err) => (typeof err?.message === "string" ? err.message : null))
+              .filter(Boolean);
+            showDialogMessage(dlg, "[data-form-errors]", messages.length ? messages.join(" ") : "Не удалось подтвердить email.");
+            return;
+          }
+
+          // Успех: allauth может вернуть 200 (залогинил) или 401 (просто подтвердил).
+          if (resp.ok || resp.status === 401) {
+            if (payload?.meta?.is_authenticated) {
+              window.location.replace("/");
+              return;
+            }
+            closeDialog(dlg);
+            setTimeout(() => {
+              openDialog(getDialogById("loginDialog"), null);
+            }, 170);
+            return;
+          }
+
+          showDialogMessage(dlg, "[data-form-errors]", "Не удалось подтвердить email. Попробуйте позже.");
+        })
+        .finally(() => {
+          cleanUrl();
+        });
+      return;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    openDialogFromUrl();
+  });
 
   document.addEventListener("click", (e) => {
     const switchBtn = e.target.closest("[data-dialog-switch]");
@@ -161,6 +299,36 @@
   document.addEventListener("submit", async (e) => {
     const form = e.target;
     if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches("form[data-headless-logout-form]")) return;
+
+    e.preventDefault();
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const csrfToken = getCsrfToken(form);
+      const resp = await fetch("/_allauth/browser/v1/auth/session", {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        },
+      });
+
+      if (resp.ok || resp.status === 401) {
+        window.location.reload();
+        return;
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
     if (!form.matches('form[data-headless-signup-form]')) return;
 
     e.preventDefault();
@@ -189,7 +357,7 @@
     setDialogSubmitting(form, true);
 
     try {
-      const csrfToken = getCookie("csrftoken");
+      const csrfToken = getCsrfToken(form);
       const resp = await fetch(endpoint, {
         method: "POST",
         credentials: "same-origin",
@@ -206,7 +374,8 @@
 
       const payload = await resp.json().catch(() => null);
 
-      if (resp.ok) {
+      const hasErrors = payload && Array.isArray(payload.errors) && payload.errors.length;
+      if ((resp.ok || resp.status === 401) && !hasErrors) {
         showDialogMessage(
           dlg,
           "[data-form-success]",
@@ -253,6 +422,185 @@
       setDialogSubmitting(form, false);
     } catch {
       showDialogMessage(dlg, "[data-form-errors]", "Не удалось отправить форму. Проверьте соединение и попробуйте ещё раз.");
+      setDialogSubmitting(form, false);
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches('form[data-headless-login-form]')) return;
+
+    e.preventDefault();
+    clearHeadlessFormState(form);
+
+    const dlg = form.closest("dialog");
+    if (!dlg) return;
+
+    const endpoint = form.getAttribute("data-headless-endpoint");
+    if (!endpoint) return;
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const email = (form.elements.namedItem("email")?.value || "").trim();
+    const password = form.elements.namedItem("password")?.value || "";
+
+    setDialogSubmitting(form, true);
+
+    try {
+      const csrfToken = getCsrfToken(form);
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const payload = await resp.json().catch(() => null);
+
+      if (resp.ok && payload?.meta?.is_authenticated) {
+        closeDialog(dlg);
+        window.location.reload();
+        return;
+      }
+
+      const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+      if ((resp.status === 401 || resp.ok) && !errors.length) {
+        showDialogMessage(
+          dlg,
+          "[data-form-errors]",
+          "Вход не завершён. Проверьте почту (подтверждение email) или попробуйте позже.",
+        );
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      if (resp.status === 429) {
+        showDialogMessage(dlg, "[data-form-errors]", "Слишком много попыток. Попробуйте позже.");
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      const generalMessages = [];
+      const fieldMessages = {
+        email: [],
+        password: [],
+      };
+
+      for (const err of errors) {
+        const message = typeof err?.message === "string" ? err.message : "Ошибка.";
+        const param = typeof err?.param === "string" ? err.param : null;
+
+        if (!param || param === "__all__") {
+          generalMessages.push(message);
+          continue;
+        }
+
+        if (param === "email") fieldMessages.email.push(message);
+        else if (param === "password") fieldMessages.password.push(message);
+        else generalMessages.push(message);
+      }
+
+      if (fieldMessages.email.length) setFieldError(form, "email", fieldMessages.email.join(" "));
+      if (fieldMessages.password.length) setFieldError(form, "password", fieldMessages.password.join(" "));
+
+      if (generalMessages.length) {
+        showDialogMessage(dlg, "[data-form-errors]", generalMessages.join(" "));
+      } else if (!errors.length) {
+        showDialogMessage(dlg, "[data-form-errors]", "Не удалось выполнить вход. Попробуйте ещё раз.");
+      }
+
+      setDialogSubmitting(form, false);
+    } catch {
+      showDialogMessage(dlg, "[data-form-errors]", "Не удалось выполнить вход. Проверьте соединение и попробуйте ещё раз.");
+      setDialogSubmitting(form, false);
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches('form[data-headless-password-reset-form]')) return;
+
+    e.preventDefault();
+
+    const dlg = form.closest("dialog");
+    if (!dlg) return;
+
+    const errorsBox = dlg.querySelector("[data-form-errors]");
+    const successWrap = dlg.querySelector("[data-password-reset-success]");
+    const successEmail = dlg.querySelector("[data-password-reset-email]");
+
+    if (errorsBox) {
+      errorsBox.textContent = "";
+      errorsBox.classList.add("hidden");
+    }
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const endpoint = form.getAttribute("data-headless-endpoint");
+    if (!endpoint) return;
+
+    const email = (form.elements.namedItem("email")?.value || "").trim();
+    setDialogSubmitting(form, true);
+
+    try {
+      const csrfToken = getCsrfToken(form);
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const payload = await resp.json().catch(() => null);
+
+      if (resp.ok) {
+        if (successEmail) successEmail.textContent = email;
+        if (successWrap) successWrap.classList.remove("hidden");
+        form.classList.add("hidden");
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      if (resp.status === 429) {
+        if (errorsBox) {
+          errorsBox.textContent = "Слишком много попыток. Попробуйте позже.";
+          errorsBox.classList.remove("hidden");
+        }
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+      const messages = errors
+        .map((err) => (typeof err?.message === "string" ? err.message : null))
+        .filter(Boolean);
+
+      if (errorsBox) {
+        errorsBox.textContent = messages.length ? messages.join(" ") : "Не удалось отправить запрос. Попробуйте ещё раз.";
+        errorsBox.classList.remove("hidden");
+      }
+      setDialogSubmitting(form, false);
+    } catch {
+      if (errorsBox) {
+        errorsBox.textContent = "Не удалось отправить запрос. Проверьте соединение и попробуйте ещё раз.";
+        errorsBox.classList.remove("hidden");
+      }
       setDialogSubmitting(form, false);
     }
   });
