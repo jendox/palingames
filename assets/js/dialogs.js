@@ -55,11 +55,15 @@
 
   function resetPasswordResetDialog(dlg) {
     const form = dlg.querySelector("form[data-headless-password-reset-form]");
-    if (!form) return;
+    const keyForm = dlg.querySelector("form[data-headless-password-reset-key-form]");
+    if (!form || !keyForm) return;
 
     const errorsBox = dlg.querySelector("[data-form-errors]");
     const successWrap = dlg.querySelector("[data-password-reset-success]");
     const successEmail = dlg.querySelector("[data-password-reset-email]");
+    const completeWrap = dlg.querySelector("[data-password-reset-complete-success]");
+    const requestSubtitle = dlg.querySelector("[data-password-reset-request-subtitle]");
+    const keySubtitle = dlg.querySelector("[data-password-reset-key-subtitle]");
 
     if (errorsBox) {
       errorsBox.textContent = "";
@@ -71,10 +75,25 @@
     if (successWrap) {
       successWrap.classList.add("hidden");
     }
+    if (completeWrap) {
+      completeWrap.classList.add("hidden");
+    }
+
+    if (requestSubtitle) requestSubtitle.classList.remove("hidden");
+    if (keySubtitle) keySubtitle.classList.add("hidden");
 
     form.classList.remove("hidden");
+    keyForm.classList.add("hidden");
+
+    const keyInput = keyForm.querySelector('input[name="key"]');
+    if (keyInput) keyInput.value = "";
+
+    clearHeadlessFormState(form);
+    clearHeadlessFormState(keyForm);
     form.reset();
+    keyForm.reset();
     setDialogSubmitting(form, false);
+    setDialogSubmitting(keyForm, false);
   }
 
   function setDialogSubmitting(form, submitting) {
@@ -159,6 +178,76 @@
     return { resp, payload };
   }
 
+  async function validatePasswordResetKey(key) {
+    const resp = await fetch("/_allauth/browser/v1/auth/password/reset", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-Password-Reset-Key": key,
+      },
+    });
+    const payload = await resp.json().catch(() => null);
+    return { resp, payload };
+  }
+
+  function setPasswordResetKeyFlow(dlg, key) {
+    const requestForm = dlg.querySelector("form[data-headless-password-reset-form]");
+    const keyForm = dlg.querySelector("form[data-headless-password-reset-key-form]");
+    if (!requestForm || !keyForm) return;
+
+    const successWrap = dlg.querySelector("[data-password-reset-success]");
+    const completeWrap = dlg.querySelector("[data-password-reset-complete-success]");
+    const errorsBox = dlg.querySelector("[data-form-errors]");
+    const requestSubtitle = dlg.querySelector("[data-password-reset-request-subtitle]");
+    const keySubtitle = dlg.querySelector("[data-password-reset-key-subtitle]");
+
+    if (successWrap) successWrap.classList.add("hidden");
+    if (completeWrap) completeWrap.classList.add("hidden");
+    if (errorsBox) {
+      errorsBox.textContent = "";
+      errorsBox.classList.add("hidden");
+    }
+    if (requestSubtitle) requestSubtitle.classList.add("hidden");
+    if (keySubtitle) keySubtitle.classList.remove("hidden");
+
+    requestForm.classList.add("hidden");
+    keyForm.classList.remove("hidden");
+
+    const keyInput = keyForm.querySelector('input[name="key"]');
+    if (keyInput) keyInput.value = key;
+
+    clearHeadlessFormState(keyForm);
+    setDialogSubmitting(keyForm, true);
+
+    validatePasswordResetKey(key)
+      .then(({ resp, payload }) => {
+        const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+        if (!resp.ok || errors.length) {
+          const messages = errors
+            .map((err) => (typeof err?.message === "string" ? err.message : null))
+            .filter(Boolean);
+          resetPasswordResetDialog(dlg);
+          if (errorsBox) {
+            errorsBox.textContent = messages.length ? messages.join(" ") : "Некорректная или устаревшая ссылка для сброса пароля.";
+            errorsBox.classList.remove("hidden");
+          }
+          return;
+        }
+
+        setDialogSubmitting(keyForm, false);
+        const newPassword = keyForm.querySelector('input[name="password"]');
+        if (newPassword instanceof HTMLInputElement) newPassword.focus();
+      })
+      .catch(() => {
+        resetPasswordResetDialog(dlg);
+        if (errorsBox) {
+          errorsBox.textContent = "Не удалось проверить ссылку. Попробуйте позже.";
+          errorsBox.classList.remove("hidden");
+        }
+      });
+  }
+
   function openDialogFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const dialog = params.get("dialog");
@@ -183,8 +272,12 @@
 
     if (dialog === "password-reset") {
       const key = params.get("key");
-      openDialog(getDialogById("passwordResetDialog"), null);
-      if (!key) cleanUrl();
+      const dlg = getDialogById("passwordResetDialog");
+      openDialog(dlg, null);
+      if (key) {
+        setPasswordResetKeyFlow(dlg, key);
+      }
+      cleanUrl();
       return;
     }
 
@@ -599,6 +692,141 @@
     } catch {
       if (errorsBox) {
         errorsBox.textContent = "Не удалось отправить запрос. Проверьте соединение и попробуйте ещё раз.";
+        errorsBox.classList.remove("hidden");
+      }
+      setDialogSubmitting(form, false);
+    }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches('form[data-headless-password-reset-key-form]')) return;
+
+    e.preventDefault();
+    clearHeadlessFormState(form);
+
+    const dlg = form.closest("dialog");
+    if (!dlg) return;
+
+    const errorsBox = dlg.querySelector("[data-form-errors]");
+    const completeWrap = dlg.querySelector("[data-password-reset-complete-success]");
+
+    if (errorsBox) {
+      errorsBox.textContent = "";
+      errorsBox.classList.add("hidden");
+    }
+    if (completeWrap) completeWrap.classList.add("hidden");
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const endpoint = form.getAttribute("data-headless-endpoint");
+    if (!endpoint) return;
+
+    const key = form.elements.namedItem("key")?.value || "";
+    const password = form.elements.namedItem("password")?.value || "";
+    const password2 = form.elements.namedItem("password2")?.value || "";
+
+    if (!key) {
+      if (errorsBox) {
+        errorsBox.textContent = "Некорректная ссылка для сброса пароля.";
+        errorsBox.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (password !== password2) {
+      setFieldError(form, "password2", "Пароли не совпадают.");
+      return;
+    }
+
+    setDialogSubmitting(form, true);
+
+    try {
+      const csrfToken = getCsrfToken(form);
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+        },
+        body: JSON.stringify({ key, password }),
+      });
+
+      const payload = await resp.json().catch(() => null);
+
+      const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+
+      if (resp.ok) {
+        if (payload?.meta?.is_authenticated) {
+          window.location.replace("/");
+          return;
+        }
+        if (completeWrap) completeWrap.classList.remove("hidden");
+        form.classList.add("hidden");
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      if (resp.status === 429) {
+        if (errorsBox) {
+          errorsBox.textContent = "Слишком много попыток. Попробуйте позже.";
+          errorsBox.classList.remove("hidden");
+        }
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      // allauth headless may return 401 even if reset succeeded but user is not logged in
+      if (resp.status === 401 && !errors.length) {
+        if (completeWrap) completeWrap.classList.remove("hidden");
+        form.classList.add("hidden");
+        setDialogSubmitting(form, false);
+        return;
+      }
+
+      const generalMessages = [];
+      const fieldMessages = {
+        key: [],
+        password: [],
+        password2: [],
+      };
+
+      for (const err of errors) {
+        const message = typeof err?.message === "string" ? err.message : "Ошибка.";
+        const param = typeof err?.param === "string" ? err.param : null;
+
+        if (!param || param === "__all__") {
+          generalMessages.push(message);
+          continue;
+        }
+
+        if (param === "key") fieldMessages.key.push(message);
+        else if (param === "password") fieldMessages.password.push(message);
+        else if (param === "password2") fieldMessages.password2.push(message);
+        else generalMessages.push(message);
+      }
+
+      if (fieldMessages.password.length) setFieldError(form, "password", fieldMessages.password.join(" "));
+      if (fieldMessages.password2.length) setFieldError(form, "password2", fieldMessages.password2.join(" "));
+
+      if (fieldMessages.key.length) {
+        generalMessages.push(fieldMessages.key.join(" "));
+      }
+
+      if (errorsBox) {
+        errorsBox.textContent = generalMessages.length ? generalMessages.join(" ") : "Не удалось сбросить пароль. Попробуйте ещё раз.";
+        errorsBox.classList.remove("hidden");
+      }
+      setDialogSubmitting(form, false);
+    } catch {
+      if (errorsBox) {
+        errorsBox.textContent = "Не удалось сбросить пароль. Проверьте соединение и попробуйте ещё раз.";
         errorsBox.classList.remove("hidden");
       }
       setDialogSubmitting(form, false);

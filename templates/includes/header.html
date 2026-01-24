@@ -106,7 +106,9 @@
                 {% csrf_token %}
                 <button
                   type="submit"
-                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-[var(--color-white)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-mint)]"
+                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200
+                         bg-[var(--color-white)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-mint)]
+                         cursor-pointer"
                 >
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
                   {% trans "Выйти" %}
