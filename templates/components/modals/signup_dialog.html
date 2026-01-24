@@ -39,10 +39,11 @@
           action="#"
         >
           {% csrf_token %}
-
           <div class="space-y-[30px]">
             <div>
-              <label for="signupEmail" class="block text-sm font-bold text-[var(--color-black)]">{% trans "Email *"%}</label>
+              <label for="signupEmail" class="block text-sm font-bold text-[color:var(--color-black-80)]">
+                {% trans "Email *" %}
+              </label>
             <input
               id="signupEmail"
               type="email"
@@ -58,7 +59,9 @@
             </div>
 
             <div>
-              <label for="signupPassword1" class="block text-sm font-bold text-[var(--color-black)]">{% trans "Пароль *" %}</label>
+              <label for="signupPassword1" class="block text-sm font-bold text-[color:var(--color-black-80)]">
+                {% trans "Пароль *" %}
+              </label>
             <input
               id="signupPassword1"
               type="password"
@@ -73,7 +76,7 @@
             </div>
 
             <div>
-              <label for="signupPassword2" class="block text-sm font-bold text-[var(--color-black)]">
+              <label for="signupPassword2" class="block text-sm font-bold text-[color:var(--color-black-80)]">
                 {% trans "Повторить пароль *" %}
               </label>
             <input
