@@ -20,8 +20,6 @@
         </h2>
 
         <form class="mt-[50px]" method="post" action="#">
-          {% csrf_token %}
-
           <div>
             <div class="space-y-[30px]">
               <div>
@@ -100,18 +98,7 @@
           </div>
 
           <div class="mt-[50px] flex items-center justify-center gap-[25px]">
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/vk.svg' %}" alt="VK" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/yandex.svg' %}" alt="Yandex" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/google.svg' %}" alt="Google" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/telegram.svg' %}" alt="Telegram" class="size-[46px]">
-            </a>
+            {% include "components/modals/_social_buttons.html" %}
           </div>
         </form>
       </div>

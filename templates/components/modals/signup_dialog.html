@@ -38,7 +38,6 @@
           method="post"
           action="#"
         >
-          {% csrf_token %}
           <div class="space-y-[30px]">
             <div>
               <label for="signupEmail" class="block text-sm font-bold text-[color:var(--color-black-80)]">
@@ -115,7 +114,7 @@
 
           <button
             type="submit"
-            class="mt-[30px] h-[60px] w-full rounded-[10px] bg-[var(--color-pink)] text-[16px] font-bold
+            class="mt-[30px] h-[60px] w-full rounded-[10px] bg-[var(--color-pink)] text-[18px] font-bold
               text-[var(--color-white)] hover:bg-[var(--color-pink-hover)] disabled:opacity-60 cursor-pointer"
           >
             {% trans "Регистрация" %}
@@ -128,19 +127,8 @@
             </a>
           </div>
 
-          <div class="mt-[44px] flex items-center justify-center gap-[15px]">
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/vk.svg' %}" alt="VK" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/yandex.svg' %}" alt="Yandex" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/google.svg' %}" alt="Google" class="size-[46px]">
-            </a>
-            <a href="#" class="block size-[46px]">
-              <img src="{% static 'images/social/telegram.svg' %}" alt="Telegram" class="size-[46px]">
-            </a>
+          <div class="mt-[44px] flex items-center justify-center gap-[25px]">
+            {% include "components/modals/_social_buttons.html" %}
           </div>
         </form>
         </div>
