@@ -8,7 +8,7 @@ from config import settings
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("apps.users.urls")),
-    path("", render, kwargs={"template_name": "pages/home.html"}),
+    path("", render, kwargs={"template_name": "pages/home.html"}, name="home"),
 ]
 
 if settings.DEBUG:

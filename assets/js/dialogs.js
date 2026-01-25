@@ -540,6 +540,7 @@
 
     const email = (form.elements.namedItem("email")?.value || "").trim();
     const password = form.elements.namedItem("password")?.value || "";
+    // TODO(palingames): support "remember me" by passing a flag and adjusting session expiry server-side.
 
     setDialogSubmitting(form, true);
 
