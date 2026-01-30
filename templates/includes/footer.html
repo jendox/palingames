@@ -1,53 +1,77 @@
 {% load static i18n %}
 
 <footer class="bg-[var(--color-white)]">
-  <div class="mx-auto px-4 pb-[70px] pt-[70px] min-[1920px]:px-[250px]">
-    <div class="grid gap-y-20 min-[1024px]:grid-cols-[1fr_auto_1fr] min-[1024px]:items-start min-[1024px]:gap-x-[120px]">
-      <div class="text-center min-[1024px]:text-left">
-        <div class="text-[34px] font-semibold leading-[34px] text-[var(--color-black)]">{% trans "Информация" %}</div>
-        <ul class="mt-[41px] space-y-[27px] text-[24px] font-semibold leading-[24px] text-[var(--color-black)]">
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Главная" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Каталог" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Алфавитный навигатор" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Игра на заказ" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "О нас" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Оплата" %}</a></li>
+  <div class="mx-auto px-4 pb-[40px] pt-[40px] min-[1024px]:pb-[70px] min-[1024px]:pt-[70px] min-[1920px]:px-[250px]">
+    <div class="grid gap-y-[60px] min-[1024px]:grid-cols-[1fr_auto_1fr] min-[1024px]:items-start min-[1024px]:gap-x-[120px] min-[1024px]:gap-y-20">
+      <div class="order-2 text-center min-[1024px]:order-1 min-[1024px]:text-left">
+        <div class="text-[24px] font-semibold leading-[24px] text-[var(--color-black)] min-[1024px]:text-[34px] min-[1024px]:leading-[34px]">
+          {% trans "Информация" %}
+        </div>
+        <ul class="mt-[20px] space-y-[10px] text-[16px] font-semibold leading-[16px] text-[var(--color-black)] min-[1024px]:mt-[41px] min-[1024px]:space-y-[27px] min-[1024px]:text-[24px] min-[1024px]:leading-[24px]">
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Главная" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Каталог" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Алфавитный навигатор" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Игра на заказ" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "О нас" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Оплата" %}</a></li>
         </ul>
       </div>
 
-      <div class="flex flex-col items-center">
+      <div class="order-1 flex flex-col items-center min-[1024px]:order-2">
         <img
           src="{% static 'images/logo.svg' %}"
           alt="Palin Games"
-          class="min-[1024px]:mt-[75px] h-[174px] w-[510px] max-w-full object-contain"
+          class="h-auto w-[260px] max-w-full object-contain min-[1024px]:mt-[75px] min-[1024px]:h-[174px] min-[1024px]:w-[510px]"
         >
 
-        <div class="mt-[185px] text-center text-[24px] font-semibold leading-[24px] text-[var(--color-black)] min-[1024px]:mt-[234px]">
-          {% trans "Мы в социальных сетях" %}
-        </div>
-        <div class="mt-[35px] flex items-center justify-center gap-[50px]">
-          <a href="#" aria-label="Telegram">
-            <img src="{% static 'images/social/telegram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
-          </a>
-          <a href="#" aria-label="Instagram">
-            <img src="{% static 'images/social/instagram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
-          </a>
+        <div class="hidden min-[1024px]:block">
+          <div class="mt-[234px] text-center text-[24px] font-semibold leading-[24px] text-[var(--color-black)]">
+            {% trans "Мы в социальных сетях" %}
+          </div>
+          <div class="mt-[35px] flex items-center justify-center gap-[50px]">
+            <a href="#" aria-label="Telegram">
+              <img src="{% static 'images/social/telegram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
+            </a>
+            <a href="#" aria-label="Instagram">
+              <img src="{% static 'images/social/instagram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
+            </a>
+          </div>
         </div>
       </div>
 
-      <div class="text-center min-[1024px]:text-right">
-        <div class="text-[34px] font-semibold leading-[34px] text-[var(--color-black)]">{% trans "Каталог" %}</div>
-        <ul class="mt-[41px] space-y-[27px] text-[24px] font-semibold leading-[24px] text-[var(--color-black)]">
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Визуализация" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Дидактические игры" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Изучаем языки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Интерактивные игры" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Картотеки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Лэпбуки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Методические материалы" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Оформление группы" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:underline">{% trans "Тематические изображения" %}</a></li>
+      <div class="order-3 text-center min-[1024px]:text-right">
+        <div class="text-[24px] font-semibold leading-[24px] text-[var(--color-black)] min-[1024px]:text-[34px] min-[1024px]:leading-[34px]">
+          {% trans "Каталог" %}
+        </div>
+        <ul class="mt-[20px] space-y-[10px] text-[16px] font-semibold leading-[16px] text-[var(--color-black)] min-[1024px]:mt-[41px] min-[1024px]:space-y-[27px] min-[1024px]:text-[24px] min-[1024px]:leading-[24px]">
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Визуализация" %}</a></li>
+          <li>
+            <a href="#" class="text-[var(--color-turquoise)] hover:underline min-[1024px]:whitespace-nowrap">
+              {% trans "Дидактические игры" %}
+            </a>
+          </li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Изучаем языки" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Интерактивные игры" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Картотеки" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Лэпбуки" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Методические материалы" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Оформление группы" %}</a></li>
+          <li><a href="#" class="hover:underline min-[1024px]:whitespace-nowrap">{% trans "Тематические изображения" %}</a></li>
         </ul>
+      </div>
+
+      <div class="order-4 flex flex-col items-center min-[1024px]:hidden">
+        <div class="text-center text-[16px] font-semibold leading-[16px] text-[var(--color-black)]">
+          {% trans "Мы в социальных сетях" %}
+        </div>
+        <div class="mt-[20px] flex items-center justify-center gap-[35px]">
+          <a href="#" aria-label="Telegram">
+            <img src="{% static 'images/social/telegram.svg' %}" alt="" class="h-[55px] w-[55px]" aria-hidden="true">
+          </a>
+          <a href="#" aria-label="Instagram">
+            <img src="{% static 'images/social/instagram.svg' %}" alt="" class="h-[55px] w-[55px]" aria-hidden="true">
+          </a>
+        </div>
       </div>
     </div>
   </div>
