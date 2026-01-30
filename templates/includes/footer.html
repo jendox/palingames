@@ -1,0 +1,79 @@
+{% load static i18n %}
+
+<footer class="footer" id="footer">
+
+  <div class="container-fluid position-relative">
+    <div class="row justify-content-center text-center text-lg-start align-items-start">
+      <!-- Левая колонка -->
+      <div class="col-12 col-lg-3 mb-lg-0 d-flex flex-column align-items-center align-items-lg-start">
+        <h5>{% trans "Информация" %}</h5>
+        <ul class="list-unstyled">
+          <li><a href="#">{% trans "Главная" %}</a></li>
+          <li><a href="#">{% trans "Каталог" %}</a></li>
+          <li><a href="#">{% trans "Алфавитный навигатор" %}</a></li>
+          <li><a href="#">{% trans "Игра на заказ" %}</a></li>
+          <li><a href="#">{% trans "О нас" %}</a></li>
+          <li><a href="#">{% trans "Оплата" %}</a></li>
+        </ul>
+      </div>
+
+      <!-- Центр с логотипом -->
+      <div class="col-12 col-lg-3 d-flex justify-content-center align-items-center mb-lg-0">
+        <img src="{% static 'images/logo.svg' %}" alt="Palin Games" class="footer-logo">
+      </div>
+
+      <!-- Правая колонка -->
+      <div class="col-12 col-lg-3 mb-lg-0 d-flex flex-column align-items-center align-items-lg-end">
+        <h5>{% trans "Каталог" %}</h5>
+        <ul class="list-unstyled text-center text-lg-end">
+          <li><a href="#">{% trans "Визуализация" %}</a></li>
+          <li><a href="#">{% trans "Дидактические игры" %}</a></li>
+          <li><a href="#">{% trans "Изучаем языки" %}</a></li>
+          <li><a href="#">{% trans "Интерактивные игры" %}</a></li>
+          <li><a href="#">{% trans "Картотеки" %}</a></li>
+          <li><a href="#">{% trans "Лэпбуки" %}</a></li>
+          <li><a href="#">{% trans "Методические материалы" %}</a></li>
+          <li><a href="#">{% trans "Оформление группы" %}</a></li>
+          <li><a href="#">{% trans "Тематические изображения" %}</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Социальные сети -->
+    <div class="row mt-4 justify-content-center">
+      <div class="col-12 col-md-6 text-center">
+        <div class="small text-muted mb-4">{% trans "Мы в социальных сетях" %}</div>
+        <div class="d-flex justify-content-center gap-4 social-icons">
+          <a href="#"><img src="{% static 'images/social/telegram.svg' %}" alt="Telegram"></a>
+          <a href="#"><img src="{% static 'images/social/instagram.svg' %}" alt="Instagram"></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Кнопка вверх -->
+    <a href="#" class="btn-scroll-top" id="scrollTopBtn" aria-label="{% trans 'Scroll to top' %}">
+      <div class="triangle-up"></div>
+    </a>
+
+    <!-- Копирайт -->
+    <hr class="my-4">
+    <div class="row">
+      <div class="col text-center small text-muted">
+        &copy; {% now "Y" %} Palin Games. {% trans "Все права защищены." %}
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+  // Плавная прокрутка к верху
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 300) {
+      scrollTopBtn.classList.add('visible');
+    } else {
+      scrollTopBtn.classList.remove('visible');
+    }
+  });
+</script>

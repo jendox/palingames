@@ -1,5 +1,85 @@
 {% load static i18n %}
 <header class="relative bg-[var(--color-white)]">
+  <div class="sm:hidden">
+    <div class="flex items-start px-4 pb-[22px] pt-[22px]">
+      <a href="#" class="block">
+        <img
+          src="{% static 'images/logo.svg' %}"
+          alt="PaliGames"
+          class="h-[42px] w-[124px] object-contain"
+        >
+      </a>
+
+      <button
+        type="button"
+        class="ml-[123px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] border-2 border-[var(--color-pink)] bg-transparent"
+        aria-label="{% trans 'Поиск' %}"
+      >
+        <svg viewBox="0 0 20 20" class="h-6 w-6" aria-hidden="true">
+          <path
+            d="M9 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14Zm8 2-4.35-4.35"
+            fill="none"
+            stroke="var(--color-pink)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        data-mobile-menu-toggle
+        class="ml-[15px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] border-2 border-[var(--color-pink)] bg-transparent"
+        aria-label="{% trans 'Меню' %}"
+        aria-expanded="false"
+        aria-controls="mobile-header-menu"
+      >
+        <svg viewBox="0 0 24 24" class="h-6 w-6" aria-hidden="true">
+          <path
+            d="M4 7h16M4 12h16M4 17h16"
+            fill="none"
+            stroke="var(--color-pink)"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <div
+      id="mobile-header-menu"
+      data-mobile-menu
+      class="hidden fixed inset-x-0 top-[86px] z-40 h-[calc(100vh-86px)] overflow-y-auto bg-[var(--color-white)] px-[18px] pb-[39px] pt-[39px]"
+    >
+      <nav class="flex flex-col gap-[54px] pl-[12px]">
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-yellow)]">
+          <img src="{% static 'images/header/menu_abc.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "Алфавитный навигатор" %}
+        </a>
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-pink)]">
+          <img src="{% static 'images/header/menu_main.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "Главная" %}
+        </a>
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-orange)]">
+          <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "Каталог" %}
+        </a>
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-green)]">
+          <img src="{% static 'images/header/menu_order.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "Игра на заказ" %}
+        </a>
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-turquoise)]">
+          <img src="{% static 'images/header/menu_about.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "О нас" %}
+        </a>
+        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-purple)]">
+          <img src="{% static 'images/header/menu_payment.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+          {% trans "Оплата" %}
+        </a>
+      </nav>
+    </div>
+  </div>
 <!--  <div class="bg-black">-->
 <!--    <div class="mx-auto max-w-6xl px-4 py-2 text-xs text-white/70">-->
 <!--      {# TODO: заменить на реальные breadcrumbs из контекста/URL #}-->
@@ -7,7 +87,7 @@
 <!--    </div>-->
 <!--  </div>-->
 
-  <div class="mx-auto max-w-6xl px-4 pt-10 min-[1920px]:mx-0 min-[1920px]:max-w-none min-[1920px]:pl-[180px] min-[1920px]:pr-[150px] min-[1920px]:pt-[35px]">
+  <div class="mx-auto hidden max-w-6xl px-4 pt-10 sm:block min-[1920px]:mx-0 min-[1920px]:max-w-none min-[1920px]:pl-[180px] min-[1920px]:pr-[150px] min-[1920px]:pt-[35px]">
     <div class="flex flex-wrap items-center gap-6 sm:flex-nowrap min-[1920px]:grid min-[1920px]:grid-cols-[250px,50px,625px,97px,568px] min-[1920px]:items-start min-[1920px]:gap-0">
       <a href="#" class="order-1 flex items-center gap-3 sm:order-none min-[1920px]:col-start-1">
         <img
@@ -30,7 +110,7 @@
             class="absolute -left-[2px] -top-[2px] z-10 flex size-[60px] items-center justify-center rounded-[10px] bg-[var(--color-pink)]"
             aria-label="{% trans 'Поиск' %}"
           >
-            <img src="{% static 'images/icons/header/search.svg' %}" alt="" class="size-7" aria-hidden="true">
+            <img src="{% static 'images/header/search.svg' %}" alt="" class="size-7" aria-hidden="true">
           </button>
           <label class="sr-only" for="header-search-input">{% trans "Поиск" %}</label>
           <input
@@ -50,13 +130,13 @@
         >
           <span class="relative block h-[16px] w-[18px]">
             <img
-              src="{% static 'images/icons/header/favorite.svg' %}"
+              src="{% static 'images/header/favorite.svg' %}"
               alt=""
               class="h-[16px] w-[18px] group-hover:opacity-0"
               aria-hidden="true"
             >
             <img
-              src="{% static 'images/icons/header/favorite_hover.svg' %}"
+              src="{% static 'images/header/favorite_hover.svg' %}"
               alt=""
               class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
               aria-hidden="true"
@@ -71,13 +151,13 @@
         >
           <span class="relative block h-[16px] w-[18px]">
             <img
-              src="{% static 'images/icons/header/cart.svg' %}"
+              src="{% static 'images/header/cart.svg' %}"
               alt=""
               class="h-[16px] w-[18px] group-hover:opacity-0"
               aria-hidden="true"
             >
             <img
-              src="{% static 'images/icons/header/cart_hover.svg' %}"
+              src="{% static 'images/header/cart_hover.svg' %}"
               alt=""
               class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
               aria-hidden="true"
@@ -86,19 +166,23 @@
           <span class="whitespace-nowrap">{% trans "Корзина" %}</span>
         </a>
 
-        <details class="relative">
+        <details class="relative" data-account-dropdown>
           <summary
+            id="account-dropdown-button"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="account-dropdown-menu"
             class="group list-none inline-flex h-[60px] w-[156px] cursor-pointer items-center justify-center gap-[10px] rounded-xl bg-[var(--color-pink)] text-[16px] font-bold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)] hover:text-[var(--color-black)] [&::-webkit-details-marker]:hidden"
           >
             <span class="relative block h-[16px] w-[18px]">
               <img
-                src="{% static 'images/icons/header/account.svg' %}"
+                src="{% static 'images/header/account.svg' %}"
                 alt=""
                 class="h-[16px] w-[18px] group-hover:opacity-0"
                 aria-hidden="true"
               >
               <img
-                src="{% static 'images/icons/header/account_hover.svg' %}"
+                src="{% static 'images/header/account_hover.svg' %}"
                 alt=""
                 class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
                 aria-hidden="true"
@@ -110,62 +194,80 @@
             </svg>
           </summary>
 
-          <div class="absolute right-0 z-20 mt-3 w-72 rounded-2xl border border-black/10 bg-[var(--color-white)] p-4 shadow-xl">
+          <div
+            id="account-dropdown-menu"
+            data-account-dropdown-menu
+            aria-labelledby="account-dropdown-button"
+            class="absolute right-0 z-20 mt-3 rounded-[30px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-xl {% if user.is_authenticated %}w-[296px] pb-[40px] pt-[20px]{% else %}h-[215.5px] w-[290px] overflow-hidden{% endif %}"
+          >
             {% if user.is_authenticated %}
-              <div class="mb-3 text-center text-sm font-semibold">
-                {% trans "Мы рады видеть вас," %}<br>{{ user.display_name }}!
+              <div class="text-center text-[16px] font-bold leading-5">
+                {% trans "Рады видеть Вас," %}<br>{{ user.email|default:user.display_name }}
               </div>
 
-              <div class="space-y-2 text-sm font-semibold text-[var(--color-black)]">
-                <a href="#" class="flex items-center gap-2 hover:underline">
-                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+              <div class="mt-[49px] flex flex-col gap-[17px] text-[16px] font-bold text-[var(--color-black)]">
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Корзина" %}
                 </a>
-                <a href="#" class="flex items-center gap-2 hover:underline">
-                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Каталог" %}
                 </a>
-                <a href="#" class="flex items-center gap-2 hover:underline">
-                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Игра на заказ" %}
                 </a>
-                <a href="#" class="flex items-center gap-2 hover:underline">
-                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Личный кабинет" %}
                 </a>
-              </div>
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Алфавитный навигатор" %}
+                </a>
 
-              <form data-headless-logout-form class="mt-[50px]" method="post" action="#">
-                {% csrf_token %}
-                <button
-                  type="submit"
-                  class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200
-                         bg-[var(--color-white)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-mint)]
-                         cursor-pointer"
-                >
-                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="size-5">
-                  {% trans "Выйти" %}
-                </button>
-              </form>
+                <form data-headless-logout-form method="post" action="#">
+                  {% csrf_token %}
+                  <a
+                    href="#"
+                    data-headless-logout-link
+                    class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline"
+                  >
+                    <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                    {% trans "Выйти" %}
+                  </a>
+                  <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{% trans "Выйти" %}</button>
+                </form>
+              </div>
             {% else %}
-              <div class="mb-3 text-center text-sm font-semibold">
-                {% trans "Добро пожаловать" %}<br>{% trans "в Palin Games" %}
+              <div class="relative flex h-full flex-col items-center">
+                <div class="mt-[20px] text-center text-[16px] font-bold leading-5">
+                  {% trans "Добро пожаловать" %}<br>{% trans "в Palin games" %}
+                </div>
+
+                <button
+                  type="button"
+                  data-dialog-open="loginDialog"
+                  class="mt-[21px] inline-flex h-[60px] w-[211px] items-center justify-center rounded-xl bg-[var(--color-pink)]
+                        text-[20px] font-bold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)] cursor-pointer"
+                >
+                  {% trans "Войти" %}
+                </button>
+
+                <a
+                  href="#"
+                  class="absolute bottom-[30px] left-1/2 inline-flex -translate-x-1/2 items-center justify-center gap-[10px] text-center text-[16px] font-bold leading-5 text-[var(--color-black)] hover:underline"
+                >
+                  <img
+                    src="{% static 'images/header/cart_hover.svg' %}"
+                    alt=""
+                    class="h-[16px] w-[18px]"
+                    aria-hidden="true"
+                  >
+                  {% trans "Корзина" %}
+                </a>
               </div>
-
-              <button
-                type="button"
-                data-dialog-open="loginDialog"
-                class="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-pink)] px-4 py-2
-                      text-sm font-semibold text-[var(--color-white)] hover:bg-[var(--color-pink-hover)]
-                      cursor-pointer
-                      "
-              >
-                {% trans "Войти" %}
-              </button>
-
-              <a href="#" class="mt-3 block text-center text-sm font-semibold text-[var(--color-black)] hover:underline">
-                {% trans "Корзина" %}
-              </a>
             {% endif %}
           </div>
         </details>

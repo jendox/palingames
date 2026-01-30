@@ -419,6 +419,17 @@
     }
   });
 
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest?.("a[data-headless-logout-link]");
+    if (!link) return;
+
+    const form = link.closest("form[data-headless-logout-form]");
+    if (!form) return;
+
+    e.preventDefault();
+    form.requestSubmit();
+  });
+
   document.addEventListener("submit", async (e) => {
     const form = e.target;
     if (!(form instanceof HTMLFormElement)) return;
