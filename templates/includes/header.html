@@ -52,32 +52,7 @@
       data-mobile-menu
       class="hidden fixed inset-x-0 top-[86px] z-40 h-[calc(100vh-86px)] overflow-y-auto bg-[var(--color-white)] px-[18px] pb-[39px] pt-[39px]"
     >
-      <nav class="flex flex-col gap-[54px] pl-[12px]">
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-yellow)]">
-          <img src="{% static 'images/header/menu_abc.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "Алфавитный навигатор" %}
-        </a>
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-pink)]">
-          <img src="{% static 'images/header/menu_main.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "Главная" %}
-        </a>
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-orange)]">
-          <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "Каталог" %}
-        </a>
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-green)]">
-          <img src="{% static 'images/header/menu_order.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "Игра на заказ" %}
-        </a>
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-turquoise)]">
-          <img src="{% static 'images/header/menu_about.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "О нас" %}
-        </a>
-        <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-purple)]">
-          <img src="{% static 'images/header/menu_payment.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
-          {% trans "Оплата" %}
-        </a>
-      </nav>
+      {% include "includes/header_nav.mobile.html" %}
     </div>
   </div>
 <!--  <div class="bg-black">-->
