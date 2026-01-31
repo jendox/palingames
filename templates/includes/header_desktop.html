@@ -1,0 +1,197 @@
+{% load static i18n %}
+
+  <div class="mx-auto hidden max-w-6xl px-4 pt-10 sm:block min-[1920px]:mx-0 min-[1920px]:max-w-none min-[1920px]:pl-[180px] min-[1920px]:pr-[150px] min-[1920px]:pt-[35px]">
+    <div class="flex flex-wrap items-center gap-6 sm:flex-nowrap min-[1920px]:grid min-[1920px]:grid-cols-[250px,50px,625px,97px,568px] min-[1920px]:items-start min-[1920px]:gap-0">
+      <a href="/" class="order-1 flex items-center gap-3 sm:order-none min-[1920px]:col-start-1">
+        <img
+          src="{% static 'images/logo.svg' %}"
+          alt="PaliGames"
+          class="h-16 w-auto sm:h-20 min-[1920px]:h-[84px] min-[1920px]:w-[250px] min-[1920px]:object-contain"
+        >
+      </a>
+
+      <form
+        role="search"
+        action="#"
+        method="get"
+        class="order-3 w-full sm:order-none sm:flex-1 min-[1920px]:col-start-3 min-[1920px]:mt-[18px] min-[1920px]:w-[625px] min-[1920px]:max-w-[625px] {% if request.resolver_match.url_name != 'home' %}invisible pointer-events-none{% endif %}"
+        {% if request.resolver_match.url_name != "home" %}aria-hidden="true" inert{% endif %}
+      >
+        <div class="relative h-[60px] w-full max-w-[625px] rounded-[10px] border-2 border-[var(--color-pink)] bg-[var(--color-white)]">
+          <button
+            type="submit"
+            class="absolute -left-[2px] -top-[2px] z-10 flex size-[60px] items-center justify-center rounded-[10px] bg-[var(--color-pink)] cursor-pointer"
+            aria-label="{% trans 'Поиск' %}"
+          >
+            <img src="{% static 'images/header/search.svg' %}" alt="" class="size-7" aria-hidden="true">
+          </button>
+          <label class="sr-only" for="header-search-input">{% trans "Поиск" %}</label>
+          <input
+            id="header-search-input"
+            name="q"
+            type="search"
+            placeholder="{% trans 'Поиск' %}"
+            class="h-full w-full rounded-[10px] bg-transparent pl-[74px] pr-4 text-sm font-semibold text-[var(--color-black)] placeholder:text-[var(--color-black-80)] focus:outline-none"
+          >
+        </div>
+      </form>
+
+      <div class="order-2 ml-auto flex items-center gap-[50px] sm:order-none sm:ml-0 min-[1920px]:col-start-5 min-[1920px]:mt-[18px] min-[1920px]:ml-0">
+        <a
+          href="#"
+          class="group btn-header-primary w-[156px]"
+        >
+          <span class="relative block h-[16px] w-[18px]">
+            <img
+              src="{% static 'images/header/favorite.svg' %}"
+              alt=""
+              class="h-[16px] w-[18px] group-hover:opacity-0"
+              aria-hidden="true"
+            >
+            <img
+              src="{% static 'images/header/favorite_hover.svg' %}"
+              alt=""
+              class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
+              aria-hidden="true"
+            >
+          </span>
+          <span class="whitespace-nowrap">{% trans "Избранное" %}</span>
+        </a>
+
+        <a
+          href="#"
+          class="group btn-header-primary w-[156px]"
+        >
+          <span class="relative block h-[16px] w-[18px]">
+            <img
+              src="{% static 'images/header/cart.svg' %}"
+              alt=""
+              class="h-[16px] w-[18px] group-hover:opacity-0"
+              aria-hidden="true"
+            >
+            <img
+              src="{% static 'images/header/cart_hover.svg' %}"
+              alt=""
+              class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
+              aria-hidden="true"
+            >
+          </span>
+          <span class="whitespace-nowrap">{% trans "Корзина" %}</span>
+        </a>
+
+        <details class="relative" data-account-dropdown>
+          <summary
+            id="account-dropdown-button"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="account-dropdown-menu"
+            class="group btn-header-primary list-none w-[156px] cursor-pointer [&::-webkit-details-marker]:hidden"
+          >
+            <span class="relative block h-[16px] w-[18px]">
+              <img
+                src="{% static 'images/header/account.svg' %}"
+                alt=""
+                class="h-[16px] w-[18px] group-hover:opacity-0"
+                aria-hidden="true"
+              >
+              <img
+                src="{% static 'images/header/account_hover.svg' %}"
+                alt=""
+                class="absolute inset-0 h-[16px] w-[18px] opacity-0 group-hover:opacity-100"
+                aria-hidden="true"
+              >
+            </span>
+            <span class="whitespace-nowrap">{% trans "Аккаунт" %}</span>
+            <svg viewBox="0 0 20 20" class="size-4 fill-current opacity-90" aria-hidden="true">
+              <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z"/>
+            </svg>
+          </summary>
+
+          <div
+            id="account-dropdown-menu"
+            data-account-dropdown-menu
+            aria-labelledby="account-dropdown-button"
+            class="absolute right-0 z-20 mt-3 rounded-[30px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-xl {% if user.is_authenticated %}w-[296px] pb-[40px] pt-[20px]{% else %}h-[215.5px] w-[290px] overflow-hidden{% endif %}"
+          >
+            {% if user.is_authenticated %}
+              <div class="text-center text-[16px] font-bold leading-5">
+                {% trans "Рады видеть Вас," %}<br>{{ user.email|default:user.display_name }}
+              </div>
+
+              <div class="mt-[49px] flex flex-col gap-[17px] text-[16px] font-bold text-[var(--color-black)]">
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Корзина" %}
+                </a>
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Каталог" %}
+                </a>
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Игра на заказ" %}
+                </a>
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Личный кабинет" %}
+                </a>
+                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Алфавитный навигатор" %}
+                </a>
+
+                <form data-headless-logout-form method="post" action="#">
+                  {% csrf_token %}
+                  <a
+                    href="#"
+                    data-headless-logout-link
+                    class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline"
+                  >
+                    <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                    {% trans "Выйти" %}
+                  </a>
+                  <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{% trans "Выйти" %}</button>
+                </form>
+              </div>
+            {% else %}
+              <div class="relative flex h-full flex-col items-center">
+                <div class="mt-[20px] text-center text-[16px] font-bold leading-5">
+                  {% trans "Добро пожаловать" %}<br>{% trans "в Palin games" %}
+                </div>
+
+                <button
+                  type="button"
+                  data-dialog-open="loginDialog"
+                  class="btn-primary mt-[21px] w-[211px] text-[20px]"
+                >
+                  {% trans "Войти" %}
+                </button>
+
+                <a
+                  href="#"
+                  class="absolute bottom-[30px] left-1/2 inline-flex -translate-x-1/2 items-center justify-center gap-[10px] text-center text-[16px] font-bold leading-5 text-[var(--color-black)] hover:underline"
+                >
+                  <img
+                    src="{% static 'images/header/cart_hover.svg' %}"
+                    alt=""
+                    class="h-[16px] w-[18px]"
+                    aria-hidden="true"
+                  >
+                  {% trans "Корзина" %}
+                </a>
+              </div>
+            {% endif %}
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div data-header-secondary-wrap class="pt-[76px] pb-14 min-[1920px]:pb-[60px]">
+      <nav
+        data-header-secondary-nav
+        class="grid grid-cols-3 items-start justify-items-center gap-10 sm:grid-cols-6 min-[1920px]:grid-cols-[repeat(6,74px)] min-[1920px]:justify-between min-[1920px]:gap-0 min-[1920px]:pl-[146px] min-[1920px]:pr-[176px]"
+      >
+        {% include "includes/header_nav.desktop.html" %}
+      </nav>
+    </div>
+  </div>

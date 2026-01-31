@@ -1,0 +1,52 @@
+{% load static i18n %}
+
+  <div class="sm:hidden">
+    <div class="flex items-start px-4 pb-[18px] pt-[22px]">
+      <a href="#" class="block">
+        <img
+          src="{% static 'images/logo.svg' %}"
+          alt="PaliGames"
+          class="h-[42px] w-[124px] object-contain"
+        >
+      </a>
+
+      <button
+        type="button"
+        class="ml-[123px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] bg-transparent"
+        aria-label="{% trans 'Поиск' %}"
+      >
+        <img
+          src="{% static 'images/header/mobile_search.svg' %}"
+          alt=""
+          class="h-[42px] w-[48px] object-contain"
+          aria-hidden="true"
+          draggable="false"
+        >
+      </button>
+
+      <button
+        type="button"
+        data-mobile-menu-toggle
+        class="ml-[15px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] bg-transparent"
+        aria-label="{% trans 'Меню' %}"
+        aria-expanded="false"
+        aria-controls="mobile-header-menu"
+      >
+        <img
+          src="{% static 'images/header/mobile_burger.svg' %}"
+          alt=""
+          class="h-[42px] w-[48px] object-contain"
+          aria-hidden="true"
+          draggable="false"
+        >
+      </button>
+    </div>
+
+    <div
+      id="mobile-header-menu"
+      data-mobile-menu
+      class="hidden fixed inset-x-0 top-[82px] z-40 h-[calc(100vh-82px)] overflow-y-auto bg-[var(--color-white)] px-[18px] pb-[39px] pt-[39px]"
+    >
+      {% include "includes/header_nav.mobile.html" %}
+    </div>
+  </div>
