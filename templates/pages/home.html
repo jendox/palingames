@@ -2,13 +2,20 @@
 
 {% block title %}Главная — PaliGames{% endblock %}
 
-{% block content %}
-  <section class="py-10">
-    <h1 class="text-2xl font-bold">Демо-контент</h1>
-    <p class="mt-4 max-w-prose text-[var(--color-black-80)]">
-      Этот блок добавлен, чтобы можно было прокрутить страницу и проверить поведение хедера.
-    </p>
-  </section>
+{% block main_class %}w-full px-0 py-0{% endblock %}
 
-  <div class="h-[2000px]"></div>
+{% block content %}
+  {% include "pages/home/sections/01_hero.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/02_why_choose.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/03_catalog_categories.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/04_custom_game.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/05_top_games.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/06_cta_ready_games.html" %}
+  {% include "components/dividers/clouds.html" %}
+  {% include "pages/home/sections/07_reviews.html" %}
 {% endblock %}
