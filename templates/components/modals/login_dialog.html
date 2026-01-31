@@ -56,9 +56,7 @@
                   type="email"
                   name="email"
                   autocomplete="email"
-                  class="mx-auto mt-[15px] h-[50px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm sm:h-[44px]
-                    text-[var(--color-black)] placeholder:text-black/40 focus:border-[var(--color-pink)]
-                    focus:outline-none focus:ring-2 focus:ring-[var(--color-pink)]/20"
+                  class="modal-input mx-auto mt-[15px] max-w-[364px]"
                   required
                   autofocus
                 />
@@ -77,9 +75,7 @@
                   type="password"
                   name="password"
                   autocomplete="current-password"
-                  class="mx-auto mt-[15px] h-[50px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm sm:h-[44px]
-                    text-[var(--color-black)] placeholder:text-black/40 focus:border-[var(--color-pink)]
-                    focus:outline-none focus:ring-2 focus:ring-[var(--color-pink)]/20"
+                  class="modal-input mx-auto mt-[15px] max-w-[364px]"
                   required
                 />
                 <p data-field-error="password" class="mt-2 hidden text-sm text-red-700"></p>
@@ -90,11 +86,7 @@
             <input
               type="checkbox"
               name="remember"
-              class="size-[20px] cursor-pointer appearance-none rounded-[1px] border border-[var(--color-pink)]
-                bg-[var(--color-white)] shadow-none checked:border-[var(--color-white)] checked:bg-[var(--color-pink)]
-                checked:bg-[url(data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2011%2010'%20fill='none'%3E%3Cpath%20d='M1%205.5L4%208.5L10%201.5'%20stroke='%23FBFBFB'%20stroke-width='1'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E)]
-                checked:bg-center checked:bg-no-repeat checked:bg-[length:11px_10px]
-                !shadow-none outline-none focus:outline-none focus:shadow-none focus-visible:outline-none focus-visible:shadow-none"
+              class="checkbox-pink"
             />
               <span class="text-[var(--color-black)]">{% trans "запомнить" %}</span>
             </label>
