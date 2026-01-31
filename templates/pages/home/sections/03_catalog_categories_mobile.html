@@ -1,0 +1,67 @@
+{% load static i18n %}
+
+<section class="bg-[var(--color-white)]">
+  <div class="mx-auto w-full px-4 py-[50px]">
+    <div class="grid grid-cols-2 gap-x-[35px] gap-y-[35px]">
+      <a href="#" class="block">
+        <div class="relative h-[219px] w-[162px] overflow-hidden rounded-[16px] bg-[#FCDFD9]">
+          <img
+            src="{% static 'images/home/catalog_categories/teddy.svg' %}"
+            alt=""
+            class="h-full w-full select-none"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <div class="absolute bottom-[13px] left-0 right-0 z-10 text-center font-airfool text-[26px] leading-[26px] text-[var(--color-black)]">
+            {% trans "2-3 года" %}
+          </div>
+        </div>
+      </a>
+
+      <a href="#" class="block">
+        <div class="relative h-[219px] w-[162px] overflow-hidden rounded-[16px] bg-[#E8FFC3]">
+          <img
+            src="{% static 'images/home/catalog_categories/robot.svg' %}"
+            alt=""
+            class="h-full w-full select-none"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <div class="absolute bottom-[13px] left-0 right-0 z-10 text-center font-airfool text-[26px] leading-[26px] text-[var(--color-black)]">
+            {% trans "4-5 лет" %}
+          </div>
+        </div>
+      </a>
+
+      <a href="#" class="block">
+        <div class="relative h-[219px] w-[162px] overflow-hidden rounded-[16px] bg-[#FFF2C3]">
+          <img
+            src="{% static 'images/home/catalog_categories/ball.svg' %}"
+            alt=""
+            class="h-full w-full select-none"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <div class="absolute bottom-[13px] left-0 right-0 z-10 text-center font-airfool text-[26px] leading-[26px] text-[var(--color-black)]">
+            {% trans "6-7 лет" %}
+          </div>
+        </div>
+      </a>
+
+      <a href="#" class="block">
+        <div class="relative h-[219px] w-[162px] overflow-hidden rounded-[16px] bg-[#D1FBFA]">
+          <img
+            src="{% static 'images/home/catalog_categories/teacher.svg' %}"
+            alt=""
+            class="h-full w-full select-none"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <div class="absolute bottom-[13px] left-0 right-0 z-10 text-center font-airfool text-[26px] leading-[26px] text-[var(--color-black)]">
+            {% trans "Педагогам" %}
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
