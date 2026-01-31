@@ -1,0 +1,164 @@
+{% load static i18n %}
+
+<section class="relative overflow-x-hidden bg-[var(--color-white)]">
+  <div class="relative mx-auto max-w-[420px] px-4 pt-[50px] pb-[50px] overflow-y-hidden">
+    <img
+      src="{% static 'images/home/hero/sun-mobile.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[16px] top-[8px] w-[80px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[25px] top-[250px] w-[33px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[50px] top-[330px] w-[19px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[35px] top-[480px] w-[19px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[50px] top-[740px] w-[33px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[40px] top-[870px] w-[19px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[50px] top-[950px] w-[19px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[80px] top-[1150px] w-[33px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[70px] top-[1260px] w-[33px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-1.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[40px] top-[1280px] w-[19px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-2.svg' %}"
+      alt=""
+      class="pointer-events-none absolute right-[60px] top-[25px] w-[47px] select-none"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/hero/cloud-2.svg' %}"
+      alt=""
+      class="pointer-events-none absolute left-[90px] top-[580px] w-[31px] select-none"
+      draggable="false"
+    >
+
+    <div class="relative z-10 text-center">
+      <h1 class="text-[24px] font-black leading-[24px] text-[var(--color-black)]">
+        PALIN games
+      </h1>
+
+      <p class="mx-auto mt-[22px] max-w-[320px] text-[18px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "это удобная коллекция дидактических материалов, созданных для гармоничного развития ребенка." %}
+      </p>
+
+      <div class="mt-[50px] text-[20px] font-bold text-[var(--color-black)]">
+        {% trans "Здесь вы найдете:" %}
+      </div>
+
+      <div class="mt-[40px] flex flex-col items-center gap-[40px]">
+        <div class="flex flex-col items-center">
+          <img
+            src="{% static 'images/home/hero/owl.svg' %}"
+            alt=""
+            class="h-[120px] w-auto"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <p class="mt-[25px] max-w-[280px] text-balance text-center text-[16px] leading-[23px] text-[var(--color-black)]">
+            {% trans "Методические материалы" %}&nbsp;— {% trans "для педагогов, которые ценят свое время" %}
+          </p>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <img
+            src="{% static 'images/home/hero/balloons.svg' %}"
+            alt=""
+            class="h-[120px] w-auto"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <p class="mt-[25px] max-w-[280px] text-balance text-center text-[16px] leading-[23px] text-[var(--color-black)]">
+            {% trans "Обучающие PDF-игры — готовые к печати, красочные и эффективные" %}
+          </p>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <img
+            src="{% static 'images/home/hero/roll.svg' %}"
+            alt=""
+            class="h-[120px] w-auto"
+            aria-hidden="true"
+            draggable="false"
+          >
+          <p class="mt-[25px] max-w-[280px] text-balance text-center text-[16px] leading-[23px] text-[var(--color-black)]">
+            {% trans "Практические советы — как сделать занятия еще интереснее" %}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-[40px]">
+        <div class="text-[16px] font-bold text-[var(--color-black)]">
+          {% trans "Для родителей:" %}
+        </div>
+        <p class="mx-auto max-w-[320px] text-balance text-[16px] leading-[23px] text-[var(--color-black)]">
+          {% trans "Простые и увлекательные задания, которые помогут ребенку полюбить обучение." %}
+        </p>
+      </div>
+
+      <div class="mt-[40px]">
+        <div class="text-[16px] font-bold text-[var(--color-black)]">
+          {% trans "Для педагогов:" %}
+        </div>
+        <p class="mx-auto max-w-[320px] text-balance text-[16px] leading-[23px] text-[var(--color-black)]">
+          {% trans "Качественные материалы, соответствующие современным стандартам." %}
+        </p>
+      </div>
+
+      <div class="mt-[40px]">
+        <a href="#" class="btn-turquoise h-[40px] w-full">
+          {% trans "Подробнее" %}
+        </a>
+      </div>
+    </div>
+
+    <img
+      src="{% static 'images/home/hero/airplane.svg' %}"
+      alt=""
+      class="pointer-events-none absolute bottom-[-40px] left-[45px] z-20 h-[100px] select-none"
+      draggable="false"
+    >
+  </div>
+</section>
