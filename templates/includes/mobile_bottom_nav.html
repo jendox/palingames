@@ -2,13 +2,13 @@
 
 <nav
   aria-label="{% trans 'Главное меню' %}"
-  class="fixed inset-x-0 bottom-0 z-30 sm:hidden border-t border-[var(--color-grey)]
-    bg-[var(--color-white)] backdrop-blur-md"
+  class="fixed inset-x-0 bottom-0 z-30 sm:hidden border-t border-transparent
+    bg-[color:var(--color-white)]/80 backdrop-blur-md"
 >
-  <div class="mx-auto flex max-w-6xl items-stretch justify-between px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
+  <div class="mx-auto flex max-w-6xl items-stretch justify-between px-4 pb-[calc(14px+env(safe-area-inset-bottom))] pt-[17px]">
     <a
       href="{% url 'home' %}"
-      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
       {% if request.resolver_match.url_name == "home" %}aria-current="page"{% endif %}
     >
       <img
@@ -23,7 +23,7 @@
 
     <a
       href="#"
-      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
     >
       <img
         src="{% static 'images/header/menu-catalog-mobile.svg' %}"
@@ -37,7 +37,7 @@
 
     <a
       href="#"
-      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
     >
       <img
         src="{% static 'images/header/menu-cart-mobile.svg' %}"
@@ -51,7 +51,7 @@
 
     <a
       href="#"
-      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
     >
       <img
         src="{% static 'images/header/menu-favorite-mobile.svg' %}"
@@ -65,7 +65,7 @@
 
     <a
       href="#"
-      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
     >
       <img
         src="{% static 'images/header/menu-account-mobile.svg' %}"
