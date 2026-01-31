@@ -1,6 +1,18 @@
 {% load static i18n %}
 
 <footer class="bg-[var(--color-white)]">
+  <img
+    src="{% static 'images/clouds-group-mobile.svg' %}"
+    alt=""
+    class="pointer-events-none w-full select-none min-[1024px]:hidden"
+    draggable="false"
+  >
+  <img
+    src="{% static 'images/clouds-group.svg' %}"
+    alt=""
+    class="pointer-events-none hidden w-full select-none min-[1024px]:block"
+    draggable="false"
+  >
   <div class="mx-auto px-4 pb-[30px] pt-[50px] min-[1024px]:pb-[70px] min-[1024px]:pt-[70px] min-[1920px]:px-[250px]">
     <div class="grid gap-y-0 min-[1024px]:grid-cols-[1fr_auto_1fr] min-[1024px]:items-start min-[1024px]:gap-x-[120px] min-[1024px]:gap-y-20">
       <div class="order-2 mt-[50px] text-center min-[1024px]:order-1 min-[1024px]:mt-0 min-[1024px]:text-left">
