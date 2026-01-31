@@ -1,7 +1,7 @@
 {% load static i18n %}
 <header class="relative bg-[var(--color-white)]">
   <div class="sm:hidden">
-    <div class="flex items-start px-4 pb-[22px] pt-[22px]">
+    <div class="flex items-start px-4 pb-[18px] pt-[22px]">
       <a href="#" class="block">
         <img
           src="{% static 'images/logo.svg' %}"
@@ -50,7 +50,7 @@
     <div
       id="mobile-header-menu"
       data-mobile-menu
-      class="hidden fixed inset-x-0 top-[86px] z-40 h-[calc(100vh-86px)] overflow-y-auto bg-[var(--color-white)] px-[18px] pb-[39px] pt-[39px]"
+      class="hidden fixed inset-x-0 top-[82px] z-40 h-[calc(100vh-82px)] overflow-y-auto bg-[var(--color-white)] px-[18px] pb-[39px] pt-[39px]"
     >
       {% include "includes/header_nav.mobile.html" %}
     </div>
@@ -249,7 +249,7 @@
       </div>
     </div>
 
-    <div data-header-secondary-wrap class="pt-[76px] pb-14">
+    <div data-header-secondary-wrap class="pt-[76px] pb-14 min-[1920px]:pb-[60px]">
       <nav
         data-header-secondary-nav
         class="grid grid-cols-3 items-start justify-items-center gap-10 sm:grid-cols-6 min-[1920px]:grid-cols-[repeat(6,74px)] min-[1920px]:justify-between min-[1920px]:gap-0 min-[1920px]:pl-[146px] min-[1920px]:pr-[176px]"
@@ -260,9 +260,15 @@
   </div>
 
   <img
+    src="{% static 'images/clouds-group-mobile.svg' %}"
+    alt=""
+    class="pointer-events-none w-full select-none sm:hidden"
+    draggable="false"
+  >
+  <img
     src="{% static 'images/clouds-group.svg' %}"
     alt=""
-    class="pointer-events-none w-full select-none"
+    class="pointer-events-none hidden w-full select-none sm:block"
     draggable="false"
   >
 </header>
