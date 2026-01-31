@@ -6,11 +6,20 @@
     w-[92vw] max-w-[949px] h-[92vh] max-h-[845px] overflow-hidden
     fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
     opacity-0 scale-95 transition duration-150"
-  style="background-image: url('{% static 'images/login_bg.svg' %}');
-  background-size: cover; background-position: center; background-repeat: no-repeat;"
 >
   <div class="relative h-full w-full">
-    <div class="h-full w-full overflow-y-auto px-6 py-10 lg:px-0 lg:py-0">
+    <div
+      aria-hidden="true"
+      class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 sm:hidden"
+      style="background-image: url('{% static 'images/login-bg-mobile.svg' %}');"
+    ></div>
+    <div
+      aria-hidden="true"
+      class="absolute inset-0 hidden bg-cover bg-center bg-no-repeat sm:block"
+      style="background-image: url('{% static 'images/login-bg.svg' %}');"
+    ></div>
+
+    <div class="relative z-10 flex h-full w-full flex-col justify-center overflow-y-auto px-6 pt-[24px] pb-[32px] sm:block sm:py-10 lg:px-0 lg:py-0">
       <div
         class="mx-auto flex w-full max-w-[366px] flex-col lg:absolute lg:left-[59px] lg:top-[144px] lg:h-[572px]
           lg:w-[366px] lg:max-w-none"
@@ -28,7 +37,7 @@
         <form
           data-headless-login-form
           data-headless-endpoint="/_allauth/browser/v1/auth/login"
-          class="mt-[50px]"
+          class="mt-[36px] sm:mt-[50px]"
           method="post"
           action="#"
         >
@@ -47,7 +56,7 @@
                   type="email"
                   name="email"
                   autocomplete="email"
-                  class="mx-auto mt-[15px] h-[44px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm
+                  class="mx-auto mt-[15px] h-[50px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm sm:h-[44px]
                     text-[var(--color-black)] placeholder:text-black/40 focus:border-[var(--color-pink)]
                     focus:outline-none focus:ring-2 focus:ring-[var(--color-pink)]/20"
                   required
@@ -68,7 +77,7 @@
                   type="password"
                   name="password"
                   autocomplete="current-password"
-                  class="mx-auto mt-[15px] h-[44px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm
+                  class="mx-auto mt-[15px] h-[50px] w-full max-w-[364px] rounded-[10px] border border-[var(--color-grey)] bg-white px-4 text-sm sm:h-[44px]
                     text-[var(--color-black)] placeholder:text-black/40 focus:border-[var(--color-pink)]
                     focus:outline-none focus:ring-2 focus:ring-[var(--color-pink)]/20"
                   required
@@ -99,7 +108,7 @@
               Войти
             </button>
 
-            <div class="mt-[50px] text-center text-[18px] leading-[18px] text-[var(--color-black)]">
+            <div class="mt-[40px] text-center text-[18px] leading-[18px] text-[var(--color-black)] sm:mt-[50px]">
               <a href="#" data-dialog-switch="passwordResetDialog" class="hover:underline">
                 {% trans "Забыли пароль?" %}
               </a>
@@ -112,7 +121,7 @@
             </div>
           </div>
 
-          <div class="mt-[50px] flex items-center justify-center gap-[25px]">
+          <div class="mt-[40px] flex items-center justify-center gap-[25px] sm:mt-[50px]">
             {% include "components/modals/_social_buttons.html" %}
           </div>
         </form>

@@ -63,9 +63,11 @@
       <span class="text-[12px] font-semibold leading-[12px]">{% trans "Избранное" %}</span>
     </a>
 
-    <a
-      href="#"
-      class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
+    <button
+      type="button"
+      data-dialog-open="loginDialog"
+      aria-controls="loginDialog"
+      class="flex flex-1 cursor-pointer flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)]"
     >
       <img
         src="{% static 'images/header/menu-account-mobile.svg' %}"
@@ -75,6 +77,6 @@
         draggable="false"
       >
       <span class="text-[12px] font-semibold leading-[12px]">{% trans "Аккаунт" %}</span>
-    </a>
+    </button>
   </div>
 </nav>
