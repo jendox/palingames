@@ -93,4 +93,65 @@
     border-color: var(--color-pink);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-pink) 20%, transparent);
   }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--color-pink);
+    color: var(--color-white);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-pink-hover);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-outline-pink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    border-radius: 10px;
+    border: 1px solid var(--color-pink);
+    background-color: #fff;
+    color: var(--color-pink);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-outline-pink:hover {
+    background-color: var(--color-pink);
+    color: #fff;
+  }
+
+  .btn-header-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    gap: 10px;
+    border-radius: 10px;
+    background-color: var(--color-pink);
+    color: var(--color-white);
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .btn-header-primary:hover {
+    background-color: var(--color-pink-hover);
+    color: var(--color-black);
+  }
 }
