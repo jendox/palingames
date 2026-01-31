@@ -1,0 +1,80 @@
+{% load static i18n %}
+
+<nav
+  aria-label="{% trans 'Главное меню' %}"
+  class="fixed inset-x-0 bottom-0 z-30 sm:hidden border-t border-[var(--color-grey)]
+    bg-[var(--color-white)] backdrop-blur-md"
+>
+  <div class="mx-auto flex max-w-6xl items-stretch justify-between px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
+    <a
+      href="{% url 'home' %}"
+      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+      {% if request.resolver_match.url_name == "home" %}aria-current="page"{% endif %}
+    >
+      <img
+        src="{% static 'images/header/menu-main-mobile.svg' %}"
+        alt=""
+        class="h-[20px] w-[22px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Главная" %}</span>
+    </a>
+
+    <a
+      href="#"
+      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+    >
+      <img
+        src="{% static 'images/header/menu-catalog-mobile.svg' %}"
+        alt=""
+        class="h-[20px] w-[22px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Каталог" %}</span>
+    </a>
+
+    <a
+      href="#"
+      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+    >
+      <img
+        src="{% static 'images/header/menu-cart-mobile.svg' %}"
+        alt=""
+        class="h-[20px] w-[22px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Корзина" %}</span>
+    </a>
+
+    <a
+      href="#"
+      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+    >
+      <img
+        src="{% static 'images/header/menu-favorite-mobile.svg' %}"
+        alt=""
+        class="h-[20px] w-[22px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Избранное" %}</span>
+    </a>
+
+    <a
+      href="#"
+      class="flex flex-1 flex-col items-center justify-end gap-2 text-center text-[var(--color-pink)] no-underline"
+    >
+      <img
+        src="{% static 'images/header/menu-account-mobile.svg' %}"
+        alt=""
+        class="h-[20px] w-[22px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Аккаунт" %}</span>
+    </a>
+  </div>
+</nav>
