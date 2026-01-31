@@ -1,0 +1,97 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none">
+    <img
+      src="{% static 'images/home/why_choose/star_1.svg' %}"
+      alt=""
+      class="absolute left-[14px] top-[24px] w-[35px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_3.svg' %}"
+      alt=""
+      class="absolute right-[14px] top-[34px] w-[45px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_6.svg' %}"
+      alt=""
+      class="absolute left-[18px] bottom-[24px] w-[45px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto max-w-[420px] px-4 py-[50px]">
+    <h2 class="text-center text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">
+      {% trans "Почему выбирают нас" %}
+    </h2>
+
+    <div class="mt-[40px] grid grid-cols-1 gap-x-[18px] gap-y-[35px] text-center">
+      <div class="flex flex-col items-center">
+        <img
+          src="{% static 'images/home/why_choose/creativity.svg' %}"
+          alt=""
+          class="h-[117px] w-[117px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[20px] text-[18px] font-bold uppercase leading-[18px] text-[var(--color-pink)]">
+          {% trans "Развитие и обучение" %}
+        </div>
+        <p class="mt-[20px] text-balance text-[16px] leading-[21px] text-[var(--color-black)]">
+          {% trans "Каждая игра направлена на развитие ключевых навыков у детей." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center">
+        <img
+          src="{% static 'images/home/why_choose/saving.svg' %}"
+          alt=""
+          class="h-[117px] w-[117px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[20px] text-[18px] font-bold uppercase leading-[18px] text-[var(--color-orange)]">
+          {% trans "Экономия времени и средств" %}
+        </div>
+        <p class="mt-[20px] text-balance text-[16px] leading-[21px] text-[var(--color-black)]">
+          {% trans "Скачайте сразу после покупки и используйте сразу же." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center">
+        <img
+          src="{% static 'images/home/why_choose/variety.svg' %}"
+          alt=""
+          class="h-[117px] w-[117px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[20px] text-[18px] font-bold uppercase leading-[18px] text-[var(--color-green)]">
+          {% trans "Разнообразие тем" %}
+        </div>
+        <p class="mt-[20px] text-balance text-[16px] leading-[21px] text-[var(--color-black)]">
+          {% trans "Игры на разные темы — от букв и цифр до окружающего мира." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center">
+        <img
+          src="{% static 'images/home/why_choose/access.svg' %}"
+          alt=""
+          class="h-[117px] w-[117px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[20px] text-[18px] font-bold uppercase leading-[18px] text-[var(--color-turquoise)]">
+          {% trans "Доступность и удобство" %}
+        </div>
+        <p class="mt-[20px] text-balance text-[16px] leading-[21px] text-[var(--color-black)]">
+          {% trans "Электронный формат — скачали и распечатали в удобное время." %}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+

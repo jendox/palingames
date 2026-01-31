@@ -1,0 +1,118 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none">
+    <img
+      src="{% static 'images/home/why_choose/star_1.svg' %}"
+      alt=""
+      class="absolute left-[80px] top-[40px] w-[45px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_2.svg' %}"
+      alt=""
+      class="absolute left-[300px] top-[130px] w-[61px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_3.svg' %}"
+      alt=""
+      class="absolute right-[110px] top-[50px] w-[61px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_4.svg' %}"
+      alt=""
+      class="absolute left-[360px] bottom-[40px] w-[61px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_6.svg' %}"
+      alt=""
+      class="absolute right-[330px] bottom-[32px] w-[61px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/home/why_choose/star_7.svg' %}"
+      alt=""
+      class="absolute right-[260px] top-[155px] w-[61px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto w-full max-w-[1440px] px-4 py-[100px]">
+    <h2 class="text-center text-[40px] font-bold uppercase leading-[32px] text-[var(--color-black)]">
+      {% trans "Почему выбирают нас" %}
+    </h2>
+
+    <div class="mt-[120px] grid grid-cols-4 gap-x-[70px]">
+      <div class="flex flex-col items-center text-center">
+        <img
+          src="{% static 'images/home/why_choose/creativity.svg' %}"
+          alt=""
+          class="h-[142px] w-[142px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[40px] text-[20px] font-bold uppercase leading-[22px] text-[var(--color-pink)]">
+          <span class="block">{% trans "Развитие" %}</span>
+          <span class="block">{% trans "и обучение" %}</span>
+        </div>
+        <p class="mt-[30px] max-w-[240px] text-balance text-[18px] leading-[25px] text-[var(--color-black)]">
+          {% trans "Каждая игра направлена на развитие ключевых навыков у детей, таких как логическое мышление, моторика, память и внимание." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center text-center">
+        <img
+          src="{% static 'images/home/why_choose/saving.svg' %}"
+          alt=""
+          class="h-[142px] w-[142px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[40px] text-[20px] font-bold uppercase leading-[22px] text-[var(--color-orange)]">
+          <span class="block">{% trans "Экономия времени" %}</span>
+          <span class="block">{% trans "и средств" %}</span>
+        </div>
+        <p class="mt-[30px] max-w-[240px] text-balance text-[18px] leading-[25px] text-[var(--color-black)]">
+          {% trans "Нет необходимости ждать доставки или платить за пересылку. Получите игры мгновенно и начните использовать их сразу же." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center text-center">
+        <img
+          src="{% static 'images/home/why_choose/variety.svg' %}"
+          alt=""
+          class="h-[142px] w-[142px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[40px] text-[20px] font-bold uppercase leading-[22px] text-[var(--color-green)]">
+          <span class="block">{% trans "Разнообразие" %}</span>
+          <span class="block">{% trans "тем" %}</span>
+        </div>
+        <p class="mt-[30px] max-w-[240px] text-balance text-[18px] leading-[25px] text-[var(--color-black)]">
+          {% trans "В нашем ассортименте вы найдете игры на самые разные темы — от изучения букв и цифр до знакомства с окружающим миром." %}
+        </p>
+      </div>
+
+      <div class="flex flex-col items-center text-center">
+        <img
+          src="{% static 'images/home/why_choose/access.svg' %}"
+          alt=""
+          class="h-[142px] w-[142px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <div class="mt-[40px] text-[20px] font-bold uppercase leading-[22px] text-[var(--color-turquoise)]">
+          <span class="block">{% trans "Доступность" %}</span>
+          <span class="block">{% trans "и удобство" %}</span>
+        </div>
+        <p class="mt-[30px] max-w-[240px] text-balance text-[18px] leading-[25px] text-[var(--color-black)]">
+          {% trans "Все наши игры доступны в электронном формате. Вы можете скачать их сразу после покупки и распечатать в удобное для вас время." %}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
