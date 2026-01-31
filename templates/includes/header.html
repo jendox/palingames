@@ -12,38 +12,33 @@
 
       <button
         type="button"
-        class="ml-[123px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] border-2 border-[var(--color-pink)] bg-transparent"
+        class="ml-[123px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] bg-transparent"
         aria-label="{% trans 'Поиск' %}"
       >
-        <svg viewBox="0 0 20 20" class="h-6 w-6" aria-hidden="true">
-          <path
-            d="M9 16a7 7 0 1 1 0-14 7 7 0 0 1 0 14Zm8 2-4.35-4.35"
-            fill="none"
-            stroke="var(--color-pink)"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <img
+          src="{% static 'images/header/mobile_search.svg' %}"
+          alt=""
+          class="h-[42px] w-[48px] object-contain"
+          aria-hidden="true"
+          draggable="false"
+        >
       </button>
 
       <button
         type="button"
         data-mobile-menu-toggle
-        class="ml-[15px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] border-2 border-[var(--color-pink)] bg-transparent"
+        class="ml-[15px] inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] bg-transparent"
         aria-label="{% trans 'Меню' %}"
         aria-expanded="false"
         aria-controls="mobile-header-menu"
       >
-        <svg viewBox="0 0 24 24" class="h-6 w-6" aria-hidden="true">
-          <path
-            d="M4 7h16M4 12h16M4 17h16"
-            fill="none"
-            stroke="var(--color-pink)"
-            stroke-width="2"
-            stroke-linecap="round"
-          />
-        </svg>
+        <img
+          src="{% static 'images/header/mobile_burger.svg' %}"
+          alt=""
+          class="h-[42px] w-[48px] object-contain"
+          aria-hidden="true"
+          draggable="false"
+        >
       </button>
     </div>
 
