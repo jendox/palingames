@@ -11,3 +11,7 @@ class AboutPageView(TemplateView):
 
 class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
+
+
+class CatalogPageView(TemplateView):
+    template_name = "pages/catalog.html"
