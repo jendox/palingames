@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django_tailwind_cli",
     # my apps
     "apps.users.apps.UsersConfig",
+    "apps.pages.apps.PagesConfig",
 ]
 
 MIDDLEWARE = [

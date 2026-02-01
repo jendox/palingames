@@ -1,0 +1,131 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[150px] top-[50px] w-[180px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[450px] bottom-[380px] w-[96px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[210px] bottom-[200px] w-[136px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[600px] top-[80px] w-[94px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[200px] top-[150px] w-[200px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute left-[400px] top-[300px] w-[94px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute left-[250px] top-[530px] w-[188px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute left-[400px] bottom-[80px] w-[94px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-1.svg' %}"
+      alt=""
+      class="absolute left-[200px] bottom-[300px] w-[54px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-1.svg' %}"
+      alt=""
+      class="absolute right-[500px] bottom-[40px] w-[54px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/airplanes/airplane-1.svg' %}"
+      alt=""
+      class="absolute right-[330px] top-[150px] w-[250px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/airplanes/airplane-1.svg' %}"
+      alt=""
+      class="absolute right-[330px] top-[880px] w-[220px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/airplanes/airplane-2.svg' %}"
+      alt=""
+      class="absolute left-[350px] top-[540px] w-[230px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-pink.svg' %}"
+      alt=""
+      class="absolute right-[200px] top-[250px] w-[100px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/stars/star-orange.svg' %}"
+      alt=""
+      class="absolute right-[300px] top-[550px] w-[190px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-green.svg' %}"
+      alt=""
+      class="absolute left-[350px] bottom-[100px] w-[100px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto w-full max-w-[900px] px-4 py-[70px] text-center">
+    <div class="mx-auto max-w-[750px]">
+      <h1 class="text-[40px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "О нас" %}
+      </h1>
+      <p class="mt-[40px] text-balance text-[20px] leading-[32px] text-[var(--color-black)]">
+        {% include "pages/about/copy/01_about.html" %}
+      </p>
+    </div>
+
+    <div class="mt-[80px] mx-auto max-w-[750px]">
+      <h2 class="text-[40px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "Для родителей" %}
+      </h2>
+      <p class="mt-[40px] text-balance text-[20px] leading-[32px] text-[var(--color-black)]">
+        {% include "pages/about/copy/02_parents.html" %}
+      </p>
+    </div>
+
+    <div class="mt-[80px] mx-auto max-w-[750px]">
+      <h2 class="text-[40px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "Для педагогов" %}
+      </h2>
+      <p class="mt-[40px] text-balance text-[20px] leading-[32px] text-[var(--color-black)]">
+        {% include "pages/about/copy/03_teachers.html" %}
+      </p>
+    </div>
+  </div>
+</section>

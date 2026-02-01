@@ -1,0 +1,59 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[20px] top-[20px] w-[70px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[20px] top-[10px] w-[42px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-pink.svg' %}"
+      alt=""
+      class="absolute right-[20px] top-[650px] w-[42px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-green.svg' %}"
+      alt=""
+      class="absolute left-[20px] top-[380px] w-[42px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto w-full px-4 py-[50px] text-center">
+    <div class="mx-auto max-w-[520px]">
+      <h1 class="text-[20px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "О нас" %}
+      </h1>
+      <p class="mt-[30px] text-balance text-[14px] leading-[23px] text-[var(--color-black)]">
+        {% include "pages/about/copy/01_about.html" %}
+      </p>
+    </div>
+
+    <div class="mt-[70px] mx-auto max-w-[520px]">
+      <h1 class="text-[20px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "Для родителей" %}
+      </h1>
+      <p class="mt-[30px] text-balance text-[14px] leading-[23px] text-[var(--color-black)]">
+        {% include "pages/about/copy/02_parents.html" %}
+      </p>
+    </div>
+
+    <div class="mt-[70px] mx-auto max-w-[520px]">
+      <h1 class="text-[20px] font-bold uppercase text-[var(--color-black)]">
+        {% trans "Для педагогов" %}
+      </h1>
+      <p class="mt-[30px] text-balance text-[14px] leading-[23px] text-[var(--color-black)]">
+        {% include "pages/about/copy/03_teachers.html" %}
+      </p>
+    </div>
+  </div>
+</section>
