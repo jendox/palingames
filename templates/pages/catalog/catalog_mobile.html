@@ -1,56 +1,44 @@
 {% load static i18n %}
 
 <section class="relative overflow-hidden bg-[var(--color-white)]">
-<!--  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-1.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute left-[16px] top-[16px] w-[105px]"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-2.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute right-[16px] top-[12px] w-[120px]"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-3.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute left-[18px] top-[160px] w-[70px] opacity-80"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/balloons/balloon-orange.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute right-[58px] top-[58px] w-[38px]"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-2.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute right-[14px] top-[235px] w-[95px] opacity-75"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-1.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute right-[20px] bottom-[90px] w-[95px] opacity-75"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/clouds/cloud-3.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute left-[22px] bottom-[70px] w-[70px] opacity-80"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--    <img-->
-<!--      src="{% static 'images/decor/aerostats/aerostat-pink.svg' %}"-->
-<!--      alt=""-->
-<!--      class="absolute left-[14px] bottom-[14px] w-[85px]"-->
-<!--      draggable="false"-->
-<!--    >-->
-<!--  </div>-->
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute left-[25px] top-[40px] w-[75px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[25px] top-[75px] w-[50px] opacity-90"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute left-[150px] bottom-[20px] w-[40px] opacity-50"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[45px] bottom-[5px] w-[70px] opacity-70"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-orange.svg' %}"
+      alt=""
+      class="absolute right-[100px] top-[15px] w-[50px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/aerostats/aerostat-pink.svg' %}"
+      alt=""
+      class="absolute left-[45px] bottom-0 w-[35px] opacity-70"
+      draggable="false"
+    >
+  </div>
 
   <div class="mx-auto w-full px-4 py-[50px]">
     <h1 class="text-center text-[24px] font-bold uppercase text-[var(--color-black)]">
@@ -58,7 +46,10 @@
     </h1>
 
     <div class="mx-auto mt-[40px] max-w-[360px] space-y-[15px]">
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=didactic-games"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/didactic-games.svg' %}"
           alt=""
@@ -68,9 +59,12 @@
         <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
           {% trans "Дидактические игры" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=lapbooks"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/laptops.svg' %}"
           alt=""
@@ -80,9 +74,12 @@
         <div class="text-[18px] font-bold text-[var(--color-purple)]">
           {% trans "Лэпбуки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=interactive-games"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/interactive-games.svg' %}"
           alt=""
@@ -92,9 +89,12 @@
         <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
           {% trans "Интерактивные игры" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=group-design"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/group-design.svg' %}"
           alt=""
@@ -104,9 +104,12 @@
         <div class="text-[18px] font-bold text-[var(--color-purple)]">
           {% trans "Оформление групп" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=themed-images"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/themed-images.svg' %}"
           alt=""
@@ -116,9 +119,12 @@
         <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
           {% trans "Тематические изображения" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=file-cabinets"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/file-cabinets.svg' %}"
           alt=""
@@ -128,9 +134,12 @@
         <div class="text-[18px] font-bold text-[var(--color-purple)]">
           {% trans "Картотеки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=visualization"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/visualization.svg' %}"
           alt=""
@@ -140,9 +149,12 @@
         <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
           {% trans "Визуализация" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=learn-languages"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/learn-languages.svg' %}"
           alt=""
@@ -152,9 +164,12 @@
         <div class="text-[18px] font-bold text-[var(--color-purple)]">
           {% trans "Изучаем языки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]">
+      <a
+        href="{% url 'catalog' %}?category=methodological-materials"
+        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
+      >
         <img
           src="{% static 'images/catalog/methodological-materials.svg' %}"
           alt=""
@@ -164,7 +179,7 @@
         <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
           {% trans "Методические рекомендации" %}
         </div>
-      </div>
+      </a>
     </div>
   </div>
 </section>

@@ -71,7 +71,10 @@
     </h1>
 
     <div class="mx-auto mt-[90px] grid w-fit grid-cols-3 gap-x-[90px] gap-y-[70px]">
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]">
+      <a
+        href="{% url 'catalog' %}?category=didactic-games"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]"
+      >
         <img
           src="{% static 'images/catalog/didactic-games.svg' %}"
           alt=""
@@ -81,9 +84,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-turquoise)]">
           {% trans "Дидактические игры" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]">
+      <a
+        href="{% url 'catalog' %}?category=lapbooks"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]"
+      >
         <img
           src="{% static 'images/catalog/laptops.svg' %}"
           alt=""
@@ -93,9 +99,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-purple)]">
           {% trans "Лэпбуки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]">
+      <a
+        href="{% url 'catalog' %}?category=interactive-games"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]"
+      >
         <img
           src="{% static 'images/catalog/interactive-games.svg' %}"
           alt=""
@@ -105,9 +114,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-turquoise)]">
           {% trans "Интерактивные игры" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]">
+      <a
+        href="{% url 'catalog' %}?category=group-design"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]"
+      >
         <img
           src="{% static 'images/catalog/group-design.svg' %}"
           alt=""
@@ -117,9 +129,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-purple)]">
           {% trans "Оформление группы" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]">
+      <a
+        href="{% url 'catalog' %}?category=themed-images"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]"
+      >
         <img
           src="{% static 'images/catalog/themed-images.svg' %}"
           alt=""
@@ -129,9 +144,12 @@
         <div class="mt-[14px] max-w-[230px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-turquoise)]">
           {% trans "Тематические изображения" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]">
+      <a
+        href="{% url 'catalog' %}?category=file-cabinets"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]"
+      >
         <img
           src="{% static 'images/catalog/file-cabinets.svg' %}"
           alt=""
@@ -141,9 +159,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-purple)]">
           {% trans "Картотеки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]">
+      <a
+        href="{% url 'catalog' %}?category=visualization"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]"
+      >
         <img
           src="{% static 'images/catalog/visualization.svg' %}"
           alt=""
@@ -153,9 +174,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-turquoise)]">
           {% trans "Визуализация" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]">
+      <a
+        href="{% url 'catalog' %}?category=learn-languages"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-lilac)]"
+      >
         <img
           src="{% static 'images/catalog/learn-languages.svg' %}"
           alt=""
@@ -165,9 +189,12 @@
         <div class="mt-[14px] max-w-[210px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-purple)]">
           {% trans "Изучаем языки" %}
         </div>
-      </div>
+      </a>
 
-      <div class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]">
+      <a
+        href="{% url 'catalog' %}?category=methodological-materials"
+        class="flex h-[185px] w-[280px] flex-col items-center justify-center rounded-[20px] bg-[var(--color-mint)]"
+      >
         <img
           src="{% static 'images/catalog/methodological-materials.svg' %}"
           alt=""
@@ -177,7 +204,7 @@
         <div class="mt-[14px] max-w-[230px] text-balance text-center text-[18px] font-bold leading-[20px] text-[var(--color-turquoise)]">
           {% trans "Методические материалы" %}
         </div>
-      </div>
+      </a>
     </div>
   </div>
 </section>
