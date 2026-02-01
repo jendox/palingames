@@ -1,0 +1,111 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[20px] top-[15px] w-[70px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[20px] top-[10px] w-[42px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-pink.svg' %}"
+      alt=""
+      class="absolute right-[20px] bottom-[100px] w-[42px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-green.svg' %}"
+      alt=""
+      class="absolute left-[110px] top-[350px] w-[42px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto w-full px-4 py-[50px]">
+    <h1 class="mx-auto max-w-[320px] text-center text-[20px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Как происходит покупка и оплата через E-POS (ЕРИП)" %}
+    </h1>
+
+    <div class="mx-auto mt-[43px] max-w-[360px] space-y-[21px]">
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-pink.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/01_step_1.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-orange.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/02_step_2.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-yellow.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/03_step_3.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-green.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/04_step_4.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-turquoise.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/05_guest.html" with link_class="text-[var(--color-turquoise)] underline" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[10px]">
+        <img
+          src="{% static 'images/payment/pzl-turquoise.svg' %}"
+          alt=""
+          class="w-[94px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[23px] text-[14px] leading-[18px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/06_registered.html" with link_class="text-[var(--color-turquoise)] underline" %}
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>

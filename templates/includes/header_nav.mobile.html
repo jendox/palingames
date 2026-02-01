@@ -21,7 +21,7 @@
     <img src="{% static 'images/header/menu_about.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
     {% trans "О нас" %}
   </a>
-  <a href="#" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-purple)]">
+  <a href="{% url 'payment' %}" class="inline-flex items-center gap-4 text-[18px] font-bold text-[var(--color-purple)]">
     <img src="{% static 'images/header/menu_payment.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
     {% trans "Оплата" %}
   </a>

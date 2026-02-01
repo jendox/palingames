@@ -1,0 +1,149 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-1.svg' %}"
+      alt=""
+      class="absolute left-[70px] top-[110px] w-[120px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[120px] top-[80px] w-[165px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[60px] top-[190px] w-[95px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-1.svg' %}"
+      alt=""
+      class="absolute left-[170px] top-[430px] w-[85px] opacity-70"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[110px] top-[510px] w-[135px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[80px] bottom-[160px] w-[95px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+      alt=""
+      class="absolute right-[70px] bottom-[120px] w-[150px]"
+      draggable="false"
+    >
+
+    <img
+      src="{% static 'images/decor/balloons/balloon-pink.svg' %}"
+      alt=""
+      class="absolute right-[350px] top-[250px] w-[90px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/balloons/balloon-green.svg' %}"
+      alt=""
+      class="absolute left-[250px] bottom-[55px] w-[100px]"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/stars/star-orange.svg' %}"
+      alt=""
+      class="absolute right-[250px] bottom-[60px] w-[187px]"
+      draggable="false"
+    >
+  </div>
+
+  <div class="mx-auto w-full max-w-[1100px] px-4 py-[70px]">
+    <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Как происходит покупка и оплата через E-POS (ЕРИП)" %}
+    </h1>
+
+    <div class="mx-auto mt-[53px] max-w-[760px] space-y-[30px]">
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-pink.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[35px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/01_step_1.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-orange.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[35px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/02_step_2.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-yellow.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[35px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/03_step_3.html" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-green.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[35px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/04_step_4.html" %}
+        </p>
+      </div>
+
+    </div>
+    <div class="mt-[53px] grid grid-cols-2 gap-x-[20px]">
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-turquoise.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[25px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/05_guest.html" with link_class="text-[var(--color-turquoise)] underline" %}
+        </p>
+      </div>
+
+      <div class="flex items-start gap-x-[15px]">
+        <img
+          src="{% static 'images/payment/pzl-turquoise.svg' %}"
+          alt=""
+          class="w-[128px] flex-none"
+          draggable="false"
+        >
+        <p class="pt-[25px] text-[20px] leading-[28px] text-[var(--color-black)]">
+          {% include "pages/payment/copy/06_registered.html" with link_class="text-[var(--color-turquoise)] underline" %}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
