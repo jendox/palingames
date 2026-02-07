@@ -22,6 +22,14 @@
 
   function setIconsVisible(visible) {
     for (const el of iconEls) {
+      // Иконки должны исчезать сразу при возврате наверх (без плавного transition).
+      // При скролле вниз появление оставляем анимированным.
+      if (visible) {
+        el.style.transitionDuration = "";
+      } else {
+        el.style.transitionDuration = "0ms";
+      }
+
       el.classList.toggle("max-h-0", !visible);
       el.classList.toggle("opacity-0", !visible);
       el.classList.toggle("-translate-y-2", !visible);
@@ -32,6 +40,13 @@
     }
 
     for (const el of labelEls) {
+      // Текст (отступ сверху) тоже должен "схлопываться" мгновенно при возврате наверх.
+      if (visible) {
+        el.style.transitionDuration = "";
+      } else {
+        el.style.transitionDuration = "0ms";
+      }
+
       el.classList.toggle("mt-0", !visible);
       el.classList.toggle("mt-[20px]", visible);
     }
