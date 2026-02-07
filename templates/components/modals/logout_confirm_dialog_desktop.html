@@ -1,0 +1,70 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[70px] py-[60px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[30px] top-[30px] w-[70px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[35px] top-[40px] w-[55px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[45px] bottom-[35px] w-[62px] opacity-70"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[55px] bottom-[30px] w-[48px] opacity-70"
+      draggable="false"
+    >
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[30px] top-[30px] inline-flex h-[25px] w-[25px] items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img
+      src="{% static 'images/icons/close-icon.svg' %}"
+      alt=""
+      class="h-[25px] w-[25px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+  </button>
+
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <img
+      src="{% static 'images/icons/warning-icon.svg' %}"
+      alt=""
+      class="h-[160px] w-[160px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+
+    <p class="mt-[25px] text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
+      {% trans "Вы уверены что хотите выйти?" %}
+    </p>
+
+    <form data-headless-logout-form method="post" action="#" class="mt-[30px] flex items-center justify-center gap-[30px]">
+      {% csrf_token %}
+      <button type="button" data-dialog-close class="btn-soft-pink h-[55px] w-[220px]">
+        {% trans "отменить" %}
+      </button>
+      <button type="submit" class="btn-soft-green h-[55px] w-[220px]">
+        {% trans "Выйти" %}
+      </button>
+    </form>
+  </div>
+</div>
+

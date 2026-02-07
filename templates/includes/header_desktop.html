@@ -145,18 +145,14 @@
                   {% trans "Алфавитный навигатор" %}
                 </a>
 
-                <form data-headless-logout-form method="post" action="#">
-                  {% csrf_token %}
-                  <a
-                    href="#"
-                    data-headless-logout-link
-                    class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline"
-                  >
-                    <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
-                    {% trans "Выйти" %}
-                  </a>
-                  <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{% trans "Выйти" %}</button>
-                </form>
+                <button
+                  type="button"
+                  data-dialog-open="logoutConfirmDialog"
+                  class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline"
+                >
+                  <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
+                  {% trans "Выйти" %}
+                </button>
               </div>
             {% else %}
               <div class="relative flex h-full flex-col items-center">

@@ -43,8 +43,7 @@
   </div>
 
   <div class="relative z-10">
-    {% if user.is_authenticated %}
-      {% include "pages/account/copy/greeting.html" %}
+    {% include "pages/account/copy/greeting.html" %}
 
       <div class="mt-[40px] flex flex-col gap-[40px]">
         <details class="group rounded-[10px]" data-account-section="personal">
@@ -337,20 +336,20 @@
         </div>
       </details>
 
-        <form data-headless-logout-form method="post" action="#" class="pt-[6px]">
-          {% csrf_token %}
-          <a href="#" data-headless-logout-link class="account-nav-item w-full">
-            <img
-              src="{% static 'images/account/logout-inactive.svg' %}"
-              alt=""
-              class="h-[22px] w-[22px]"
-              aria-hidden="true"
-              draggable="false"
-            >
-            {% trans "Выйти" %}
-          </a>
-          <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{% trans "Выйти" %}</button>
-        </form>
+        <button
+          type="button"
+          data-dialog-open="logoutConfirmDialog"
+          class="account-nav-item w-full"
+        >
+          <img
+            src="{% static 'images/account/logout-inactive.svg' %}"
+            alt=""
+            class="h-[22px] w-[22px]"
+            aria-hidden="true"
+            draggable="false"
+          >
+          {% trans "Выйти" %}
+        </button>
       </div>
 
     {% if demo_mode %}
@@ -401,17 +400,6 @@
           ]
         }
       </script>
-    {% endif %}
-    {% else %}
-      <div class="mx-auto max-w-[640px] text-center">
-        <h1 class="text-[24px] font-bold leading-[31px]">{% trans "Личный кабинет" %}</h1>
-        <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
-          {% trans "Чтобы открыть личный кабинет, войдите в аккаунт." %}
-        </p>
-        <button type="button" data-dialog-open="loginDialog" class="btn-purple mt-[25px] w-full text-[20px] h-[40px]">
-          {% trans "Войти" %}
-        </button>
-      </div>
     {% endif %}
   </div>
 </section>

@@ -1,4 +1,6 @@
 from django.views.generic import TemplateView
+from django.shortcuts import redirect
+from urllib.parse import quote
 
 
 class HomePageView(TemplateView):
@@ -19,6 +21,12 @@ class CatalogPageView(TemplateView):
 
 class AccountPageView(TemplateView):
     template_name = "pages/account.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            next_path = quote(request.get_full_path() or "/account/")
+            return redirect(f"/?dialog=login&next={next_path}")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -251,6 +251,60 @@
     cursor: not-allowed;
   }
 
+  .btn-soft-pink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--color-pink-hover);
+    color: var(--color-black);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 14px;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-soft-pink:hover {
+    opacity: 0.92;
+  }
+
+  .btn-soft-pink:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-soft-green {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--color-green-hover);
+    color: var(--color-black);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 14px;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-soft-green:hover {
+    opacity: 0.92;
+  }
+
+  .btn-soft-green:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .account-nav-item {
     display: inline-flex;
     align-items: center;

@@ -1,0 +1,18 @@
+{% load static i18n %}
+
+<dialog
+  id="logoutConfirmDialog"
+  class="rounded-[30px] bg-[var(--color-white)] p-0 tracking-normal shadow-xl backdrop:bg-black/50
+    w-[92vw] max-w-[360px] min-[1024px]:max-w-[900px] overflow-hidden
+    fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+    opacity-0 scale-95 transition duration-150"
+>
+  <div class="min-[1024px]:hidden">
+    {% include "components/modals/logout_confirm_dialog_mobile.html" %}
+  </div>
+
+  <div class="hidden min-[1024px]:block">
+    {% include "components/modals/logout_confirm_dialog_desktop.html" %}
+  </div>
+</dialog>
+

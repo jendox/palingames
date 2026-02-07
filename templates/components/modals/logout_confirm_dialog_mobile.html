@@ -1,0 +1,70 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[18px] pb-[30px] pt-[18px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[12px] top-[12px] w-[50px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[12px] top-[18px] w-[38px] opacity-80"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute left-[18px] bottom-[18px] w-[44px] opacity-70"
+      draggable="false"
+    >
+    <img
+      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+      alt=""
+      class="absolute right-[18px] bottom-[16px] w-[34px] opacity-70"
+      draggable="false"
+    >
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[18px] top-[18px] inline-flex h-[25px] w-[25px] items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img
+      src="{% static 'images/icons/close-icon.svg' %}"
+      alt=""
+      class="h-[25px] w-[25px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+  </button>
+
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <img
+      src="{% static 'images/icons/warning-icon.svg' %}"
+      alt=""
+      class="h-[120px] w-[120px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+
+    <p class="mt-[20px] text-[14px] font-bold leading-[18px] text-[var(--color-black)]">
+      {% trans "Вы уверены что хотите выйти?" %}
+    </p>
+
+    <form data-headless-logout-form method="post" action="#" class="mt-[22px] flex items-center justify-center gap-[20px]">
+      {% csrf_token %}
+      <button type="button" data-dialog-close class="btn-soft-pink h-[55px] w-[165px]">
+        {% trans "отменить" %}
+      </button>
+      <button type="submit" class="btn-soft-green h-[55px] w-[165px]">
+        {% trans "Выйти" %}
+      </button>
+    </form>
+  </div>
+</div>
+

@@ -265,6 +265,15 @@
     }
 
     if (dialog === "login") {
+      const next = params.get("next");
+      if (next && typeof next === "string" && next.startsWith("/")) {
+        window.__postLoginRedirect = next;
+        try {
+          sessionStorage.setItem("postLoginRedirect", next);
+        } catch {
+          // ignore
+        }
+      }
       openDialog(getDialogById("loginDialog"), null);
       cleanUrl();
       return;
@@ -331,6 +340,22 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     openDialogFromUrl();
+
+    const loginDlg = getDialogById("loginDialog");
+    if (loginDlg) {
+      loginDlg.addEventListener("close", () => {
+        try {
+          sessionStorage.removeItem("postLoginRedirect");
+        } catch {
+          // ignore
+        }
+        try {
+          delete window.__postLoginRedirect;
+        } catch {
+          // ignore
+        }
+      });
+    }
   });
 
   document.addEventListener("click", (e) => {
@@ -357,6 +382,17 @@
     if (openBtn) {
       e.preventDefault();
       const id = openBtn.getAttribute("data-dialog-open");
+      if (id === "loginDialog") {
+        const redirectTo = openBtn.getAttribute("data-post-login-redirect");
+        if (redirectTo) {
+          window.__postLoginRedirect = redirectTo;
+          try {
+            sessionStorage.setItem("postLoginRedirect", redirectTo);
+          } catch {
+            // ignore
+          }
+        }
+      }
       openDialog(getDialogById(id), openBtn);
       return;
     }
@@ -411,7 +447,7 @@
       });
 
       if (resp.ok || resp.status === 401) {
-        window.location.reload();
+        window.location.replace("/");
         return;
       }
     } finally {
@@ -570,13 +606,50 @@
 
       const payload = await resp.json().catch(() => null);
 
-      if (resp.ok && payload?.meta?.is_authenticated) {
+      const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
+      const metaIsAuthenticated = payload?.meta?.is_authenticated;
+
+      // В разных версиях headless allauth успешный логин может прийти без meta/is_authenticated
+      // (или даже без JSON body). Поэтому: если 2xx и ошибок нет, считаем успехом,
+      // кроме случая когда сервер явно сказал is_authenticated=false.
+      if (resp.ok && !errors.length && metaIsAuthenticated !== false) {
+        let postLoginRedirect = null;
+        try {
+          postLoginRedirect = sessionStorage.getItem("postLoginRedirect");
+          sessionStorage.removeItem("postLoginRedirect");
+        } catch {
+          // ignore
+        }
+
+        if (!postLoginRedirect) {
+          const fromWindow = window.__postLoginRedirect;
+          if (typeof fromWindow === "string" && fromWindow.startsWith("/")) {
+            postLoginRedirect = fromWindow;
+          }
+        }
+
+        if (!postLoginRedirect) {
+          const fromOpener = lastOpener?.getAttribute?.("data-post-login-redirect");
+          if (typeof fromOpener === "string" && fromOpener.startsWith("/")) {
+            postLoginRedirect = fromOpener;
+          }
+        }
+
+        try {
+          delete window.__postLoginRedirect;
+        } catch {
+          // ignore
+        }
+
         closeDialog(dlg);
-        window.location.reload();
+        if (postLoginRedirect) {
+          window.location.assign(postLoginRedirect);
+        } else {
+          window.location.reload();
+        }
         return;
       }
 
-      const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
       if ((resp.status === 401 || resp.ok) && !errors.length) {
         showDialogMessage(
           dlg,
