@@ -1,0 +1,24 @@
+{% extends "base/base.html" %}
+
+{% load static i18n %}
+
+{% block title %}{% trans "Личный кабинет" %} — PaliGames{% endblock %}
+
+{% block head %}
+  <script src="{% static 'js/pagination.js' %}" defer></script>
+  <script src="{% static 'js/account.js' %}" defer></script>
+{% endblock %}
+
+{% block main_class %}w-full px-0 py-0{% endblock %}
+
+{% block content %}
+  {% include "components/dividers/clouds.html" %}
+  <div class="min-[1024px]:hidden">
+    {% include "pages/account/account_mobile.html" %}
+  </div>
+
+  <div class="hidden min-[1024px]:block">
+    {% include "pages/account/account_desktop.html" %}
+  </div>
+  {% include "components/dividers/clouds.html" %}
+{% endblock %}

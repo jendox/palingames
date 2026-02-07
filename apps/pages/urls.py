@@ -7,4 +7,5 @@ urlpatterns = [
     path("about/", views.AboutPageView.as_view(), name="about"),
     path("payment/", views.PaymentPageView.as_view(), name="payment"),
     path("catalog/", views.CatalogPageView.as_view(), name="catalog"),
+    path("account/", views.AccountPageView.as_view(), name="account"),
 ]

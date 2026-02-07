@@ -104,7 +104,7 @@
             <span class="whitespace-nowrap">{% trans "Аккаунт" %}</span>
             <span class="relative block">
               <img
-                src="{% static 'images/icons/arrow-down.svg' %}"
+                src="{% static 'images/icons/arrow-down-white.svg' %}"
                 alt=""
                 class="h-[13px] w-[12px]"
                 aria-hidden="true"
@@ -136,7 +136,7 @@
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Игра на заказ" %}
                 </a>
-                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                <a href="{% url 'account' %}" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Личный кабинет" %}
                 </a>

@@ -1,0 +1,167 @@
+{% load static i18n %}
+
+<section class="relative mx-auto max-w-6xl px-4 py-[60px]">
+  {% if user.is_authenticated %}
+    <div class="flex items-start gap-[70px]">
+      <aside class="w-[296px]">
+        {% include "pages/account/copy/greeting.html" %}
+
+        <nav aria-label="{% trans 'Разделы аккаунта' %}" class="mt-[40px] flex flex-col gap-[17px]">
+          <a
+            href="?tab=personal"
+            class="{% if active_tab == 'personal' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %}"
+            {% if active_tab == "personal" %}aria-current="page"{% endif %}
+          >
+            <img
+              src="{% static 'images/account/' %}{% if active_tab == 'personal' %}personal-data-active.svg{% else %}personal-data-inactive.svg{% endif %}"
+              alt=""
+              class="h-[26px] w-[26px]"
+              aria-hidden="true"
+              draggable="false"
+            >
+            {% trans "Личные данные" %}
+          </a>
+
+          <a
+            href="?tab=orders"
+            class="{% if active_tab == 'orders' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %}"
+            {% if active_tab == "orders" %}aria-current="page"{% endif %}
+          >
+            <img
+              src="{% static 'images/account/' %}{% if active_tab == 'orders' %}orders-active.svg{% else %}orders-inactive.svg{% endif %}"
+              alt=""
+              class="h-[26px] w-[26px]"
+              aria-hidden="true"
+              draggable="false"
+            >
+            {% trans "Заказы" %}
+          </a>
+
+          <a
+            href="?tab=favorites"
+            class="{% if active_tab == 'favorites' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %}"
+            {% if active_tab == "favorites" %}aria-current="page"{% endif %}
+          >
+            <img
+              src="{% static 'images/account/' %}{% if active_tab == 'favorites' %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
+              alt=""
+              class="h-[26px] w-[26px]"
+              aria-hidden="true"
+              draggable="false"
+              onerror="this.onerror=null;this.src='{% static 'images/account/favorite-inactive.svg' %}';"
+            >
+            {% trans "Избранное" %}
+          </a>
+
+          <a
+            href="?tab=password"
+            class="{% if active_tab == 'password' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %}"
+            {% if active_tab == "password" %}aria-current="page"{% endif %}
+          >
+            <img
+              src="{% static 'images/account/' %}{% if active_tab == 'password' %}change-pass-active.svg{% else %}change-pass-inactive.svg{% endif %}"
+              alt=""
+              class="h-[26px] w-[26px]"
+              aria-hidden="true"
+              draggable="false"
+            >
+            {% trans "Смена пароля" %}
+          </a>
+
+          <form data-headless-logout-form method="post" action="#" class="mt-[6px]">
+            {% csrf_token %}
+            <a
+              href="#"
+              data-headless-logout-link
+              class="account-nav-item"
+            >
+              <img
+                src="{% static 'images/account/logout-inactive.svg' %}"
+                alt=""
+                class="h-[26px] w-[26px]"
+                aria-hidden="true"
+                draggable="false"
+              >
+              {% trans "Выйти" %}
+            </a>
+            <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{% trans "Выйти" %}</button>
+          </form>
+        </nav>
+      </aside>
+
+      <div class="min-w-0 flex-1">
+        {% if active_tab == "personal" %}
+          <h2 class="text-[24px] font-bold leading-[31px]">{% trans "Личные данные" %}</h2>
+
+          <form method="post" action="#" class="mt-[30px] max-w-[683px]">
+            {% csrf_token %}
+
+            <label class="block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Имя" %} *</span>
+              <input type="text" class="account-input mt-[10px] h-[40px]" autocomplete="given-name">
+            </label>
+
+            <label class="mt-[25px] block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Фамилия" %}</span>
+              <input type="text" class="account-input mt-[10px] h-[40px]" autocomplete="family-name">
+            </label>
+
+            <label class="mt-[25px] block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Email" %} *</span>
+              <input type="email" class="account-input mt-[10px] h-[40px]" autocomplete="email">
+            </label>
+
+            <div class="mt-[30px] flex justify-end">
+              <button type="submit" class="btn-purple w-[211px] text-[16px] h-[40px]">{% trans "Отправить" %}</button>
+            </div>
+          </form>
+        {% elif active_tab == "password" %}
+          <h2 class="text-[24px] font-bold leading-[31px]">{% trans "Смена пароля" %}</h2>
+
+          <form method="post" action="#" class="mt-[30px] max-w-[683px]">
+            {% csrf_token %}
+
+            <label class="block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Текущий пароль" %} *</span>
+              <input type="password" class="account-input mt-[10px] h-[40px]" autocomplete="current-password">
+            </label>
+
+            <label class="mt-[25px] block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Новый пароль" %} *</span>
+              <input type="password" class="account-input mt-[10px] h-[40px]" autocomplete="new-password">
+            </label>
+
+            <label class="mt-[25px] block">
+              <span class="text-[14px] font-semibold leading-[18px]">{% trans "Повторить новый пароль" %} *</span>
+              <input type="password" class="account-input mt-[10px] h-[40px]" autocomplete="new-password">
+            </label>
+
+            <div class="mt-[30px] flex justify-end">
+              <button type="submit" class="btn-purple w-[211px] text-[16px] h-[40px]">{% trans "Отправить" %}</button>
+            </div>
+          </form>
+        {% elif active_tab == "orders" %}
+          <h2 class="text-[24px] font-bold leading-[31px]">{% trans "Заказы" %}</h2>
+          <p class="mt-[20px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+            {% trans "Раздел в разработке." %}
+          </p>
+        {% elif active_tab == "favorites" %}
+          <h2 class="text-[24px] font-bold leading-[31px]">{% trans "Избранное" %}</h2>
+          <p class="mt-[20px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+            {% trans "Раздел в разработке." %}
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="mx-auto max-w-[640px] px-4 py-[60px] text-center">
+      <h1 class="text-[24px] font-bold leading-[31px]">{% trans "Личный кабинет" %}</h1>
+      <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+        {% trans "Чтобы открыть личный кабинет, войдите в аккаунт." %}
+      </p>
+      <button type="button" data-dialog-open="loginDialog" class="btn-purple mt-[25px] w-full text-[20px] h-[40px]">
+        {% trans "Войти" %}
+      </button>
+    </div>
+  {% endif %}
+</section>

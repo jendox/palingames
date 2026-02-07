@@ -173,4 +173,292 @@
     background-color: var(--color-turquoise);
     color: var(--color-white);
   }
+
+  .account-input {
+    width: 100%;
+/*    height: 54px;*/
+    border-radius: 10px;
+    border: 2px solid var(--color-grey);
+    background-color: var(--color-white);
+    padding: 0 16px;
+    font-size: 16px;
+    color: var(--color-black);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .account-input::placeholder {
+    color: rgb(0 0 0 / 0.4);
+  }
+
+  .account-input-thin {
+    border-width: 0.5px;
+  }
+
+  .account-input:focus {
+    border-color: var(--color-purple);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-purple) 20%, transparent);
+  }
+
+  .btn-purple {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+/*    height: 60px;*/
+    gap: 10px;
+    padding: 0 15px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--color-purple);
+    color: var(--color-white);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-purple:hover {
+    background-color: var(--color-purple-hover);
+  }
+
+  .btn-purple:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-purple-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    gap: 10px;
+    padding: 0 15px;
+    border-radius: 10px;
+    border: none;
+    background-color: var(--color-purple);
+    color: var(--color-white);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .btn-purple-sm:hover {
+    background-color: var(--color-purple-hover);
+  }
+
+  .btn-purple-sm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .account-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 54px;
+    padding: 0 15px;
+    border-radius: 10px;
+    color: var(--color-black);
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .account-nav-item:hover {
+    text-decoration: none;
+  }
+
+  .account-nav-item-active {
+    background-color: var(--color-purple);
+    color: var(--color-white);
+    text-decoration: none;
+  }
+
+  .account-nav-item-active:hover {
+    text-decoration: none;
+  }
+
+  .account-disclosure-arrow {
+    transition: transform 150ms var(--ease-in-out, ease-in-out);
+    transform: rotate(-90deg);
+  }
+
+  details[open] .account-disclosure-arrow {
+    transform: rotate(0deg);
+  }
+
+  .account-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .account-pagination--mobile {
+    gap: 15px;
+  }
+
+  .account-pagination--mobile .account-pagination-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .account-pagination--mobile .account-pagination-arrow:first-child {
+    margin-right: 10px;
+  }
+
+  .account-pagination--mobile .account-pagination-arrow:last-child {
+    margin-left: 10px;
+  }
+
+  .account-pagination--mobile .account-pagination-arrow:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .account-pagination--mobile .account-pagination-arrow img {
+    width: 12px;
+    height: 6px;
+  }
+
+  .account-pagination-page {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .account-pagination-page:disabled {
+    cursor: default;
+  }
+
+  .account-pagination-bg {
+    position: absolute;
+    inset: 0;
+  }
+
+  .account-pagination-number {
+    position: relative;
+    z-index: 1;
+    font-weight: 700;
+    color: var(--color-black);
+  }
+
+  .account-pagination-dots {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .account-pagination-dots img {
+    display: block;
+  }
+
+  .account-pagination--mobile .account-pagination-page {
+    width: 20px;
+    height: 20px;
+  }
+
+  .account-pagination--mobile .account-pagination-bg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .account-pagination--mobile .account-pagination-number {
+    font-size: 10px;
+    line-height: 10px;
+  }
+
+  .account-pagination--mobile .account-pagination-dots {
+    width: 19px;
+    height: 3px;
+  }
+
+  .account-pagination--mobile .account-pagination-dots img {
+    width: 19px;
+    height: 3px;
+  }
+
+  .account-pagination--desktop {
+    gap: 55px;
+  }
+
+  .account-pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .account-pagination-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    gap: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--color-purple-hover);
+    background-color: var(--color-white);
+    color: var(--color-black);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .account-pagination-nav-btn-prev {
+    padding: 10px 18px 10px 20px;
+  }
+
+  .account-pagination-nav-btn-next {
+    padding: 10px 20px 10px 18px;
+  }
+
+  .account-pagination-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .account-pagination-nav-icon {
+    width: 7px;
+    height: 10px;
+  }
+
+  .account-pagination-page--desktop {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    border: 1px solid var(--color-purple-hover);
+    background-color: var(--color-white);
+  }
+
+  .account-pagination-page--desktop.is-current {
+    border-color: transparent;
+    background-color: var(--color-purple-hover);
+  }
+
+  .account-pagination--desktop .account-pagination-number {
+    font-size: 14px;
+    line-height: 14px;
+  }
+
+  .account-pagination--desktop .account-pagination-dots--desktop {
+    width: 24px;
+    height: 4px;
+  }
+
+  .account-pagination--desktop .account-pagination-dots--desktop img {
+    width: 24px;
+    height: 4px;
+  }
 }

@@ -63,20 +63,37 @@
       <span class="text-[12px] font-semibold leading-[12px]">{% trans "Избранное" %}</span>
     </a>
 
-    <button
-      type="button"
-      data-dialog-open="loginDialog"
-      aria-controls="loginDialog"
-      class="flex flex-1 cursor-pointer flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)]"
-    >
-      <img
-        src="{% static 'images/header/menu-account-mobile.svg' %}"
-        alt=""
-        class="h-[20px] w-[22px]"
-        aria-hidden="true"
-        draggable="false"
+    {% if user.is_authenticated %}
+      <a
+        href="{% url 'account' %}"
+        class="flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
+        {% if request.resolver_match.url_name == "account" %}aria-current="page"{% endif %}
       >
-      <span class="text-[12px] font-semibold leading-[12px]">{% trans "Аккаунт" %}</span>
-    </button>
+        <img
+          src="{% static 'images/header/menu-account-mobile.svg' %}"
+          alt=""
+          class="h-[20px] w-[22px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <span class="text-[12px] font-semibold leading-[12px]">{% trans "Аккаунт" %}</span>
+      </a>
+    {% else %}
+      <button
+        type="button"
+        data-dialog-open="loginDialog"
+        aria-controls="loginDialog"
+        class="flex flex-1 cursor-pointer flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)]"
+      >
+        <img
+          src="{% static 'images/header/menu-account-mobile.svg' %}"
+          alt=""
+          class="h-[20px] w-[22px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+        <span class="text-[12px] font-semibold leading-[12px]">{% trans "Аккаунт" %}</span>
+      </button>
+    {% endif %}
   </div>
 </nav>

@@ -26,7 +26,11 @@ admin: ## Создать администратора
 	$(UV) run python manage.py createsuperuser
 
 tailwind: ## Запустить сервер tailwind
-	$(UV) run python manage.py tailwind watch
+	@if [ -x .venv/bin/python ]; then \
+		.venv/bin/python manage.py tailwind watch; \
+	else \
+		python manage.py tailwind watch; \
+	fi
 
 list: ## Отображает список доступных команд и их описания
 	@echo "Cписок доступных команд:"
