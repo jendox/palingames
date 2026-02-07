@@ -16,6 +16,15 @@ DEBUG = env.bool("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.ngrok-free.app",
+]
+
+# Proxy/HTTPS (Caddy/nginx)
+# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -58,7 +67,6 @@ AUTHENTICATION_BACKENDS = [
     # allauth
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
-
 
 ROOT_URLCONF = "config.urls"
 
@@ -148,7 +156,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -159,7 +166,7 @@ REST_FRAMEWORK = {
 # All Auth
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"   # подтверждение обязательно
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"  # подтверждение обязательно
 ACCOUNT_UNIQUE_EMAIL = True
 
 ACCOUNT_CHANGE_EMAIL = True
