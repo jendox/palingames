@@ -359,6 +359,36 @@
   });
 
   document.addEventListener("click", (e) => {
+    const mobileNavItem = e.target.closest?.("[data-mobile-nav-item]");
+    if (mobileNavItem && mobileNavItem.closest?.("[data-mobile-bottom-nav]")) {
+      mobileNavItem.classList.add("is-pending");
+
+      const href = mobileNavItem instanceof HTMLAnchorElement ? mobileNavItem.getAttribute("href") : null;
+      const isRealLink =
+        href &&
+        href !== "#" &&
+        !href.startsWith("#") &&
+        !href.toLowerCase().startsWith("javascript:");
+
+      const hasModifiers = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+      const opensDialog = !!mobileNavItem.closest?.("[data-dialog-open],[data-dialog-switch]");
+      const target = mobileNavItem instanceof HTMLAnchorElement ? mobileNavItem.getAttribute("target") : null;
+      const shouldHandleNav = isRealLink && !hasModifiers && !opensDialog && !target;
+
+      if (shouldHandleNav) {
+        e.preventDefault();
+        requestAnimationFrame(() => {
+          window.location.assign(href);
+        });
+        return;
+      }
+
+      // Если перехода нет (например, открываем модалку входа), не оставляем подсветку "навсегда".
+      setTimeout(() => {
+        mobileNavItem.classList.remove("is-pending");
+      }, 180);
+    }
+
     const switchBtn = e.target.closest("[data-dialog-switch]");
     if (switchBtn) {
       e.preventDefault();
