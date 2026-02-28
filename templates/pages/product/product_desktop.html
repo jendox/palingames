@@ -1,0 +1,217 @@
+{% load static i18n %}
+
+<section class="mt-[70px] relative overflow-hidden">
+
+  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[96px] pt-[42px] min-[1600px]:px-[72px]">
+    <div class="flex items-start justify-between gap-[86px]">
+      <div class="w-[740px] shrink-0 max-w-[52vw]">
+        <div
+          class="relative px-[42px]"
+          data-product-gallery
+          data-gallery-autoplay-ms="5000"
+          data-gallery-alt="{% trans 'Маленькие шаги к большой цели' %}"
+        >
+          <button
+            type="button"
+            class="absolute left-0 top-1/2 inline-flex h-[26px] w-[33px] -translate-y-1/2 items-center justify-center cursor-pointer"
+            aria-label="{% trans 'Предыдущее изображение' %}"
+            data-gallery-prev
+          >
+            <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[26px] w-[33px]" aria-hidden="true">
+          </button>
+
+          <div>
+            <div class="overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_16px_44px_rgba(0,0,0,0.05)]">
+              <img
+                src="{% static 'images/example-product-image-1.png' %}"
+                alt="{% trans 'Маленькие шаги к большой цели' %}"
+                class="h-[464px] w-full object-cover"
+                draggable="false"
+                data-gallery-main-image
+              >
+            </div>
+
+            <div class="mt-[20px] grid grid-cols-2 gap-[18px]">
+              <button
+                type="button"
+                class="overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_12px_28px_rgba(0,0,0,0.05)]"
+                data-gallery-thumb="1"
+                data-gallery-image-url="{% static 'images/example-product-image-2.png' %}"
+                aria-label="{% trans 'Показать второе изображение' %}"
+              >
+                <img
+                  src="{% static 'images/example-product-image-2.png' %}"
+                  alt=""
+                  class="h-[200px] w-full object-cover"
+                  aria-hidden="true"
+                  draggable="false"
+                  data-gallery-thumb-image
+                >
+              </button>
+              <button
+                type="button"
+                class="overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_12px_28px_rgba(0,0,0,0.05)]"
+                data-gallery-thumb="2"
+                data-gallery-image-url="{% static 'images/example-product-image-3.png' %}"
+                aria-label="{% trans 'Показать третье изображение' %}"
+              >
+                <img
+                  src="{% static 'images/example-product-image-3.png' %}"
+                  alt=""
+                  class="h-[200px] w-full object-cover"
+                  aria-hidden="true"
+                  draggable="false"
+                  data-gallery-thumb-image
+                >
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="absolute right-0 top-1/2 inline-flex h-[26px] w-[33px] -translate-y-1/2 items-center justify-center cursor-pointer"
+            aria-label="{% trans 'Следующее изображение' %}"
+            data-gallery-next
+          >
+            <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[26px] w-[33px]" aria-hidden="true">
+          </button>
+        </div>
+
+        {% include "pages/product/desktop/_tabs_panel.html" %}
+      </div>
+
+      <div class="w-[590px] shrink-0 pt-[6px]">
+        <div class="flex items-center gap-[56px]">
+          <div class="min-w-0 flex-1">
+            <h1 class="max-w-[520px] font-airfool text-[32px] leading-[32px] text-[var(--color-black)]">
+              {% trans "Маленькие шаги к большой цели" %}
+            </h1>
+            <p class="mt-[15px] text-[16px]">
+              {% trans "Интерактивный плакат" %}
+            </p>
+
+            <div class="mt-[30px] flex items-center gap-[9px]">
+              <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
+              <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
+              <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
+              <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
+              <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
+              <span class="ml-[8px] text-[14px] font-bold text-[var(--color-black-80)]">4.9 (12)</span>
+            </div>
+
+            <p class="mt-[30px] max-w-[486px] text-[16px] text-[var(--color-black-80)]">
+              {% trans "Макеты предоставляются в цифровом виде — PDF файл для самостоятельного распечатывания." %}
+            </p>
+
+            <div class="mt-[40px]">
+              <div class="text-[20px] font-bold uppercase text-[var(--color-black)]">{% trans "Наполнение:" %}</div>
+              <ul class="mt-[20px] list-disc pl-[16px] text-[16px] text-[var(--color-black-80)] marker:text-[var(--color-black-80)]">
+                <li>{% trans "Фон - 2 листа формата A4" %}</li>
+                <li>{% trans "Элементы - 1 лист формата A4" %}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="flex w-[34px] shrink-0 flex-col items-center gap-[25px]">
+            <button type="button" class="inline-flex size-[34px] items-center justify-center cursor-pointer" aria-label="{% trans 'Добавить в избранное' %}">
+              <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
+            </button>
+            <button type="button" class="inline-flex size-[34px] items-center justify-center cursor-pointer" aria-label="{% trans 'Поделиться' %}">
+              <img src="{% static 'images/icons/share.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
+            </button>
+            <button type="button" class="inline-flex size-[34px] items-center justify-center cursor-pointer" aria-label="{% trans 'Скачать PDF' %}">
+              <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-[150px] flex items-center gap-[100px]">
+          <div class="text-[32px] font-airfool font-bold leading-[40px] text-[var(--color-black)]">1,2 BYN</div>
+          <button
+            type="button"
+            class="btn-orange w-[211px]"
+          >
+            {% trans "Купить" %}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-[108px]">
+      <div class="flex items-start gap-[12px]">
+        <h2 class="text-[40px] font-bold uppercase leading-[48px] text-[var(--color-black)]">
+          {% trans "Похожие товары" %}
+        </h2>
+        <img
+          src="{% static 'images/decor/stars/star-orange.svg' %}"
+          alt=""
+          class="mt-[4px] h-[24px] w-[24px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+      </div>
+
+      <div class="mt-[34px] grid grid-cols-4 gap-[26px]">
+        {% for image_id in "1234" %}
+          <article class="overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_16px_34px_rgba(0,0,0,0.07)]">
+            <div class="relative">
+              <img
+                src="{% static 'images/example-product-image-2.png' %}"
+                alt=""
+                class="h-[248px] w-full object-cover"
+                aria-hidden="true"
+                draggable="false"
+              >
+              <button
+                type="button"
+                class="absolute right-[12px] top-[12px] inline-flex size-[28px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.92)] shadow-[0_8px_20px_rgba(0,0,0,0.08)]"
+                aria-label="{% trans 'Убрать из избранного' %}"
+              >
+                <img src="{% static 'images/icons/favorite-active.svg' %}" alt="" class="size-[16px]" aria-hidden="true">
+              </button>
+            </div>
+
+            <div class="bg-[linear-gradient(180deg,rgba(156,165,111,0.82)_0%,rgba(116,122,82,0.98)_100%)] px-[18px] pb-[16px] pt-[14px] text-[var(--color-white)]">
+              <h3 class="text-[18px] font-bold leading-[23px]">
+                {% trans "Белорусский национальный строй" %}
+              </h3>
+              <p class="mt-[6px] text-[11px] leading-[14px] text-[rgba(255,255,255,0.8)]">
+                {% trans "дидактическая игра" %}
+              </p>
+              <div class="mt-[14px] flex items-center justify-between">
+                <div class="text-[20px] font-bold leading-[24px]">1,5 BYN</div>
+                <button
+                  type="button"
+                  class="inline-flex size-[28px] items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.9)]"
+                  aria-label="{% trans 'Скачать PDF' %}"
+                >
+                  <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="h-[15px] w-[13px]" aria-hidden="true">
+                </button>
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+
+      <div class="mt-[22px] flex items-center justify-center gap-[18px]">
+        <button type="button" class="inline-flex size-[26px] items-center justify-center" aria-label="{% trans 'Предыдущие похожие товары' %}">
+          <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[16px] w-[10px]" aria-hidden="true">
+        </button>
+        <div class="flex items-center gap-[10px]">
+          <span class="size-[6px] rounded-full bg-[var(--color-green)]"></span>
+          <span class="size-[6px] rounded-full bg-[var(--color-green)]/30"></span>
+          <span class="size-[6px] rounded-full bg-[var(--color-green)]/30"></span>
+        </div>
+        <button type="button" class="inline-flex size-[26px] items-center justify-center" aria-label="{% trans 'Следующие похожие товары' %}">
+          <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[16px] w-[10px]" aria-hidden="true">
+        </button>
+      </div>
+
+      <div class="mt-[12px] flex justify-end">
+        <a href="{% url 'catalog' %}" class="text-[11px] font-bold uppercase leading-[14px] text-[var(--color-black)] underline underline-offset-[3px]">
+          {% trans "Посмотреть все" %}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

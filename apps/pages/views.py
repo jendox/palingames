@@ -16,11 +16,25 @@ class AccountTab(StrEnum):
     PASSWORD = "password"
 
 
+class ProductTab(StrEnum):
+    DESCRIPTION = "description"
+    REVIEWS = "reviews"
+    PAYMENT = "payment"
+    HOW_TO_PLAY = "how_to_play"
+
+
 def _get_active_tab(request) -> AccountTab:
     try:
         return AccountTab(request.GET.get("tab"))
     except ValueError:
         return AccountTab.PERSONAL
+
+
+def _get_active_product_tab(request) -> ProductTab:
+    try:
+        return ProductTab(request.GET.get("tab"))
+    except ValueError:
+        return ProductTab.DESCRIPTION
 
 
 class HomePageView(TemplateView):
@@ -37,6 +51,40 @@ class PaymentPageView(TemplateView):
 
 class CatalogPageView(TemplateView):
     template_name = "pages/catalog.html"
+
+
+class ProductPageView(TemplateView):
+    template_name = "pages/product.html"
+    tab_templates = {
+        ProductTab.DESCRIPTION: "pages/product/desktop/tabs/_description.html",
+        ProductTab.REVIEWS: "pages/product/desktop/tabs/_reviews.html",
+        ProductTab.PAYMENT: "pages/product/desktop/tabs/_payment.html",
+        ProductTab.HOW_TO_PLAY: "pages/product/desktop/tabs/_how_to_play.html",
+    }
+    sample_reviews = [
+        {
+            "author": "Мария Маляко",
+            "date": "14.05.2025",
+            "rating": 4,
+            "text": (
+                "Игра прекрасная. Ребенок очень доволен. "
+                "Делали игру всей семьей. Большое спасибо."
+            ),
+        },
+    ]
+
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request") == "true":
+            return ["pages/product/desktop/_tabs_panel.html"]
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        active_tab = _get_active_product_tab(self.request)
+        context["product_active_tab"] = active_tab
+        context["product_active_tab_template"] = self.tab_templates[active_tab]
+        context["product_reviews"] = self.sample_reviews
+        return context
 
 
 class AccountPageView(TemplateView):

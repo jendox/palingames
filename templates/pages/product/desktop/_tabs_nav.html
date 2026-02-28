@@ -1,0 +1,36 @@
+{% load i18n %}
+
+<div class="mt-[70px] grid grid-cols-4 gap-x-[30px] pb-[14px] text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
+  <a
+    href="{% url 'product' %}?tab=description"
+    hx-get="{% url 'product' %}?tab=description"
+    hx-target="#product-desktop-tabs-panel"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    class="whitespace-nowrap text-left {% if product_active_tab == 'description' %}text-[var(--color-orange)]{% endif %}"
+  >{% trans "Описание" %}</a>
+  <a
+    href="{% url 'product' %}?tab=reviews"
+    hx-get="{% url 'product' %}?tab=reviews"
+    hx-target="#product-desktop-tabs-panel"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    class="whitespace-nowrap text-left {% if product_active_tab == 'reviews' %}text-[var(--color-orange)]{% endif %}"
+  >{% trans "Отзывы" %}</a>
+  <a
+    href="{% url 'product' %}?tab=payment"
+    hx-get="{% url 'product' %}?tab=payment"
+    hx-target="#product-desktop-tabs-panel"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    class="whitespace-nowrap text-left {% if product_active_tab == 'payment' %}text-[var(--color-orange)]{% endif %}"
+  >{% trans "Оплата" %}</a>
+  <a
+    href="{% url 'product' %}?tab=how_to_play"
+    hx-get="{% url 'product' %}?tab=how_to_play"
+    hx-target="#product-desktop-tabs-panel"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    class="whitespace-nowrap text-left {% if product_active_tab == 'how_to_play' %}text-[var(--color-orange)]{% endif %}"
+  >{% trans "Как играть в игру" %}</a>
+</div>
