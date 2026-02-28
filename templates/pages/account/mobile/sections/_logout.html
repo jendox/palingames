@@ -1,0 +1,16 @@
+{% load static i18n %}
+
+<button
+  type="button"
+  data-dialog-open="logoutConfirmDialog"
+  class="account-nav-item w-full"
+>
+  <img
+    src="{% static 'images/account/logout-inactive.svg' %}"
+    alt=""
+    class="h-[22px] w-[22px]"
+    aria-hidden="true"
+    draggable="false"
+  >
+  {% trans "Выйти" %}
+</button>

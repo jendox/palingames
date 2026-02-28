@@ -1,0 +1,91 @@
+{% load static i18n %}
+
+<details class="group rounded-[10px]" data-account-section="orders">
+  <summary class="account-nav-item w-full cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden">
+    <span class="inline-flex items-center gap-[10px] text-[16px] font-bold">
+      <img
+        src="{% static 'images/account/orders-inactive.svg' %}"
+        alt=""
+        class="w-[26px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+      {% trans "Заказы" %}
+    </span>
+    <img
+      src="{% static 'images/icons/arrow-down-black.svg' %}"
+      alt=""
+      class="account-disclosure-arrow w-[12px] shrink-0"
+      aria-hidden="true"
+      draggable="false"
+    >
+  </summary>
+
+  <div class="mt-[20px]" data-account-orders>
+    <div class="flex items-center justify-between gap-[10px]">
+      <div class="text-[14px] font-bold leading-[18px]">{% trans "Заказы" %}</div>
+      <button
+        type="button"
+        data-account-filter="orders"
+        class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border-none bg-[var(--color-white)]"
+        aria-label="{% trans 'Фильтр заказов' %}"
+      >
+        <img
+          src="{% static 'images/icons/filter-icon.svg' %}"
+          alt=""
+          class="h-[28px] w-[36px]"
+          aria-hidden="true"
+          draggable="false"
+        >
+      </button>
+    </div>
+
+    <div class="mt-[15px] flex flex-col gap-[10px]" data-account-orders-list></div>
+    <p class="mt-[15px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-account-orders-empty>
+      {% trans "У вас пока нет заказов." %}
+    </p>
+    <nav class="account-pagination mt-[15px]" aria-label="{% trans 'Пагинация заказов' %}" data-account-orders-pagination data-pagination-variant="mobile"></nav>
+
+    <template data-account-order-template>
+      <details class="group rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[15px] py-[12px]">
+        <summary class="flex cursor-pointer list-none items-start justify-between gap-[10px] [&::-webkit-details-marker]:hidden">
+          <div class="min-w-0">
+            <div class="text-[12px] font-bold leading-[14px]">
+              {% trans "Заказ №" %}<span data-order-number></span>
+              <span class="ml-[10px] text-[10px] font-normal leading-[14px] text-[var(--color-black-80)]" data-order-date></span>
+            </div>
+            <div class="mt-[8px] text-[12px] font-bold leading-[14px]" data-order-total></div>
+          </div>
+          <span class="shrink-0 text-[10px] font-bold leading-[14px] text-[var(--color-black-80)]">
+            <span class="group-open:hidden">{% trans "подробнее" %}</span>
+            <span class="hidden group-open:inline">{% trans "свернуть" %}</span>
+          </span>
+        </summary>
+
+        <div class="mt-[12px] grid grid-cols-2 gap-[10px]" data-order-items></div>
+      </details>
+    </template>
+
+    <template data-account-order-item-template>
+      <div class="overflow-hidden rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)]">
+        <div class="aspect-[4/3] overflow-hidden bg-[var(--color-mint)]">
+          <img
+            data-item-img
+            src="{% static 'images/home/hero/owl.svg' %}"
+            alt=""
+            class="h-full w-full object-cover"
+            aria-hidden="true"
+            draggable="false"
+          >
+        </div>
+        <div class="p-[10px]">
+          <div class="text-[12px] font-bold leading-[14px]" data-item-title></div>
+          <div class="mt-[8px] flex items-center justify-between gap-[10px]">
+            <div class="text-[12px] font-bold leading-[14px] text-[var(--color-orange)]" data-item-price></div>
+            <button type="button" class="btn-purple-sm text-[12px]">{% trans "Скачать" %}</button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</details>
