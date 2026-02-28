@@ -31,4 +31,4 @@ class CustomUser(AbstractUser):
 
     @property
     def display_name(self) -> str:
-        return f"{self.full_name}".strip() or self.username or self.email
+        return f"{self.first_name}".strip() or self.email

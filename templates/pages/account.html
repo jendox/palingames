@@ -5,6 +5,8 @@
 {% block title %}{% trans "Личный кабинет" %} — PaliGames{% endblock %}
 
 {% block head %}
+  {# htmx swaps only the desktop account shell; regular links remain the fallback when JS is unavailable. #}
+  <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/pagination.js' %}" defer></script>
   <script src="{% static 'js/account.js' %}" defer></script>
 {% endblock %}

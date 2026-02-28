@@ -1,0 +1,85 @@
+{% load static i18n %}
+
+<nav
+  aria-label="{% trans 'Разделы аккаунта' %}"
+  class="mt-[40px] flex flex-col gap-[17px]"
+  hx-boost="true"
+  hx-target="#account-desktop-shell"
+  hx-swap="outerHTML"
+  hx-push-url="true"
+>
+  <a
+    href="?tab=personal"
+    class="{% if active_tab == 'personal' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %} h-[60px] text-[18px] font-bold leading-[23px]"
+    {% if active_tab == "personal" %}aria-current="page"{% endif %}
+  >
+    <img
+      src="{% static 'images/account/' %}{% if active_tab == 'personal' %}personal-data-active.svg{% else %}personal-data-inactive.svg{% endif %}"
+      alt=""
+      class="h-[35px] w-[35px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+    {% trans "Личные данные" %}
+  </a>
+
+  <a
+    href="?tab=orders"
+    class="{% if active_tab == 'orders' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %} h-[60px] text-[18px] font-bold leading-[23px]"
+    {% if active_tab == "orders" %}aria-current="page"{% endif %}
+  >
+    <img
+      src="{% static 'images/account/' %}{% if active_tab == 'orders' %}orders-active.svg{% else %}orders-inactive.svg{% endif %}"
+      alt=""
+      class="h-[35px] w-[35px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+    {% trans "Заказы" %}
+  </a>
+
+  <a
+    href="?tab=favorites"
+    class="{% if active_tab == 'favorites' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %} h-[60px] text-[18px] font-bold leading-[23px]"
+    {% if active_tab == "favorites" %}aria-current="page"{% endif %}
+  >
+    <img
+      src="{% static 'images/account/' %}{% if active_tab == 'favorites' %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
+      alt=""
+      class="h-[35px] w-[35px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+    {% trans "Избранное" %}
+  </a>
+
+  <a
+    href="?tab=password"
+    class="{% if active_tab == 'password' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %} h-[60px] text-[18px] font-bold leading-[23px]"
+    {% if active_tab == "password" %}aria-current="page"{% endif %}
+  >
+    <img
+      src="{% static 'images/account/' %}{% if active_tab == 'password' %}change-pass-active.svg{% else %}change-pass-inactive.svg{% endif %}"
+      alt=""
+      class="h-[35px] w-[35px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+    {% trans "Смена пароля" %}
+  </a>
+
+  <button
+    type="button"
+    data-dialog-open="logoutConfirmDialog"
+    class="account-nav-item mt-[6px] h-[60px] w-full cursor-pointer text-[18px] font-bold leading-[23px]"
+  >
+    <img
+      src="{% static 'images/account/logout-inactive.svg' %}"
+      alt=""
+      class="h-[35px] w-[35px]"
+      aria-hidden="true"
+      draggable="false"
+    >
+    {% trans "Выйти" %}
+  </button>
+</nav>

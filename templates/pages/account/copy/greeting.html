@@ -1,8 +1,7 @@
 {% load i18n %}
 
-<h1 class="text-[20px] text-center font-bold uppercase leading-[26px] min-[1024px]:text-[24px] min-[1024px]:leading-[31px]">
-  {% blocktrans trimmed with display_name=display_name %}
+<h1 class="text-[20px] text-center font-bold uppercase leading-[26px] min-[1024px]:text-[40px] min-[1024px]:leading-[52px]">
+  {% blocktrans trimmed with display_name=user.display_name %}
     Здравствуйте, {{ display_name }}!
   {% endblocktrans %}
 </h1>
-

@@ -1,0 +1,72 @@
+{% load i18n %}
+
+<h2 class="text-[36px] font-bold leading-[47px]">{% trans "Личные данные" %}</h2>
+
+<form
+  method="post"
+  action="{% url 'account' %}?tab=personal"
+  class="mt-[50px] max-w-[683px]"
+  hx-post="{% url 'account' %}?tab=personal"
+  hx-target="#account-desktop-shell"
+  hx-swap="outerHTML"
+>
+  {% csrf_token %}
+  {% if personal_form_saved %}
+    <div class="mb-[30px] rounded-[10px] border border-[var(--color-turquoise)] bg-[var(--color-mint)]/40 px-[20px] py-[16px] text-[18px] font-bold leading-[23px] text-[var(--color-black)]">
+      {% trans "Личные данные обновлены." %}
+    </div>
+  {% endif %}
+  {% if personal_form.non_field_errors %}
+    <div class="mb-[30px] rounded-[10px] border border-red-200 bg-red-50 px-[20px] py-[16px] text-[16px] font-bold leading-[22px] text-red-800">
+      {{ personal_form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <label class="block">
+    <span class="text-[20px] font-bold leading-[26px]">{% trans "Имя" %}</span>
+    <input
+      type="text"
+      name="{{ personal_form.first_name.html_name }}"
+      value="{{ personal_form.first_name.value|default:'' }}"
+      class="account-input mt-[20px] h-[54px]"
+      autocomplete="given-name"
+    >
+    {% if personal_form.first_name.errors %}
+      <p class="mt-[12px] text-[16px] font-bold leading-[20px] text-red-700">{{ personal_form.first_name.errors|join:", " }}</p>
+    {% endif %}
+  </label>
+
+  <label class="mt-[50px] block">
+    <span class="text-[20px] font-bold leading-[26px]">{% trans "Фамилия" %}</span>
+    <input
+      type="text"
+      name="{{ personal_form.last_name.html_name }}"
+      value="{{ personal_form.last_name.value|default:'' }}"
+      class="account-input mt-[20px] h-[54px]"
+      autocomplete="family-name"
+    >
+    {% if personal_form.last_name.errors %}
+      <p class="mt-[12px] text-[16px] font-bold leading-[20px] text-red-700">{{ personal_form.last_name.errors|join:", " }}</p>
+    {% endif %}
+  </label>
+
+  <label class="mt-[50px] block">
+    <span class="text-[20px] font-bold leading-[26px]">{% trans "Email" %} *</span>
+    <input
+      type="email"
+      name="{{ personal_form.email.html_name }}"
+      value="{{ personal_form.email.value|default:'' }}"
+      class="account-input mt-[20px] h-[54px] bg-[var(--color-grey)]/20 text-[var(--color-black-80)]"
+      autocomplete="email"
+      readonly
+      disabled
+    >
+    {% if personal_form.email.errors %}
+      <p class="mt-[12px] text-[16px] font-bold leading-[20px] text-red-700">{{ personal_form.email.errors|join:", " }}</p>
+    {% endif %}
+  </label>
+
+  <div class="mt-[30px] flex justify-end">
+    <button type="submit" class="btn-purple h-[60px] w-[211px] text-[16px]">{% trans "Сохранить" %}</button>
+  </div>
+</form>

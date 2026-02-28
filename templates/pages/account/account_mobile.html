@@ -46,7 +46,7 @@
     {% include "pages/account/copy/greeting.html" %}
 
       <div class="mt-[40px] flex flex-col gap-[40px]">
-        <details class="group rounded-[10px]" data-account-section="personal">
+        <details class="group rounded-[10px]" data-account-section="personal" {% if personal_form_expanded %}open{% endif %}>
           <summary class="account-nav-item w-full cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden">
             <span class="inline-flex items-center gap-[10px] text-[16px] font-bold">
               <img
@@ -67,26 +67,66 @@
               >
           </summary>
 
-          <div class="mt-[20px]">
+          <form method="post" action="{% url 'account' %}?tab=personal" class="mt-[20px]">
+            {% csrf_token %}
+            {% if personal_form_saved %}
+              <div class="mb-[20px] rounded-[10px] border border-[var(--color-turquoise)] bg-[var(--color-mint)]/40 px-[16px] py-[14px] text-[14px] font-bold leading-[18px] text-[var(--color-black)]">
+                {% trans "Личные данные обновлены." %}
+              </div>
+            {% endif %}
+            {% if personal_form.non_field_errors %}
+              <div class="mb-[20px] rounded-[10px] border border-red-200 bg-red-50 px-[16px] py-[14px] text-[14px] font-bold leading-[18px] text-red-800">
+                {{ personal_form.non_field_errors }}
+              </div>
+            {% endif %}
             <label class="block">
               <span class="text-[14px] font-normal">{% trans "Имя" %}</span>
-              <input type="text" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="given-name">
+              <input
+                type="text"
+                name="{{ personal_form.first_name.html_name }}"
+                value="{{ personal_form.first_name.value|default:'' }}"
+                class="account-input account-input-thin mt-[10px] h-[40px]"
+                autocomplete="given-name"
+              >
+              {% if personal_form.first_name.errors %}
+                <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ personal_form.first_name.errors|join:", " }}</p>
+              {% endif %}
             </label>
 
             <label class="mt-[20px] block">
               <span class="text-[14px] font-normal">{% trans "Фамилия" %}</span>
-              <input type="text" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="family-name">
+              <input
+                type="text"
+                name="{{ personal_form.last_name.html_name }}"
+                value="{{ personal_form.last_name.value|default:'' }}"
+                class="account-input account-input-thin mt-[10px] h-[40px]"
+                autocomplete="family-name"
+              >
+              {% if personal_form.last_name.errors %}
+                <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ personal_form.last_name.errors|join:", " }}</p>
+              {% endif %}
             </label>
 
             <label class="mt-[20px] block">
               <span class="text-[14px] font-normal">{% trans "Email" %} *</span>
-              <input type="email" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="email">
+              <input
+                type="email"
+                name="{{ personal_form.email.html_name }}"
+                value="{{ personal_form.email.value|default:'' }}"
+                class="account-input account-input-thin mt-[10px] h-[40px] bg-[var(--color-grey)]/20 text-[var(--color-black-80)]"
+                autocomplete="email"
+                readonly
+                disabled
+              >
+              {% if personal_form.email.errors %}
+                <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ personal_form.email.errors|join:", " }}</p>
+              {% endif %}
             </label>
 
-            <button type="button" class="btn-purple mt-[50px] w-full text-[16px] h-[40px] font-semibold">
+            <button type="submit" class="btn-purple mt-[50px] h-[40px] w-full text-[16px] font-semibold">
               {% trans "Сохранить" %}
             </button>
-          </div>
+          </form>
         </details>
 
         <details class="group rounded-[10px]" data-account-section="orders">
@@ -293,7 +333,7 @@
         </div>
       </details>
 
-      <details class="group rounded-[10px]" data-account-section="password">
+      <details class="group rounded-[10px]" data-account-section="password" {% if password_form_expanded %}open{% endif %}>
         <summary class="account-nav-item w-full cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden">
           <span class="inline-flex items-center gap-[10px] text-[16px] font-bold">
             <img
@@ -314,26 +354,61 @@
             >
         </summary>
 
-        <div class="mt-[20px]">
+        <form method="post" action="{% url 'account' %}?tab=password" class="mt-[20px]">
+          {% csrf_token %}
+          {% if password_form_saved %}
+            <div class="mb-[20px] rounded-[10px] border border-[var(--color-turquoise)] bg-[var(--color-mint)]/40 px-[16px] py-[14px] text-[14px] font-bold leading-[18px] text-[var(--color-black)]">
+              {% trans "Пароль обновлен." %}
+            </div>
+          {% endif %}
+          {% if password_form.non_field_errors %}
+            <div class="mb-[20px] rounded-[10px] border border-red-200 bg-red-50 px-[16px] py-[14px] text-[14px] font-bold leading-[18px] text-red-800">
+              {{ password_form.non_field_errors }}
+            </div>
+          {% endif %}
           <label class="block">
             <span class="text-[14px] font-normal leading-[18px]">{% trans "Текущий пароль" %} *</span>
-            <input type="password" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="current-password">
+            <input
+              type="password"
+              name="{{ password_form.old_password.html_name }}"
+              class="account-input account-input-thin mt-[10px] h-[40px]"
+              autocomplete="current-password"
+            >
+            {% if password_form.old_password.errors %}
+              <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ password_form.old_password.errors|join:", " }}</p>
+            {% endif %}
           </label>
 
           <label class="mt-[20px] block">
             <span class="text-[14px] font-normal leading-[18px]">{% trans "Новый пароль" %} *</span>
-            <input type="password" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="new-password">
+            <input
+              type="password"
+              name="{{ password_form.new_password1.html_name }}"
+              class="account-input account-input-thin mt-[10px] h-[40px]"
+              autocomplete="new-password"
+            >
+            {% if password_form.new_password1.errors %}
+              <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ password_form.new_password1.errors|join:", " }}</p>
+            {% endif %}
           </label>
 
           <label class="mt-[20px] block">
-            <span class="text-[14px] font-normal leading-[18px]">{% trans "Повторить новый пароль" %} *</span>
-            <input type="password" class="account-input account-input-thin mt-[10px] h-[40px]" autocomplete="new-password">
+            <span class="text-[14px] font-normal leading-[18px]">{% trans "Повторите новый пароль" %} *</span>
+            <input
+              type="password"
+              name="{{ password_form.new_password2.html_name }}"
+              class="account-input account-input-thin mt-[10px] h-[40px]"
+              autocomplete="new-password"
+            >
+            {% if password_form.new_password2.errors %}
+              <p class="mt-[8px] text-[14px] font-bold leading-[18px] text-red-700">{{ password_form.new_password2.errors|join:", " }}</p>
+            {% endif %}
           </label>
 
-          <button type="button" class="btn-purple mt-[50px] w-full text-[16px] h-[40px] font-semibold">
-            {% trans "Отправить" %}
+          <button type="submit" class="btn-purple mt-[50px] h-[40px] w-full text-[16px] font-semibold">
+            {% trans "Сохранить" %}
           </button>
-        </div>
+        </form>
       </details>
 
         <button
