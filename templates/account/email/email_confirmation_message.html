@@ -1,0 +1,89 @@
+{% load i18n static account %}
+{% autoescape off %}
+{% user_display user as user_display %}
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% trans "Подтверждение адреса электронной почты" %}</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#fdf6ef;font-family:'Trebuchet MS',Arial,sans-serif;color:#222222;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(180deg,#fff8f2 0%,#fdf6ef 100%);margin:0;padding:24px 0;">
+      <tr>
+        <td align="center" style="padding:0 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background-color:#ffffff;border:1px solid #f7d5a2;border-radius:28px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 32px 12px;background:linear-gradient(135deg,#fff4d8 0%,#ffffff 55%,#eefaf9 100%);text-align:center;">
+                <a href="{{ request.scheme }}://{{ current_site.domain }}/" style="text-decoration:none;display:inline-block;">
+                  <img
+                    src="{{ request.scheme }}://{{ current_site.domain }}{% static 'images/logo.svg' %}"
+                    alt="PaliGames"
+                    width="256"
+                    style="display:block;width:256px;max-width:100%;height:auto;margin:0 auto;border:0;"
+                  >
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 40px;">
+                <p style="margin:0 0 20px;font-size:16px;line-height:25px;">
+                  {% blocktrans trimmed with user_display=user_display %}
+                  Здравствуйте! Вы получили это письмо, потому что пользователь {{ user_display }} указал этот адрес электронной почты при регистрации.
+                  {% endblocktrans %}
+                </p>
+
+                {% if code %}
+                  <p style="margin:0 0 16px;font-size:16px;line-height:25px;">
+                    {% blocktrans trimmed %}
+                    Введите этот код подтверждения в открытом окне браузера:
+                    {% endblocktrans %}
+                  </p>
+                  <div style="margin:0 0 24px;padding:18px 20px;border-radius:18px;background-color:#fff8f2;border:2px dashed #2dc0c2;text-align:center;font-size:28px;line-height:32px;font-weight:700;letter-spacing:4px;color:#dd5e8d;">
+                    {{ code }}
+                  </div>
+                {% else %}
+                  <p style="margin:0 0 24px;font-size:16px;line-height:25px;">
+                    {% blocktrans trimmed %}
+                    Чтобы подтвердить адрес электронной почты, нажмите на кнопку ниже.
+                    {% endblocktrans %}
+                  </p>
+
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 28px;">
+                    <tr>
+                      <td align="center" bgcolor="#dd5e8d" style="border-radius:14px;box-shadow:0 8px 20px rgba(221,94,141,0.24);">
+                        <a
+                          href="{{ activate_url }}"
+                          style="display:inline-block;padding:16px 28px;font-size:17px;line-height:21px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;background:linear-gradient(135deg,#dd5e8d 0%,#ff8e61 100%);"
+                        >
+                          {% trans "Подтвердить email" %}
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="margin:0 0 12px;font-size:15px;line-height:24px;color:#4a4a4a;">
+                    {% blocktrans trimmed %}
+                    Если кнопка не открывается или ссылка не срабатывает, скопируйте адрес ниже и вставьте его в адресную строку браузера:
+                    {% endblocktrans %}
+                  </p>
+
+                  <p style="margin:0 0 28px;padding:14px 16px;background-color:#f5fbfb;border:1px solid #bfeaea;border-radius:16px;word-break:break-word;font-size:14px;line-height:22px;">
+                    <a href="{{ activate_url }}" style="color:#2dc0c2;text-decoration:underline;">{{ activate_url }}</a>
+                  </p>
+                {% endif %}
+
+                <p style="margin:0 0 10px;font-size:16px;line-height:25px;">
+                  {% blocktrans trimmed with site_name=current_site.name %}
+                  Спасибо, что вы с нами. Команда {{ site_name }}.
+                  {% endblocktrans %}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+{% endautoescape %}

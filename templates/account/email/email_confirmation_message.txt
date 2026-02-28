@@ -1,0 +1,27 @@
+{% load i18n account %}
+{% autoescape off %}
+{% user_display user as user_display %}
+{% blocktrans trimmed with user_display=user_display %}
+Здравствуйте!
+
+Вы получили это письмо, потому что пользователь {{ user_display }} указал этот адрес электронной почты при регистрации.
+{% endblocktrans %}
+
+{% if code %}
+{% blocktrans trimmed %}
+Введите этот код подтверждения в открытом окне браузера:
+{% endblocktrans %}
+
+{{ code }}
+{% else %}
+{% blocktrans trimmed %}
+Чтобы подтвердить адрес электронной почты, перейдите по ссылке:
+{% endblocktrans %}
+
+{{ activate_url }}
+{% endif %}
+
+{% blocktrans trimmed with site_name=current_site.name %}
+Спасибо, что вы с нами. Команда {{ site_name }}.
+{% endblocktrans %}
+{% endautoescape %}

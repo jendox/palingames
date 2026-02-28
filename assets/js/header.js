@@ -1,4 +1,8 @@
 (function () {
+  // Temporary restriction: keep the secondary desktop header sticky only on the home page.
+  // To restore the old behavior everywhere, remove this guard.
+  if (document.body?.dataset.pageName !== "home") return;
+
   const secondaryWrap = document.querySelector("[data-header-secondary-wrap]");
   const secondaryNav = document.querySelector("[data-header-secondary-nav]");
   if (!secondaryWrap || !secondaryNav) return;

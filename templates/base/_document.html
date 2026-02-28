@@ -12,7 +12,10 @@
 
     {% block head %}{% endblock %}
   </head>
-  <body class="min-h-screen bg-gray-50 text-gray-900 pb-[110px] min-[1024px]:pb-0">
+  <body
+    class="min-h-screen bg-gray-50 text-gray-900 pb-[110px] min-[1024px]:pb-0"
+    data-page-name="{{ request.resolver_match.url_name|default:'' }}"
+  >
     {% block body %}{% endblock %}
   </body>
 </html>

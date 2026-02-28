@@ -128,7 +128,7 @@
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Корзина" %}
                 </a>
-                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                <a href="{% url 'catalog' %}" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Каталог" %}
                 </a>
@@ -148,7 +148,7 @@
                 <button
                   type="button"
                   data-dialog-open="logoutConfirmDialog"
-                  class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline"
+                  class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline cursor-pointer"
                 >
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Выйти" %}
