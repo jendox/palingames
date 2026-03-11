@@ -10,19 +10,19 @@
   <div class="relative h-full w-full">
     <div
       aria-hidden="true"
-      class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 sm:hidden"
+      class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 min-[1024px]:hidden"
       style="background-image: url('{% static 'images/login-bg-mobile.svg' %}');"
     ></div>
     <div
       aria-hidden="true"
-      class="absolute inset-0 hidden bg-cover bg-center bg-no-repeat sm:block"
+      class="absolute inset-0 hidden bg-cover bg-center bg-no-repeat min-[1024px]:block"
       style="background-image: url('{% static 'images/login-bg.svg' %}');"
     ></div>
 
-    <div class="relative z-10 flex h-full w-full flex-col justify-center overflow-y-auto px-6 pt-[24px] pb-[32px] sm:block sm:py-10 lg:px-0 lg:py-0">
+    <div class="relative z-10 flex h-full w-full flex-col justify-center overflow-y-auto px-6 pt-[24px] pb-[32px] min-[1024px]:block min-[1024px]:px-0 min-[1024px]:py-0">
       <div
-        class="mx-auto flex w-full max-w-[366px] flex-col lg:absolute lg:left-[59px] lg:top-[144px] lg:h-[572px]
-          lg:w-[366px] lg:max-w-none"
+        class="mx-auto flex w-full max-w-[366px] flex-col min-[1024px]:absolute min-[1024px]:left-[59px] min-[1024px]:top-[144px] min-[1024px]:h-[572px]
+          min-[1024px]:w-[366px] min-[1024px]:max-w-none"
       >
         <h2 class="font-airfool text-center text-[40px] leading-[40px] text-[var(--color-black)]">
           {% trans "ВХОД" %}
@@ -37,7 +37,7 @@
         <form
           data-headless-login-form
           data-headless-endpoint="/_allauth/browser/v1/auth/login"
-          class="mt-[36px] sm:mt-[50px]"
+          class="mt-[36px] min-[1024px]:mt-[50px]"
           method="post"
           action="#"
         >
@@ -98,7 +98,7 @@
               Войти
             </button>
 
-            <div class="mt-[40px] text-center text-[18px] leading-[18px] text-[var(--color-black)] sm:mt-[50px]">
+            <div class="mt-[40px] text-center text-[18px] leading-[18px] text-[var(--color-black)] min-[1024px]:mt-[50px]">
               <a href="#" data-dialog-switch="passwordResetDialog" class="hover:underline">
                 {% trans "Забыли пароль?" %}
               </a>
@@ -111,7 +111,7 @@
             </div>
           </div>
 
-          <div class="mt-[40px] flex items-center justify-center gap-[25px] sm:mt-[50px]">
+          <div class="mt-[40px] flex items-center justify-center gap-[25px] min-[1024px]:mt-[50px]">
             {% include "components/modals/_social_buttons.html" %}
           </div>
         </form>
