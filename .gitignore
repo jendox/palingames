@@ -291,3 +291,5 @@ pyrightconfig.json
 
 .django_tailwind_cli/
 /assets/css/tailwind.css
+
+.vscode/
