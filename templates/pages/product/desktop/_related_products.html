@@ -1,0 +1,50 @@
+{% load static i18n %}
+
+<section class="mt-[100px]">
+  <div class="mx-auto max-w-[1500px] px-[42px] min-[1600px]:px-[72px]">
+    <div class="flex items-start gap-[12px]">
+      <h2 class="text-[40px] font-bold uppercase leading-[48px] text-[var(--color-black)]">
+        {% trans "Похожие товары" %}
+      </h2>
+      <img
+        src="{% static 'images/decor/stars/star-orange.svg' %}"
+        alt=""
+        class="mt-[4px] h-[24px] w-[24px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+    </div>
+  </div>
+
+  <div class="mt-[70px]">
+    <div class="overflow-x-auto px-[42px] pb-[10px] min-[1600px]:px-[72px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div class="flex snap-x snap-mandatory gap-[40px] min-w-max min-[1600px]:gap-[56px]">
+        {% for image_id in "1234" %}
+          {% include "pages/product/desktop/_related_product_card.html" %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mx-auto mt-[50px] max-w-[1500px] px-[42px] min-[1600px]:px-[72px]">
+    <div class="flex items-center justify-center gap-[18px]">
+      <button type="button" class="inline-flex size-[26px] items-center justify-center" aria-label="{% trans 'Предыдущие похожие товары' %}">
+        <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[16px] w-[10px]" aria-hidden="true">
+      </button>
+      <div class="flex items-center gap-[10px]">
+        <span class="size-[6px] rounded-full bg-[var(--color-green)]"></span>
+        <span class="size-[6px] rounded-full bg-[var(--color-green)]/30"></span>
+        <span class="size-[6px] rounded-full bg-[var(--color-green)]/30"></span>
+      </div>
+      <button type="button" class="inline-flex size-[26px] items-center justify-center" aria-label="{% trans 'Следующие похожие товары' %}">
+        <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[16px] w-[10px]" aria-hidden="true">
+      </button>
+    </div>
+
+    <div class="mt-[16px] flex justify-end">
+      <a href="{% url 'catalog' %}" class="text-[16px] font-bold uppercase leading-[14px] text-[var(--color-black)] underline underline-offset-[3px]">
+        {% trans "Посмотреть все" %}
+      </a>
+    </div>
+  </div>
+</section>
