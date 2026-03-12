@@ -1,59 +1,145 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[#f7f7f7] px-4 py-[40px]">
-  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
-    <img
-      src="{% static 'images/decor/clouds/cloud-2.svg' %}"
-      alt=""
-      class="absolute left-[18px] top-[18px] w-[66px] opacity-80"
-      draggable="false"
+<section class="relative overflow-hidden bg-[#f6f5f3] px-4 pb-[48px] pt-[50px]">
+  <div class="relative z-10 mx-auto max-w-[380px]">
+    <div
+      class="relative mx-auto max-w-[344px]"
+      data-product-gallery
+      data-gallery-alt="{% trans 'Маленькие шаги к большой цели' %}"
+      data-gallery-autoplay-ms="0"
     >
-    <img
-      src="{% static 'images/decor/clouds/cloud-3.svg' %}"
-      alt=""
-      class="absolute right-[24px] top-[34px] w-[46px] opacity-80"
-      draggable="false"
-    >
-  </div>
+      {% with main_image=product_image_urls.0|default:'' %}
+        <img
+          src="{{ main_image }}"
+          alt="{% trans 'Маленькие шаги к большой цели' %}"
+          class="w-full rounded-[14px] object-cover shadow-[0_18px_36px_rgba(0,0,0,0.08)]"
+          draggable="false"
+          data-gallery-main-image
+        >
 
-  <div class="relative z-10 mx-auto max-w-[380px] rounded-[24px] bg-[var(--color-white)] px-5 py-6 shadow-[0_18px_40px_rgba(0,0,0,0.05)]">
-    <img
-      src="{% static 'images/example-product-image-1.png' %}"
-      alt="{% trans 'Маленькие шаги к большой цели' %}"
-      class="h-auto w-full rounded-[18px] object-cover"
-      draggable="false"
-    >
-
-    <h1 class="mt-5 text-[24px] font-bold uppercase leading-[30px] text-[var(--color-black)]">
-      {% trans "Маленькие шаги к большой цели" %}
-    </h1>
-
-    <div class="mt-4 flex items-center gap-2">
-      <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-4" aria-hidden="true">
-      <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-4" aria-hidden="true">
-      <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-4" aria-hidden="true">
-      <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-4" aria-hidden="true">
-      <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-4" aria-hidden="true">
-      <span class="ml-1 text-[14px] font-bold leading-[18px] text-[var(--color-black-80)]">49 (1)</span>
+        {% if product_image_urls|length > 1 %}
+          <div class="mt-[50px] flex items-center justify-center gap-[10px]">
+            {% for image_url in product_image_urls %}
+              <button
+                type="button"
+                class="h-[6px] w-[6px] rounded-full"
+                style="background-color: {% if forloop.first %}var(--color-purple){% else %}#EECFF0{% endif %};"
+                aria-label="{% blocktrans with number=forloop.counter %}Показать изображение {{ number }}{% endblocktrans %}"
+                aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                data-gallery-dot="{{ forloop.counter0 }}"
+                data-gallery-image-url="{{ image_url }}"
+              ></button>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
     </div>
 
-    <p class="mt-5 text-[14px] leading-[20px] text-[var(--color-black-80)]">
-      {% trans "Макет предназначен для цифрового вида — PDF-файл для самостоятельного распечатывания." %}
-    </p>
+    <div class="mt-[50px]">
+      <h1 class="font-airfool text-[20px] text-[var(--color-black)]">
+        {% trans "Маленькие шаги к большой цели" %}
+      </h1>
 
-    <div class="mt-6">
-      <h2 class="text-[16px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Наполнение:" %}</h2>
-      <ul class="mt-3 space-y-2 pl-5 text-[14px] leading-[18px] text-[var(--color-black-80)]">
-        <li>{% trans "Фон - 2 листа формата A4" %}</li>
-        <li>{% trans "Элементы - 1 лист формата A4" %}</li>
-      </ul>
+      <p class="mt-[12px] text-[12px] text-[var(--color-black-80)]">
+        {% trans "Интерактивный плакат" %}
+      </p>
+
+      <div class="mt-[20px] flex items-center gap-[5px]">
+        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+        <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+        <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">4.9 (12)</span>
+      </div>
+
+      <p class="mt-[20px] max-w-[330px] text-[14px] text-[var(--color-black-80)]">
+        {% trans "Материал предоставляется в цифровом виде — PDF файл для скачивания и самостоятельного распечатывания." %}
+      </p>
+
+      <div class="mt-[20px]">
+        <h2 class="text-[16px] font-bold uppercase text-[var(--color-black)]">{% trans "Наполнение:" %}</h2>
+        <ul class="mt-[15px] list-disc pl-[18px] text-[14px] leading-[18px] text-[var(--color-black-80)] marker:text-[var(--color-black-80)]">
+          <li>{% trans "Фон - 2 листа формата A4" %}</li>
+          <li>{% trans "Элементы - 1 лист формата A4" %}</li>
+        </ul>
+      </div>
     </div>
 
-    <div class="mt-8 flex items-center justify-between gap-4">
-      <div class="text-[28px] font-bold leading-[34px] text-[var(--color-black)]">1,2 BYN</div>
-      <button type="button" class="inline-flex h-[52px] min-w-[152px] items-center justify-center rounded-[12px] bg-[var(--color-orange)] px-6 text-[18px] font-bold text-[var(--color-white)]">
-        {% trans "Купить" %}
-      </button>
+    <div class="mt-[45px] divide-y divide-black/10 rounded-[16px] bg-transparent">
+      <details class="group py-[14px]" data-mobile-disclosure>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
+          <span>{% trans "Описание" %}</span>
+          <img
+            src="{% static 'images/icons/arrow-down-black.svg' %}"
+            alt=""
+            class="h-[8px] w-[12px] transition-transform"
+            aria-hidden="true"
+            data-mobile-disclosure-icon
+          >
+        </summary>
+        <div class="pt-[14px]">
+          <p class="max-w-[356px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+            {% trans "Дидактическая игра «Виды транспорта» помогает формировать познавательный интерес к разным видам транспорта, а также закрепить знания о классификации, его особенностях и назначении." %}
+          </p>
+        </div>
+      </details>
+
+      <details class="group py-[14px]" data-mobile-disclosure>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
+          <span>{% blocktrans with count=product_reviews|length %}Отзывы ({{ count }}){% endblocktrans %}</span>
+          <img
+            src="{% static 'images/icons/arrow-down-black.svg' %}"
+            alt=""
+            class="h-[8px] w-[12px] transition-transform"
+            aria-hidden="true"
+            data-mobile-disclosure-icon
+          >
+        </summary>
+        {% include "pages/product/mobile/_reviews.html" %}
+      </details>
+
+      <details class="group py-[14px]" data-mobile-disclosure>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
+          <span>{% trans "Оплата" %}</span>
+          <img
+            src="{% static 'images/icons/arrow-down-black.svg' %}"
+            alt=""
+            class="h-[8px] w-[12px] transition-transform"
+            aria-hidden="true"
+            data-mobile-disclosure-icon
+          >
+        </summary>
+        <div class="pt-[14px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+          <p>
+            {% trans "После оплаты вы получаете цифровой материал в формате PDF для самостоятельного скачивания и печати." %}
+          </p>
+          <p class="mt-[14px]">
+            {% trans "Ссылка на скачивание предоставляется сразу после подтверждения платежа." %}
+          </p>
+        </div>
+      </details>
+
+      <details class="group py-[14px]" data-mobile-disclosure>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
+          <span>{% trans "Как играть в игру" %}</span>
+          <img
+            src="{% static 'images/icons/arrow-down-black.svg' %}"
+            alt=""
+            class="h-[8px] w-[12px] transition-transform"
+            aria-hidden="true"
+            data-mobile-disclosure-icon
+          >
+        </summary>
+        <div class="pt-[14px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+          <p>
+            {% trans "Распечатайте фон и элементы, подготовьте карточки и предложите ребенку рассортировать транспорт по видам, назначению или среде передвижения." %}
+          </p>
+          <p class="mt-[14px]">
+            {% trans "Материал подходит для индивидуальных занятий и для работы в мини-группе." %}
+          </p>
+        </div>
+      </details>
     </div>
   </div>
 </section>

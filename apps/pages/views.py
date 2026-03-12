@@ -4,6 +4,7 @@ from urllib.parse import quote
 from django.contrib.auth import update_session_auth_hash
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.templatetags.static import static
 from django.views.generic import TemplateView
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
@@ -72,6 +73,11 @@ class ProductPageView(TemplateView):
             ),
         },
     ]
+    sample_image_urls = [
+        static("images/example-product-image-1.png"),
+        static("images/example-product-image-2.png"),
+        static("images/example-product-image-3.png"),
+    ]
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request") == "true":
@@ -84,6 +90,7 @@ class ProductPageView(TemplateView):
         context["product_active_tab"] = active_tab
         context["product_active_tab_template"] = self.tab_templates[active_tab]
         context["product_reviews"] = self.sample_reviews
+        context["product_image_urls"] = self.sample_image_urls
         return context
 
 
