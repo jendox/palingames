@@ -1,0 +1,71 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[88px] min-[1600px]:px-[72px]">
+    <div class="flex items-start justify-between gap-[40px]">
+      <div>
+        <h1 class="text-[40px] font-bold uppercase leading-[40px] text-[var(--color-black)]">
+          {% trans "Корзина" %}
+        </h1>
+        <p class="mt-[18px] text-[20px] font-bold leading-[20px] text-[var(--color-black-80)]">
+          {% blocktrans count count=cart_items|length %}{{ count }} товар{% plural %}{{ count }} товара{% endblocktrans %}
+        </p>
+      </div>
+
+      <a
+        href="{% url 'catalog' %}"
+        class="inline-flex items-center gap-[10px] pt-[8px] text-[20px] font-bold leading-[20px] text-[var(--color-black)] underline underline-offset-[4px] hover:text-[var(--color-turquoise)]"
+      >
+        <img src="{% static 'images/header/cart_hover.svg' %}" alt="" class="h-[16px] w-[18px]" aria-hidden="true">
+        {% trans "Продолжить покупки" %}
+      </a>
+    </div>
+
+    <div class="mt-[52px] grid grid-cols-[minmax(0,1fr)_373px] items-start gap-[34px] min-[1440px]:grid-cols-[minmax(0,1fr)_406px] min-[1440px]:gap-[46px]">
+      <div class="space-y-[30px]">
+        {% for item in cart_items %}
+          {% include "pages/cart/desktop/_cart_item.html" %}
+        {% endfor %}
+      </div>
+
+      <aside class="sticky top-[24px] overflow-hidden rounded-[20px] bg-[var(--color-white)] shadow-[0_14px_40px_rgba(0,0,0,0.08)] ring-1 ring-black/5">
+        <div class="bg-[var(--color-mint)] px-[32px] pb-[24px] pt-[28px]">
+          <p class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
+            {% trans "Ваш заказ" %}
+          </p>
+          <div class="mt-[28px] space-y-[18px] text-[18px] leading-[20px] text-[var(--color-black)]">
+            <div class="flex items-center justify-between gap-4">
+              <span>{% trans "Товаров" %}</span>
+              <span class="font-bold">{{ cart_items|length }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <span>{% trans "Формат" %}</span>
+              <span class="font-bold">{% trans "PDF" %}</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <span>{% trans "Доставка" %}</span>
+              <span class="font-bold">{% trans "онлайн" %}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-[32px] pb-[30px] pt-[28px]">
+          <div class="flex items-end justify-between gap-4">
+            <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
+              {% trans "Итого" %}
+            </span>
+            <span class="text-[40px] font-bold leading-[40px] text-[var(--color-black)]">{{ cart_total }}</span>
+          </div>
+
+          <button type="button" class="btn-orange mt-[34px] w-full text-[20px]">
+            {% trans "Оформить заказ" %}
+          </button>
+
+          <p class="mt-[20px] max-w-[300px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "Цифровые материалы будут доступны сразу после подтверждения оплаты и отправятся на указанный email." %}
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>

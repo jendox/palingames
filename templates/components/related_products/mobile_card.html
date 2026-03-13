@@ -1,0 +1,34 @@
+{% load static i18n %}
+
+<article class="w-[170px] shrink-0 overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
+  <div class="relative">
+    <img
+      src="{{ product.image_url }}"
+      alt="{{ product.title }}"
+      class="h-[118px] w-full object-cover"
+      draggable="false"
+    >
+    <button
+      type="button"
+      class="absolute right-[10px] top-[10px] inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.9)] shadow-[0_8px_16px_rgba(0,0,0,0.08)]"
+      aria-label="{% trans 'Добавить в избранное' %}"
+    >
+      <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[16px]" aria-hidden="true">
+    </button>
+  </div>
+
+  <div class="{% cycle 'bg-[var(--color-mint)] text-[var(--color-turquoise)]' 'bg-[var(--color-lilac)] text-[var(--color-purple)]' 'bg-[var(--color-mint)] text-[var(--color-turquoise)]' %} px-[12px] pb-[12px] pt-[10px]">
+    <h3 class="min-h-[40px] text-[14px] font-bold leading-[16px] text-[var(--color-black)]">
+      {{ product.title }}
+    </h3>
+    <p class="mt-[6px] text-[10px] leading-[12px] text-[var(--color-black-80)]">
+      {{ product.kind }}
+    </p>
+    <div class="mt-[10px] flex items-center justify-between gap-[8px]">
+      <div class="text-[18px] font-bold leading-none text-[var(--color-black)]">{{ product.price }}</div>
+      <button type="button" class="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.9)]" aria-label="{% trans 'Скачать PDF' %}">
+        <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="h-[14px] w-[12px]" aria-hidden="true">
+      </button>
+    </div>
+  </div>
+</article>

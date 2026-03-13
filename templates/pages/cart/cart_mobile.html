@@ -1,0 +1,39 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[60px] pt-[44px]">
+  <div class="mx-auto max-w-[394px]">
+    <h1 class="text-center text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">
+      {% trans "Корзина" %}
+    </h1>
+    <p class="mt-[14px] text-center text-[14px] font-bold leading-[14px] text-[var(--color-black-80)]">
+      {% blocktrans count count=cart_items|length %}{{ count }} товар{% plural %}{{ count }} товара{% endblocktrans %}
+    </p>
+
+    <div class="mt-[30px] space-y-[18px]">
+      {% for item in cart_items %}
+        {% include "pages/cart/mobile/_cart_item.html" %}
+      {% endfor %}
+    </div>
+
+    <div class="mt-[24px] overflow-hidden rounded-[20px] bg-[var(--color-white)] shadow-[0_14px_30px_rgba(0,0,0,0.08)] ring-1 ring-black/5">
+      <div class="bg-[var(--color-mint)] px-[18px] pb-[16px] pt-[18px]">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-[16px] font-bold uppercase leading-none text-[var(--color-black)]">{% trans "Ваш заказ" %}</span>
+          <span class="text-[14px] font-bold leading-none text-[var(--color-black)]">{{ cart_items|length }}</span>
+        </div>
+      </div>
+      <div class="px-[18px] pb-[20px] pt-[18px]">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-[16px] font-bold uppercase leading-none text-[var(--color-black)]">{% trans "Итого" %}</span>
+          <span class="text-[28px] font-bold leading-[28px] text-[var(--color-black)]">{{ cart_total }}</span>
+        </div>
+        <p class="mt-[14px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+          {% trans "Цифровые материалы будут доступны сразу после подтверждения оплаты." %}
+        </p>
+        <button type="button" class="btn-orange mt-[18px] w-full text-[18px]">
+          {% trans "Оформить заказ" %}
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

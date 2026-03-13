@@ -3,10 +3,9 @@
 <article class="w-[320px] shrink-0 snap-start overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_16px_34px_rgba(0,0,0,0.07)] min-[1600px]:w-[360px]">
   <div class="relative">
     <img
-      src="{% static 'images/example-product-image-2.png' %}"
-      alt=""
+      src="{{ product.image_url }}"
+      alt="{{ product.title }}"
       class="h-[248px] w-full object-cover min-[1600px]:h-[272px]"
-      aria-hidden="true"
       draggable="false"
     >
     <button
@@ -20,13 +19,13 @@
 
   <div class="bg-[linear-gradient(180deg,rgba(156,165,111,0.82)_0%,rgba(116,122,82,0.98)_100%)] px-[18px] pb-[16px] pt-[14px] text-[var(--color-white)] min-[1600px]:px-[22px] min-[1600px]:pb-[18px] min-[1600px]:pt-[16px]">
     <h3 class="text-[18px] font-bold leading-[23px] min-[1600px]:text-[20px] min-[1600px]:leading-[25px]">
-      {% trans "Белорусский национальный строй" %}
+      {{ product.title }}
     </h3>
     <p class="mt-[6px] text-[11px] leading-[14px] text-[rgba(255,255,255,0.8)] min-[1600px]:text-[12px]">
-      {% trans "дидактическая игра" %}
+      {{ product.kind|lower }}
     </p>
     <div class="mt-[14px] flex items-center justify-between">
-      <div class="text-[20px] font-bold leading-[24px] min-[1600px]:text-[22px]">1,5 BYN</div>
+      <div class="text-[20px] font-bold leading-[24px] min-[1600px]:text-[22px]">{{ product.price }}</div>
       <button
         type="button"
         class="inline-flex size-[28px] items-center justify-center rounded-[8px] bg-[rgba(255,255,255,0.9)]"

@@ -10,6 +10,28 @@ from django.views.generic import TemplateView
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
 
 
+SAMPLE_RELATED_PRODUCTS = [
+    {
+        "title": "Белорусский национальный строй",
+        "kind": "Дидактическая игра",
+        "price": "1,5 BYN",
+        "image_url": static("images/example-product-image-2.png"),
+    },
+    {
+        "title": "Транспорт",
+        "kind": "Дидактическая игра",
+        "price": "1,8 BYN",
+        "image_url": static("images/example-product-image-3.png"),
+    },
+    {
+        "title": "Алфавитный навигатор",
+        "kind": "Интерактивный плакат",
+        "price": "1,2 BYN",
+        "image_url": static("images/example-product-image-1.png"),
+    },
+]
+
+
 class AccountTab(StrEnum):
     PERSONAL = "personal"
     ORDERS = "orders"
@@ -91,6 +113,31 @@ class ProductPageView(TemplateView):
         context["product_active_tab_template"] = self.tab_templates[active_tab]
         context["product_reviews"] = self.sample_reviews
         context["product_image_urls"] = self.sample_image_urls
+        context["related_products"] = SAMPLE_RELATED_PRODUCTS
+        return context
+
+
+class CartPageView(TemplateView):
+    template_name = "pages/cart.html"
+    sample_cart_items = [
+        {
+            "title": "Мой первый английский",
+            "kind": "Интерактивный плакат",
+            "price": "1,2 BYN",
+            "image_url": static("images/example-product-image-1.png"),
+        },
+        {
+            "title": "Белорусский национальный строй",
+            "kind": "Дидактическая игра",
+            "price": "1,5 BYN",
+            "image_url": static("images/example-product-image-2.png"),
+        },
+    ]
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["cart_items"] = self.sample_cart_items
+        context["related_products"] = SAMPLE_RELATED_PRODUCTS
+        context["cart_total"] = "2,7 BYN"
         return context
 
 

@@ -18,9 +18,9 @@
 
   <div class="mt-[70px]">
     <div class="overflow-x-auto px-[42px] pb-[10px] min-[1600px]:px-[72px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div class="flex snap-x snap-mandatory gap-[40px] min-w-max min-[1600px]:gap-[56px]">
-        {% for image_id in "1234" %}
-          {% include "pages/product/desktop/_related_product_card.html" %}
+      <div class="flex min-w-max snap-x snap-mandatory gap-[40px] min-[1600px]:gap-[56px]">
+        {% for product in related_products %}
+          {% include "components/related_products/desktop_card.html" %}
         {% endfor %}
       </div>
     </div>

@@ -39,9 +39,10 @@
     </a>
 
     <a
-      href="#"
+      href="{% url 'cart' %}"
       data-mobile-nav-item
       class="mobile-nav-item flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
+      {% if request.resolver_match.url_name == "cart" %}aria-current="page"{% endif %}
     >
       <img
         src="{% static 'images/header/menu-cart-mobile.svg' %}"
