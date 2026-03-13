@@ -5,13 +5,13 @@
     <div
       class="relative mx-auto max-w-[344px]"
       data-product-gallery
-      data-gallery-alt="{% trans 'Маленькие шаги к большой цели' %}"
+      data-gallery-alt="{{ product.title }}"
       data-gallery-autoplay-ms="0"
     >
       {% with main_image=product_image_urls.0|default:'' %}
         <img
           src="{{ main_image }}"
-          alt="{% trans 'Маленькие шаги к большой цели' %}"
+          alt="{{ product.title }}"
           class="w-full rounded-[14px] object-cover shadow-[0_18px_36px_rgba(0,0,0,0.08)]"
           draggable="false"
           data-gallery-main-image
@@ -37,32 +37,58 @@
 
     <div class="mt-[50px]">
       <h1 class="font-airfool text-[20px] text-[var(--color-black)]">
-        {% trans "Маленькие шаги к большой цели" %}
+        {{ product.title }}
       </h1>
 
       <p class="mt-[12px] text-[12px] text-[var(--color-black-80)]">
-        {% trans "Интерактивный плакат" %}
+        {{ product_kind }}
       </p>
 
       <div class="mt-[20px] flex items-center gap-[5px]">
-        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-        <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-        <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-        <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">4.9 (12)</span>
+        {% for _ in "12345" %}
+          {% if forloop.counter <= product_average_rating %}
+            <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+          {% else %}
+            <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+          {% endif %}
+        {% endfor %}
+        <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
       </div>
 
       <p class="mt-[20px] max-w-[330px] text-[14px] text-[var(--color-black-80)]">
-        {% trans "Материал предоставляется в цифровом виде — PDF файл для скачивания и самостоятельного распечатывания." %}
+        {{ product.description|default:product.content|striptags|truncatechars:140 }}
       </p>
 
-      <div class="mt-[20px]">
-        <h2 class="text-[16px] font-bold uppercase text-[var(--color-black)]">{% trans "Наполнение:" %}</h2>
-        <ul class="mt-[15px] list-disc pl-[18px] text-[14px] leading-[18px] text-[var(--color-black-80)] marker:text-[var(--color-black-80)]">
-          <li>{% trans "Фон - 2 листа формата A4" %}</li>
-          <li>{% trans "Элементы - 1 лист формата A4" %}</li>
-        </ul>
+      {% if product.content %}
+        <div class="mt-[20px]">
+          <h2 class="text-[16px] font-bold uppercase text-[var(--color-black)]">{% trans "Наполнение:" %}</h2>
+          <div class="prose prose-p:my-0 prose-ul:my-0 prose-li:my-0 mt-[15px] max-w-[330px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+            {{ product_content_html|safe }}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="mt-[24px] flex items-center justify-between gap-[16px]">
+        <div class="text-[26px] font-airfool leading-none text-[var(--color-black)]">
+          {{ product_price }}
+        </div>
+        <div class="relative">
+          <button
+            type="button"
+            class="inline-flex size-[34px] items-center justify-center cursor-pointer"
+            aria-label="{% trans 'Поделиться' %}"
+            data-copy-url-button
+            data-copy-url="{{ product.get_absolute_url }}"
+          >
+            <img src="{% static 'images/icons/share.svg' %}" alt="" class="size-[30px]" aria-hidden="true">
+          </button>
+          <span
+            class="pointer-events-none absolute right-[42px] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-[8px] bg-[var(--color-white)] px-[10px] py-[6px] text-[11px] font-bold text-[var(--color-purple)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+            data-copy-url-feedback
+          >
+            {% trans "Скопировано" %}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -79,9 +105,9 @@
           >
         </summary>
         <div class="pt-[14px]">
-          <p class="max-w-[356px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
-            {% trans "Дидактическая игра «Виды транспорта» помогает формировать познавательный интерес к разным видам транспорта, а также закрепить знания о классификации, его особенностях и назначении." %}
-          </p>
+          <div class="prose prose-p:my-0 max-w-[356px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+            {{ product_description_html|safe }}
+          </div>
         </div>
       </details>
 

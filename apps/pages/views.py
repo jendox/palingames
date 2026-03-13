@@ -9,27 +9,6 @@ from django.views.generic import TemplateView
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
 
-SAMPLE_RELATED_PRODUCTS = [
-    {
-        "title": "Белорусский национальный строй",
-        "kind": "Дидактическая игра",
-        "price": "1,5 BYN",
-        "image_url": static("images/example-product-image-2.png"),
-    },
-    {
-        "title": "Транспорт",
-        "kind": "Дидактическая игра",
-        "price": "1,8 BYN",
-        "image_url": static("images/example-product-image-3.png"),
-    },
-    {
-        "title": "Алфавитный навигатор",
-        "kind": "Интерактивный плакат",
-        "price": "1,2 BYN",
-        "image_url": static("images/example-product-image-1.png"),
-    },
-]
-
 
 class AccountTab(StrEnum):
     PERSONAL = "personal"
@@ -38,25 +17,11 @@ class AccountTab(StrEnum):
     PASSWORD = "password"
 
 
-class ProductTab(StrEnum):
-    DESCRIPTION = "description"
-    REVIEWS = "reviews"
-    PAYMENT = "payment"
-    HOW_TO_PLAY = "how_to_play"
-
-
 def _get_active_tab(request) -> AccountTab:
     try:
         return AccountTab(request.GET.get("tab"))
     except ValueError:
         return AccountTab.PERSONAL
-
-
-def _get_active_product_tab(request) -> ProductTab:
-    try:
-        return ProductTab(request.GET.get("tab"))
-    except ValueError:
-        return ProductTab.DESCRIPTION
 
 
 class HomePageView(TemplateView):
@@ -69,47 +34,6 @@ class AboutPageView(TemplateView):
 
 class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
-
-
-class ProductPageView(TemplateView):
-    template_name = "pages/product.html"
-    tab_templates = {
-        ProductTab.DESCRIPTION: "pages/product/desktop/tabs/_description.html",
-        ProductTab.REVIEWS: "pages/product/desktop/tabs/_reviews.html",
-        ProductTab.PAYMENT: "pages/product/desktop/tabs/_payment.html",
-        ProductTab.HOW_TO_PLAY: "pages/product/desktop/tabs/_how_to_play.html",
-    }
-    sample_reviews = [
-        {
-            "author": "Мария Маляко",
-            "date": "14.05.2025",
-            "rating": 4,
-            "text": (
-                "Игра прекрасная. Ребенок очень доволен. "
-                "Делали игру всей семьей. Большое спасибо."
-            ),
-        },
-    ]
-    sample_image_urls = [
-        static("images/example-product-image-1.png"),
-        static("images/example-product-image-2.png"),
-        static("images/example-product-image-3.png"),
-    ]
-
-    def get_template_names(self):
-        if self.request.headers.get("HX-Request") == "true":
-            return ["pages/product/desktop/_tabs_panel.html"]
-        return [self.template_name]
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        active_tab = _get_active_product_tab(self.request)
-        context["product_active_tab"] = active_tab
-        context["product_active_tab_template"] = self.tab_templates[active_tab]
-        context["product_reviews"] = self.sample_reviews
-        context["product_image_urls"] = self.sample_image_urls
-        context["related_products"] = SAMPLE_RELATED_PRODUCTS
-        return context
 
 
 class CartPageView(TemplateView):
@@ -132,7 +56,6 @@ class CartPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cart_items"] = self.sample_cart_items
-        context["related_products"] = SAMPLE_RELATED_PRODUCTS
         context["cart_total"] = "2,7 BYN"
         return context
 

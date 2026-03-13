@@ -1,10 +1,7 @@
 {% load i18n %}
 
 <div class="max-w-[610px] pt-[22px] text-[18px] leading-[22px] text-[var(--color-black-80)]">
-  <p>
-    {% trans "Распечатайте фон и элементы, подготовьте карточки и предложите ребенку рассортировать транспорт по видам, назначению или среде передвижения." %}
-  </p>
-  <p class="mt-[16px]">
-    {% trans "Материал подходит для индивидуальных занятий и для работы в мини-группе." %}
-  </p>
+  <div class="prose prose-p:mt-0 prose-p:mb-[16px] max-w-none text-inherit">
+    {{ product_content_html|safe }}
+  </div>
 </div>
