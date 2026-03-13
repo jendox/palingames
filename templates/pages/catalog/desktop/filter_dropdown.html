@@ -1,0 +1,53 @@
+{% load i18n %}
+
+<div class="absolute left-0 top-[62px] z-20 w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
+  <form method="get" class="px-[18px] pb-[20px] pt-[16px]">
+    <input type="hidden" name="category" value="{{ selected_category.slug }}">
+    {% if catalog_sort_value %}
+      <input type="hidden" name="sort" value="{{ catalog_sort_value }}">
+    {% endif %}
+
+    <div class="pb-[8px] pt-[2px]">
+      <div class="text-[18px] font-bold leading-[22px] text-[var(--color-black)] select-none">{% trans "Цена" %}</div>
+      <div class="mt-[14px] flex gap-[12px]">
+        <input
+          type="text"
+          name="price_from"
+          value="{{ catalog_selected_price_from|default:catalog_price_bounds_display.min|default:'' }}"
+          placeholder="{% trans 'от' %}"
+          inputmode="decimal"
+          pattern="[0-9]+([,][0-9]+)?"
+          data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
+          data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+          data-float-input="comma"
+          class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
+          style="font-size: 16px;"
+        >
+        <input
+          type="text"
+          name="price_to"
+          value="{{ catalog_selected_price_to|default:catalog_price_bounds_display.max|default:'' }}"
+          placeholder="{% trans 'до' %}"
+          inputmode="decimal"
+          pattern="[0-9]+([,][0-9]+)?"
+          data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
+          data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+          data-float-input="comma"
+          class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
+          style="font-size: 16px;"
+        >
+      </div>
+    </div>
+
+    {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=catalog_filters.ages show_counts=False %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=catalog_filters.subtypes show_counts=False %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options="" show_counts=False always_render=True %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True %}
+
+    <div class="mt-[14px] flex justify-center pb-[20px]">
+      <a href="{% querystring subtype=None age=None area=None theme=None price_from=None price_to=None page=None %}" class="btn-reset-control">
+        {% trans "сбросить" %}
+      </a>
+    </div>
+  </form>
+</div>

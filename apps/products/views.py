@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Max, Min, Prefetch
 from django.core.paginator import Paginator
 from django.templatetags.static import static
 from django.views.generic import DetailView, TemplateView
@@ -49,6 +49,11 @@ class CatalogView(TemplateView):
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
+    def _format_price_value(self, value):
+        if value is None:
+            return ""
+        return f"{value:.2f}".replace(".", ",")
+
     def _selected_values(self, key):
         return self.request.GET.getlist(key)
 
@@ -57,6 +62,8 @@ class CatalogView(TemplateView):
         age_ids = self._selected_values("age")
         area_ids = self._selected_values("area")
         theme_ids = self._selected_values("theme")
+        price_from = self.request.GET.get("price_from")
+        price_to = self.request.GET.get("price_to")
 
         if subtype_ids:
             queryset = queryset.filter(subtypes__id__in=subtype_ids)
@@ -66,6 +73,16 @@ class CatalogView(TemplateView):
             queryset = queryset.filter(development_areas__id__in=area_ids)
         if theme_ids:
             queryset = queryset.filter(themes__id__in=theme_ids)
+        if price_from:
+            try:
+                queryset = queryset.filter(price__gte=price_from.replace(",", "."))
+            except ValueError:
+                pass
+        if price_to:
+            try:
+                queryset = queryset.filter(price__lte=price_to.replace(",", "."))
+            except ValueError:
+                pass
 
         return queryset.distinct()
 
@@ -118,6 +135,7 @@ class CatalogView(TemplateView):
         sort_value = self.request.GET.get("sort", "")
         page_number = self.request.GET.get("page") or 1
         category_queryset = self._base_products_queryset().filter(categories=selected_category)
+        price_bounds = category_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
         filtered_queryset = self._apply_filters(category_queryset)
         sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
         selected_subtypes = self._selected_values("subtype")
@@ -155,6 +173,16 @@ class CatalogView(TemplateView):
             "ages": selected_ages,
             "areas": selected_areas,
             "themes": selected_themes,
+        }
+        context["catalog_price_bounds"] = {
+            "min": price_bounds["min_price"],
+            "max": price_bounds["max_price"],
+        }
+        context["catalog_selected_price_from"] = self.request.GET.get("price_from", "")
+        context["catalog_selected_price_to"] = self.request.GET.get("price_to", "")
+        context["catalog_price_bounds_display"] = {
+            "min": self._format_price_value(price_bounds["min_price"]),
+            "max": self._format_price_value(price_bounds["max_price"]),
         }
         context["catalog_filters"] = {
             "subtypes": [

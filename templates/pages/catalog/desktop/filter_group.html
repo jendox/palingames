@@ -1,17 +1,30 @@
-{% load i18n %}
+{% load static i18n %}
 
-{% if options %}
-  <details class="group border-b border-[var(--color-turquoise)]/20 py-[18px]" {% if field_name == "subtype" %}open{% endif %}>
-    <summary class="flex cursor-pointer list-none items-center justify-between gap-[16px]">
-      <span class="text-[18px] font-bold leading-[20px] text-[var(--color-black)]">{{ title }}</span>
-      <span class="text-[22px] leading-none text-[var(--color-black-80)] transition-transform group-open:rotate-45">+</span>
+{% if options or always_render %}
+  <details class="filter-group group py-[16px]" {% if field_name == "age" %}open{% endif %}>
+    <summary class="flex cursor-pointer list-none select-none items-center justify-between gap-[16px] outline-none">
+      <span class="text-[18px] font-bold leading-[22px] text-[var(--color-black)]">{{ title }}</span>
+      <span class="flex h-[8px] w-[12px] items-center justify-center" aria-hidden="true">
+        <img
+          src="{% static 'images/icons/arrow-down-black.svg' %}"
+          alt=""
+          class="filter-summary-arrow-down h-[8px] w-[12px]"
+        >
+        <img
+          src="{% static 'images/icons/arrow-down-black.svg' %}"
+          alt=""
+          class="filter-summary-arrow-up h-[8px] w-[12px] rotate-180"
+        >
+      </span>
     </summary>
-    <div class="space-y-[12px] pt-[18px]">
+    <div class="space-y-[14px] pt-[18px]">
       {% for option in options %}
-        <label class="flex cursor-pointer items-start gap-[12px] text-[15px] leading-[18px] text-[var(--color-black)]">
-          <input type="checkbox" name="{{ field_name }}" value="{{ option.id }}" class="checkbox-pink mt-[1px] shrink-0" {% if option.selected %}checked{% endif %}>
-          <span>{{ option.label }}</span>
-          <span class="ml-auto shrink-0 text-[13px] text-[var(--color-black-80)]">{{ option.count }}</span>
+        <label class="checkbox-option flex w-full select-none items-start">
+          <input type="checkbox" name="{{ field_name }}" value="{{ option.id }}" class="checkbox-purple mt-[1px] shrink-0" {% if option.selected %}checked{% endif %}>
+          <span class="font-normal leading-[18px]">{{ option.label }}</span>
+          {% if show_counts %}
+            <span class="ml-auto shrink-0 text-[13px] text-[var(--color-black-80)]">{{ option.count }}</span>
+          {% endif %}
         </label>
       {% endfor %}
     </div>
