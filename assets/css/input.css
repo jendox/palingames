@@ -66,6 +66,55 @@
     outline-offset: 2px;
   }
 
+  .checkbox-purple {
+    appearance: none;
+    display: inline-block;
+    vertical-align: middle;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border-radius: 4px;
+    border: none;
+    background-color: var(--color-white);
+    box-shadow: inset 0 0 0 1px var(--color-purple);
+    cursor: pointer;
+    outline: none;
+  }
+
+  .checkbox-purple:checked {
+    background-color: var(--color-purple);
+    box-shadow: none;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2011%2010%27%20fill=%27none%27%3E%3Cpath%20d=%27M1%205.5L4%208.5L10%201.5%27%20stroke=%27%23FBFBFB%27%20stroke-width=%271%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+  }
+
+  .checkbox-purple.checked {
+    background-color: var(--color-purple);
+    box-shadow: none;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2011%2010%27%20fill=%27none%27%3E%3Cpath%20d=%27M1%205.5L4%208.5L10%201.5%27%20stroke=%27%23FBFBFB%27%20stroke-width=%271%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 14px 14px;
+  }
+
+  .checkbox-purple:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-purple) 25%, transparent);
+    outline-offset: 2px;
+  }
+
+  .checkbox-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--color-black);
+    cursor: pointer;
+    user-select: none;
+  }
+
   .modal-input {
     width: 100%;
     height: 50px;
@@ -134,6 +183,29 @@
   .btn-outline-pink:hover {
     background-color: var(--color-pink);
     color: #fff;
+  }
+
+  .btn-reset-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 175px;
+    height: 50px;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--color-grey);
+    background-color: var(--color-white);
+    color: var(--color-black);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .btn-reset-control:hover {
+    background-color: color-mix(in srgb, var(--color-lilac) 35%, var(--color-white));
   }
 
   .btn-header-primary {

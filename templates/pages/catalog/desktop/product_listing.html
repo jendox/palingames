@@ -1,6 +1,6 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)]">
+<section class="relative overflow-hidden bg-[var(--color-white)] mt-[70px]">
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute left-[168px] top-[92px] w-[34px] opacity-90" draggable="false">
     <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute left-[86px] top-[72px] w-[18px] opacity-80" draggable="false">
@@ -25,27 +25,45 @@
         </button>
       </form>
 
-      <h1 class="text-center text-[44px] font-bold uppercase leading-[44px] text-[var(--color-black)]">
+      <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
         {{ selected_category.title }}
       </h1>
 
-      <form method="get" class="relative">
-        <input type="hidden" name="category" value="{{ selected_category.slug }}">
-        {% for selected in catalog_selected_filters.subtypes %}<input type="hidden" name="subtype" value="{{ selected }}">{% endfor %}
-        {% for selected in catalog_selected_filters.ages %}<input type="hidden" name="age" value="{{ selected }}">{% endfor %}
-        {% for selected in catalog_selected_filters.areas %}<input type="hidden" name="area" value="{{ selected }}">{% endfor %}
-        {% for selected in catalog_selected_filters.themes %}<input type="hidden" name="theme" value="{{ selected }}">{% endfor %}
-        <select
-          name="sort"
-          onchange="this.form.submit()"
-          class="h-[36px] min-w-[122px] appearance-none rounded-[8px] border border-black/10 bg-[var(--color-white)] px-[12px] pr-[30px] text-[13px] font-bold text-[var(--color-black)] shadow-[0_8px_18px_rgba(0,0,0,0.04)] outline-none"
-        >
-          {% for option in catalog_sort_options %}
-            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
-          {% endfor %}
-        </select>
-        <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="pointer-events-none absolute right-[12px] top-1/2 h-[7px] w-[10px] -translate-y-1/2" aria-hidden="true">
-      </form>
+      <details class="group relative">
+        <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
+          <div class="grid h-[50px] w-[130px] cursor-pointer select-none grid-cols-[1fr_10px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
+            <span class="text-center">{% trans "сортировка" %}</span>
+            <span class="flex w-[10px] items-center justify-center">
+              <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[7px] w-[10px] group-open:hidden" aria-hidden="true">
+              <img src="{% static 'images/icons/arrow-down-white.svg' %}" alt="" class="hidden h-[10px] w-[10px] group-open:block" aria-hidden="true">
+            </span>
+          </div>
+        </summary>
+
+        <div class="absolute right-0 top-[62px] z-20 h-[310px] w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
+          <div class="flex h-full flex-col">
+            <div class="flex flex-1 flex-col gap-[15px] overflow-hidden px-[20px] pt-[20px]">
+              {% for option in catalog_sort_options %}
+                <a
+                  href="{% querystring sort=option.value page=None %}"
+                  class="flex h-[24px] items-center hover:bg-[var(--color-lilac)]/40"
+                >
+                  <span class="checkbox-option">
+                    <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
+                    <span class="font-normal">{{ option.label }}</span>
+                  </span>
+                </a>
+              {% endfor %}
+            </div>
+
+            <div class="flex justify-center px-[20px] pb-[20px] pt-[30px]">
+              <a href="{% querystring sort=None page=None %}" class="btn-reset-control">
+                {% trans "сбросить" %}
+              </a>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="mt-[26px] flex items-center justify-center gap-[26px]">

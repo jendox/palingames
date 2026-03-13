@@ -21,11 +21,11 @@ class CatalogView(TemplateView):
         },
     )
     sort_options = (
-        ("popular", "Популярные"),
-        ("price_asc", "Сначала дешевле"),
-        ("price_desc", "Сначала дороже"),
-        ("title", "По алфавиту"),
-        ("newest", "Сначала новые"),
+        ("title", "имя"),
+        ("price_desc", "цена по убыванию"),
+        ("price_asc", "цена по возрастанию"),
+        ("newest", "новые игры"),
+        ("oldest", "старые игры"),
     )
 
     def _base_products_queryset(self):
@@ -75,9 +75,9 @@ class CatalogView(TemplateView):
             "price_desc": ("-price", "title"),
             "title": ("title",),
             "newest": ("-created_at", "title"),
-            "popular": ("title",),
+            "oldest": ("created_at", "title"),
         }
-        return queryset.order_by(*sort_map.get(sort_value, sort_map["popular"]))
+        return queryset.order_by(*sort_map.get(sort_value, sort_map["title"]))
 
     def _filter_option_queryset(self, model, field_name, queryset, **filters):
         return (
@@ -115,7 +115,7 @@ class CatalogView(TemplateView):
         if not selected_category:
             return context
 
-        sort_value = self.request.GET.get("sort", "popular")
+        sort_value = self.request.GET.get("sort", "")
         page_number = self.request.GET.get("page") or 1
         category_queryset = self._base_products_queryset().filter(categories=selected_category)
         filtered_queryset = self._apply_filters(category_queryset)
