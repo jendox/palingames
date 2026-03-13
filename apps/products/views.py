@@ -10,6 +10,7 @@ from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductI
 
 class CatalogView(TemplateView):
     template_name = "pages/catalog.html"
+    htmx_results_template_name = "pages/catalog/desktop/results_panel.html"
     card_styles = (
         {
             "background_class": "bg-[var(--color-mint)]",
@@ -104,6 +105,12 @@ class CatalogView(TemplateView):
             .order_by("title" if hasattr(model, "title") else "value")
             .distinct()
         )
+
+    def get_template_names(self):
+        category_slug = self.request.GET.get("category")
+        if self.request.headers.get("HX-Request") == "true" and category_slug:
+            return [self.htmx_results_template_name]
+        return [self.template_name]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -1,11 +1,19 @@
 {% load i18n %}
 
 <div class="absolute left-0 top-[62px] z-20 w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
-  <form method="get" class="px-[18px] pb-[20px] pt-[16px]">
+  <form
+    method="get"
+    action="{% url 'catalog' %}"
+    hx-get="{% url 'catalog' %}"
+    hx-target="#catalog-results"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    hx-trigger="change delay:150ms"
+    class="px-[18px] pb-[20px] pt-[16px]"
+    data-catalog-filter-form
+  >
     <input type="hidden" name="category" value="{{ selected_category.slug }}">
-    {% if catalog_sort_value %}
-      <input type="hidden" name="sort" value="{{ catalog_sort_value }}">
-    {% endif %}
+    <input type="hidden" name="sort" value="{{ catalog_sort_value }}" {% if not catalog_sort_value %}disabled{% endif %} data-catalog-sort-input>
 
     <div class="pb-[8px] pt-[2px]">
       <div class="text-[18px] font-bold leading-[22px] text-[var(--color-black)] select-none">{% trans "Цена" %}</div>
@@ -19,6 +27,7 @@
           pattern="[0-9]+([,][0-9]+)?"
           data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
           data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+          data-default-value="{{ catalog_price_bounds_display.min|default:'' }}"
           data-float-input="comma"
           class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
           style="font-size: 16px;"
@@ -32,6 +41,7 @@
           pattern="[0-9]+([,][0-9]+)?"
           data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
           data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+          data-default-value="{{ catalog_price_bounds_display.max|default:'' }}"
           data-float-input="comma"
           class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
           style="font-size: 16px;"
@@ -45,9 +55,9 @@
     {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True %}
 
     <div class="mt-[14px] flex justify-center pb-[20px]">
-      <a href="{% querystring subtype=None age=None area=None theme=None price_from=None price_to=None page=None %}" class="btn-reset-control">
+      <button type="button" class="btn-reset-control" data-filter-reset>
         {% trans "сбросить" %}
-      </a>
+      </button>
     </div>
   </form>
 </div>

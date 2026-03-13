@@ -14,7 +14,7 @@
 
   <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
     <div class="flex items-center justify-between">
-      <details class="group relative">
+      <details class="group relative" data-catalog-dropdown>
         <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
           <div class="inline-flex h-[50px] w-[130px] cursor-pointer select-none items-center justify-center gap-[10px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[18px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:border-[var(--color-purple)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
             <span class="inline-flex h-[11px] w-[11px] flex-col justify-center gap-[2px]" aria-hidden="true">
@@ -33,7 +33,7 @@
         {{ selected_category.title }}
       </h1>
 
-      <details class="group relative">
+      <details class="group relative" data-catalog-dropdown data-sort-dropdown>
         <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
           <div class="grid h-[50px] w-[130px] cursor-pointer select-none grid-cols-[1fr_10px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
             <span class="text-center">{% trans "сортировка" %}</span>
@@ -50,6 +50,12 @@
               {% for option in catalog_sort_options %}
                 <a
                   href="{% querystring sort=option.value page=None %}"
+                  hx-get="{% querystring sort=option.value page=None %}"
+                  hx-target="#catalog-results"
+                  hx-swap="outerHTML"
+                  hx-push-url="true"
+                  data-sort-option
+                  data-sort-value="{{ option.value }}"
                   class="flex h-[24px] items-center hover:bg-[var(--color-lilac)]/40"
                 >
                   <span class="checkbox-option">
@@ -61,7 +67,15 @@
             </div>
 
             <div class="flex justify-center px-[20px] pb-[20px] pt-[30px]">
-              <a href="{% querystring sort=None page=None %}" class="btn-reset-control">
+              <a
+                href="{% querystring sort=None page=None %}"
+                hx-get="{% querystring sort=None page=None %}"
+                hx-target="#catalog-results"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                data-sort-reset
+                class="btn-reset-control"
+              >
                 {% trans "сбросить" %}
               </a>
             </div>
@@ -70,27 +84,6 @@
       </details>
     </div>
 
-    <div class="mt-[26px] flex items-center justify-center gap-[26px]">
-      {% for quick_filter in catalog_quick_filters %}
-        <a
-          href="?category={{ selected_category.slug }}&area={{ quick_filter.id }}"
-          class="text-[13px] font-bold leading-none {% if quick_filter.selected %}text-[var(--color-purple)]{% else %}text-[var(--color-black)]{% endif %}"
-        >
-          {{ quick_filter.label }}
-        </a>
-      {% endfor %}
-    </div>
-
-    <div class="mt-[22px] flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
-      {% blocktrans with count=catalog_products_count %}1-{{ count }} из {{ count }}{% endblocktrans %}
-    </div>
-
-    <div class="mt-[18px]">
-      {% include "pages/catalog/desktop/products_grid.html" %}
-    </div>
-
-    <div class="mt-[42px]">
-      {% include "base/_pagination.html" with page_obj=catalog_page_obj pagination_variant="catalog" %}
-    </div>
+    {% include "pages/catalog/desktop/results_panel.html" %}
   </div>
 </section>

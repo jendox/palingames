@@ -91,8 +91,111 @@ function initCatalogFloatInputs() {
   });
 }
 
+function initCatalogDropdowns() {
+  const dropdowns = document.querySelectorAll("[data-catalog-dropdown]");
+
+  dropdowns.forEach((dropdown) => {
+    if (dropdown.dataset.catalogDropdownBound === "true") {
+      return;
+    }
+
+    dropdown.dataset.catalogDropdownBound = "true";
+
+    dropdown.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !dropdown.hasAttribute("open")) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      dropdown.removeAttribute("open");
+
+      const summary = dropdown.querySelector("summary");
+      if (summary instanceof HTMLElement) {
+        summary.blur();
+      }
+    });
+  });
+}
+
+function updateCatalogSortState(selectedValue) {
+  const sortInput = document.querySelector("[data-catalog-sort-input]");
+
+  if (sortInput instanceof HTMLInputElement) {
+    sortInput.value = selectedValue || "";
+    sortInput.disabled = !selectedValue;
+  }
+
+  document.querySelectorAll("[data-sort-option]").forEach((option) => {
+    const checkbox = option.querySelector(".checkbox-purple");
+    if (!(checkbox instanceof HTMLElement)) {
+      return;
+    }
+
+    checkbox.classList.toggle("checked", option.dataset.sortValue === selectedValue);
+  });
+}
+
+function initCatalogSortControls() {
+  document.querySelectorAll("[data-sort-option]").forEach((option) => {
+    if (option.dataset.sortBound === "true") {
+      return;
+    }
+
+    option.dataset.sortBound = "true";
+    option.addEventListener("click", () => {
+      updateCatalogSortState(option.dataset.sortValue || "");
+    });
+  });
+
+  document.querySelectorAll("[data-sort-reset]").forEach((control) => {
+    if (control.dataset.sortResetBound === "true") {
+      return;
+    }
+
+    control.dataset.sortResetBound = "true";
+    control.addEventListener("click", () => {
+      updateCatalogSortState("");
+    });
+  });
+}
+
+function initCatalogFilterReset() {
+  document.querySelectorAll("[data-filter-reset]").forEach((button) => {
+    if (button.dataset.filterResetBound === "true") {
+      return;
+    }
+
+    button.dataset.filterResetBound = "true";
+    button.addEventListener("click", () => {
+      const form = button.closest("[data-catalog-filter-form]");
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+
+      form.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.checked = false;
+      });
+
+      form.querySelectorAll("[data-float-input]").forEach((input) => {
+        input.value = input.dataset.defaultValue || "";
+      });
+
+      form.requestSubmit();
+    });
+  });
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initCatalogFloatInputs);
+  document.addEventListener("DOMContentLoaded", () => {
+    initCatalogFloatInputs();
+    initCatalogDropdowns();
+    initCatalogSortControls();
+    initCatalogFilterReset();
+  });
 } else {
   initCatalogFloatInputs();
+  initCatalogDropdowns();
+  initCatalogSortControls();
+  initCatalogFilterReset();
 }
