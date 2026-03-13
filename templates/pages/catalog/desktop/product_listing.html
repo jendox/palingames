@@ -1,0 +1,74 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute left-[168px] top-[92px] w-[34px] opacity-90" draggable="false">
+    <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute left-[86px] top-[72px] w-[18px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute right-[170px] top-[92px] w-[34px] opacity-90" draggable="false">
+    <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute right-[86px] top-[72px] w-[18px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute right-[92px] top-[280px] w-[20px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute left-[96px] bottom-[140px] w-[20px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute left-[180px] bottom-[88px] w-[24px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute right-[170px] bottom-[96px] w-[34px] opacity-85" draggable="false">
+  </div>
+
+  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
+    <div class="flex items-center justify-between">
+      <form method="get">
+        <input type="hidden" name="category" value="{{ selected_category.slug }}">
+        <button
+          type="submit"
+          class="inline-flex h-[36px] items-center gap-[10px] rounded-[8px] border border-black/10 bg-[var(--color-white)] px-[16px] text-[13px] font-bold text-[var(--color-black)] shadow-[0_8px_18px_rgba(0,0,0,0.04)]"
+        >
+          <img src="{% static 'images/icons/filter-icon.svg' %}" alt="" class="h-[10px] w-[12px]" aria-hidden="true">
+          {% trans "Фильтры" %}
+        </button>
+      </form>
+
+      <h1 class="text-center text-[44px] font-bold uppercase leading-[44px] text-[var(--color-black)]">
+        {{ selected_category.title }}
+      </h1>
+
+      <form method="get" class="relative">
+        <input type="hidden" name="category" value="{{ selected_category.slug }}">
+        {% for selected in catalog_selected_filters.subtypes %}<input type="hidden" name="subtype" value="{{ selected }}">{% endfor %}
+        {% for selected in catalog_selected_filters.ages %}<input type="hidden" name="age" value="{{ selected }}">{% endfor %}
+        {% for selected in catalog_selected_filters.areas %}<input type="hidden" name="area" value="{{ selected }}">{% endfor %}
+        {% for selected in catalog_selected_filters.themes %}<input type="hidden" name="theme" value="{{ selected }}">{% endfor %}
+        <select
+          name="sort"
+          onchange="this.form.submit()"
+          class="h-[36px] min-w-[122px] appearance-none rounded-[8px] border border-black/10 bg-[var(--color-white)] px-[12px] pr-[30px] text-[13px] font-bold text-[var(--color-black)] shadow-[0_8px_18px_rgba(0,0,0,0.04)] outline-none"
+        >
+          {% for option in catalog_sort_options %}
+            <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="pointer-events-none absolute right-[12px] top-1/2 h-[7px] w-[10px] -translate-y-1/2" aria-hidden="true">
+      </form>
+    </div>
+
+    <div class="mt-[26px] flex items-center justify-center gap-[26px]">
+      {% for quick_filter in catalog_quick_filters %}
+        <a
+          href="?category={{ selected_category.slug }}&area={{ quick_filter.id }}"
+          class="text-[13px] font-bold leading-none {% if quick_filter.selected %}text-[var(--color-purple)]{% else %}text-[var(--color-black)]{% endif %}"
+        >
+          {{ quick_filter.label }}
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="mt-[22px] flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
+      {% blocktrans with count=catalog_products_count %}1-{{ count }} из {{ count }}{% endblocktrans %}
+    </div>
+
+    <div class="mt-[18px]">
+      {% include "pages/catalog/desktop/products_grid.html" %}
+    </div>
+
+    <div class="mt-[42px]">
+      {% include "base/_pagination.html" with page_obj=catalog_page_obj pagination_variant="catalog" %}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,41 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[36px]">
+  <div class="mx-auto max-w-[380px]">
+    <a href="{% url 'catalog' %}" class="inline-flex items-center gap-[8px] text-[13px] font-bold uppercase text-[var(--color-black-80)]">
+      <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[14px] w-[9px] rotate-180" aria-hidden="true">
+      {% trans "Все категории" %}
+    </a>
+
+    <h1 class="mt-[18px] font-airfool text-[30px] leading-[30px] text-[var(--color-black)]">
+      {{ selected_category.title }}
+    </h1>
+    <p class="mt-[10px] text-[14px] text-[var(--color-black-80)]">
+      {% blocktrans with count=catalog_products_count %}Найдено товаров: {{ count }}{% endblocktrans %}
+    </p>
+
+    <div class="mt-[22px] rounded-[18px] bg-[var(--color-mint)] p-[16px]">
+      <div class="text-[14px] font-bold uppercase text-[var(--color-turquoise)]">{% trans "Фильтры и сортировка" %}</div>
+      <p class="mt-[8px] text-[13px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "Мобильную версию фильтра и сортировки оставил как предварительную заготовку. Основная проработка сейчас сделана для desktop." %}
+      </p>
+    </div>
+
+    <div class="mt-[20px] space-y-[14px]">
+      {% for product in catalog_products %}
+        <a href="{{ product.url }}" class="flex gap-[14px] rounded-[18px] bg-[var(--color-white)] p-[10px] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
+          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="h-[108px] w-[108px] rounded-[14px] object-cover" draggable="false">
+          <div class="min-w-0 flex-1 py-[4px]">
+            <div class="text-[16px] font-bold leading-[19px] text-[var(--color-black)]">{{ product.title }}</div>
+            <div class="mt-[8px] text-[11px] uppercase text-[var(--color-black-80)]">{{ product.kind }}</div>
+            <div class="mt-[18px] text-[22px] font-airfool leading-none text-[var(--color-black)]">{{ product.price }}</div>
+          </div>
+        </a>
+      {% empty %}
+        <div class="rounded-[18px] bg-[var(--color-lilac)] px-[18px] py-[20px] text-[14px] leading-[20px] text-[var(--color-black)]">
+          {% trans "По выбранным фильтрам пока ничего не найдено." %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>

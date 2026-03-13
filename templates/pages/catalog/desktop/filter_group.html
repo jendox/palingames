@@ -1,0 +1,19 @@
+{% load i18n %}
+
+{% if options %}
+  <details class="group border-b border-[var(--color-turquoise)]/20 py-[18px]" {% if field_name == "subtype" %}open{% endif %}>
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-[16px]">
+      <span class="text-[18px] font-bold leading-[20px] text-[var(--color-black)]">{{ title }}</span>
+      <span class="text-[22px] leading-none text-[var(--color-black-80)] transition-transform group-open:rotate-45">+</span>
+    </summary>
+    <div class="space-y-[12px] pt-[18px]">
+      {% for option in options %}
+        <label class="flex cursor-pointer items-start gap-[12px] text-[15px] leading-[18px] text-[var(--color-black)]">
+          <input type="checkbox" name="{{ field_name }}" value="{{ option.id }}" class="checkbox-pink mt-[1px] shrink-0" {% if option.selected %}checked{% endif %}>
+          <span>{{ option.label }}</span>
+          <span class="ml-auto shrink-0 text-[13px] text-[var(--color-black-80)]">{{ option.count }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </details>
+{% endif %}

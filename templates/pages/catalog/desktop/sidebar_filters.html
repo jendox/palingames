@@ -1,0 +1,26 @@
+{% load i18n %}
+
+<aside class="rounded-[30px] bg-[var(--color-mint)] px-[24px] pb-[26px] pt-[28px] shadow-[0_20px_42px_rgba(0,0,0,0.06)]">
+  <form method="get">
+    <input type="hidden" name="category" value="{{ selected_category.slug }}">
+    <input type="hidden" name="sort" value="{{ catalog_sort_value }}">
+
+    <div class="flex items-center justify-between gap-[16px]">
+      <h2 class="text-[28px] font-bold uppercase leading-[28px] text-[var(--color-turquoise)]">
+        {% trans "Фильтр" %}
+      </h2>
+      <a href="?category={{ selected_category.slug }}" class="text-[14px] font-bold uppercase leading-none text-[var(--color-black-80)] underline underline-offset-[3px]">
+        {% trans "Сбросить" %}
+      </a>
+    </div>
+
+    {% include "pages/catalog/desktop/filter_group.html" with title="Подтип" field_name="subtype" options=catalog_filters.subtypes %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=catalog_filters.ages %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Область развития" field_name="area" options=catalog_filters.areas %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Темы" field_name="theme" options=catalog_filters.themes %}
+
+    <button type="submit" class="btn-purple mt-[32px] w-full text-[18px]">
+      {% trans "Показать товары" %}
+    </button>
+  </form>
+</aside>

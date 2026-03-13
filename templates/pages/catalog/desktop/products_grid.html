@@ -1,0 +1,13 @@
+{% load static i18n %}
+
+<div>
+  <div class="grid grid-cols-3 justify-items-center gap-x-[40px] gap-y-[46px]">
+    {% for product in catalog_products %}
+      {% include "pages/catalog/desktop/product_card.html" %}
+    {% empty %}
+      <div class="col-span-3 rounded-[24px] bg-[var(--color-lilac)] px-[28px] py-[32px] text-[18px] leading-[24px] text-[var(--color-black)]">
+        {% trans "По выбранным фильтрам пока ничего не найдено." %}
+      </div>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,28 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto w-full max-w-[1200px] px-4 py-[70px]">
+    <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Каталог" %}
+    </h1>
+
+    <div class="mx-auto mt-[70px] grid w-fit grid-cols-3 gap-x-[30px] gap-y-[50px] xl:gap-x-[100px] xl:gap-y-[100px]">
+      {% for category in catalog_categories %}
+        <a
+          href="{{ category.url }}"
+          class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] {{ category.background_class }}"
+        >
+          <img
+            src="{{ category.image_url }}"
+            alt=""
+            class="h-[94px] w-[100px]"
+            draggable="false"
+          >
+          <div class="mt-[10px] max-w-[230px] text-balance text-center text-[24px] leading-[36px] font-bold {{ category.text_class }}">
+            {{ category.title }}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>

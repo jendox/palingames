@@ -1,10 +1,11 @@
 from enum import StrEnum
 
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
+from django.core.paginator import Paginator
 from django.templatetags.static import static
 from django.views.generic import DetailView, TemplateView
 
-from .models import Category, Product, ProductImage, Review
+from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 
 
 class CatalogView(TemplateView):
@@ -19,6 +20,73 @@ class CatalogView(TemplateView):
             "text_class": "text-[var(--color-purple)]",
         },
     )
+    sort_options = (
+        ("popular", "Популярные"),
+        ("price_asc", "Сначала дешевле"),
+        ("price_desc", "Сначала дороже"),
+        ("title", "По алфавиту"),
+        ("newest", "Сначала новые"),
+    )
+
+    def _base_products_queryset(self):
+        return Product.objects.prefetch_related(
+            "categories",
+            "subtypes",
+            "age_groups",
+            "development_areas",
+            "themes",
+            Prefetch("images", queryset=ProductImage.objects.order_by("order")),
+        )
+
+    def _build_product_card(self, product):
+        primary_kind = product.subtypes.first() or product.categories.first()
+        primary_image = next(iter(product.images.all()), None)
+        return {
+            "title": product.title,
+            "url": product.get_absolute_url(),
+            "price": f"{product.price:.2f}".replace(".", ",") + " BYN",
+            "kind": primary_kind.title if primary_kind else "",
+            "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
+        }
+
+    def _selected_values(self, key):
+        return self.request.GET.getlist(key)
+
+    def _apply_filters(self, queryset):
+        subtype_ids = self._selected_values("subtype")
+        age_ids = self._selected_values("age")
+        area_ids = self._selected_values("area")
+        theme_ids = self._selected_values("theme")
+
+        if subtype_ids:
+            queryset = queryset.filter(subtypes__id__in=subtype_ids)
+        if age_ids:
+            queryset = queryset.filter(age_groups__id__in=age_ids)
+        if area_ids:
+            queryset = queryset.filter(development_areas__id__in=area_ids)
+        if theme_ids:
+            queryset = queryset.filter(themes__id__in=theme_ids)
+
+        return queryset.distinct()
+
+    def _apply_sort(self, queryset, sort_value):
+        sort_map = {
+            "price_asc": ("price", "title"),
+            "price_desc": ("-price", "title"),
+            "title": ("title",),
+            "newest": ("-created_at", "title"),
+            "popular": ("title",),
+        }
+        return queryset.order_by(*sort_map.get(sort_value, sort_map["popular"]))
+
+    def _filter_option_queryset(self, model, field_name, queryset, **filters):
+        return (
+            model.objects.filter(**filters)
+            .filter(**{f"{field_name}__in": queryset})
+            .annotate(product_count=Count(field_name, distinct=True))
+            .order_by("title" if hasattr(model, "title") else "value")
+            .distinct()
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -35,6 +103,105 @@ class CatalogView(TemplateView):
                 },
             )
         context["catalog_categories"] = categories
+
+        selected_category = None
+        category_slug = self.request.GET.get("category")
+        if category_slug:
+            selected_category = Category.objects.filter(slug=category_slug).first()
+
+        context["selected_category"] = selected_category
+        context["catalog_mode"] = "products" if selected_category else "categories"
+
+        if not selected_category:
+            return context
+
+        sort_value = self.request.GET.get("sort", "popular")
+        page_number = self.request.GET.get("page") or 1
+        category_queryset = self._base_products_queryset().filter(categories=selected_category)
+        filtered_queryset = self._apply_filters(category_queryset)
+        sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
+        selected_subtypes = self._selected_values("subtype")
+        selected_ages = self._selected_values("age")
+        selected_areas = self._selected_values("area")
+        selected_themes = self._selected_values("theme")
+
+        subtype_options = self._filter_option_queryset(SubType, "products", category_queryset, category=selected_category)
+        age_options = self._filter_option_queryset(AgeGroupTag, "products", category_queryset)
+        area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", category_queryset)
+        theme_options = self._filter_option_queryset(Theme, "products", category_queryset)
+
+        paginator = Paginator(sorted_queryset, 9)
+        page_obj = paginator.get_page(page_number)
+
+        context["catalog_products"] = [self._build_product_card(product) for product in page_obj.object_list]
+        context["catalog_products_count"] = paginator.count
+        context["catalog_page_obj"] = page_obj
+        context["catalog_pagination"] = {
+            "current": page_obj.number,
+            "total": paginator.num_pages,
+            "has_previous": page_obj.has_previous(),
+            "has_next": page_obj.has_next(),
+            "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None,
+            "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
+            "pages": list(paginator.page_range),
+        }
+        context["catalog_sort_value"] = sort_value
+        context["catalog_sort_options"] = [
+            {"value": value, "label": label, "selected": value == sort_value}
+            for value, label in self.sort_options
+        ]
+        context["catalog_selected_filters"] = {
+            "subtypes": selected_subtypes,
+            "ages": selected_ages,
+            "areas": selected_areas,
+            "themes": selected_themes,
+        }
+        context["catalog_filters"] = {
+            "subtypes": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_subtypes,
+                }
+                for option in subtype_options
+            ],
+            "ages": [
+                {
+                    "id": option.pk,
+                    "label": option.value,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_ages,
+                }
+                for option in age_options
+            ],
+            "areas": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_areas,
+                }
+                for option in area_options
+            ],
+            "themes": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_themes,
+                }
+                for option in theme_options
+            ],
+        }
+        context["catalog_quick_filters"] = [
+            {
+                "id": option["id"],
+                "label": option["label"],
+                "selected": option["selected"],
+            }
+            for option in context["catalog_filters"]["areas"][:5]
+        ]
         return context
 
 

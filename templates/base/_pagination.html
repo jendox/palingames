@@ -1,25 +1,79 @@
-{# usage: {% include "base/_pagination.html" with page_obj=page_obj %} #}
+{% load static %}
+{# usage: {% include "base/_pagination.html" with page_obj=page_obj pagination_variant="catalog" %} #}
 
 {% if page_obj and page_obj.paginator.num_pages > 1 %}
-  <nav class="mt-8 flex items-center justify-center gap-2 text-sm">
+  {% with variant=pagination_variant|default:"default" %}
+    {% if variant == "catalog" %}
+      <nav class="flex items-center justify-center" aria-label="Pagination">
+        {% if page_obj.has_previous %}
+          <a
+            href="{% querystring page=page_obj.previous_page_number %}"
+            class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
+          >
+            предыдущая
+            <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+          </a>
+        {% else %}
+          <span
+            class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)] opacity-50"
+          >
+            предыдущая
+            <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+          </span>
+        {% endif %}
 
-    {% if page_obj.has_previous %}
-      <a class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-        href="?page={{ page_obj.previous_page_number }}">Назад</a>
+        <div class="mx-[55px] flex items-center gap-[15px]">
+          {% for page_number in page_obj.paginator.page_range %}
+            {% if page_number == page_obj.number %}
+              <span class="inline-flex size-[40px] items-center justify-center rounded-[30px] bg-[var(--color-purple)] px-[10px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-white)]">
+                {{ page_number }}
+              </span>
+            {% else %}
+              <a
+                href="{% querystring page=page_number %}"
+                class="inline-flex size-[40px] items-center justify-center rounded-[30px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[10px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
+              >
+                {{ page_number }}
+              </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+          <a
+            href="{% querystring page=page_obj.next_page_number %}"
+            class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[18px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
+          >
+            <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+            следующая
+          </a>
+        {% else %}
+          <span
+            class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[18px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)] opacity-50"
+          >
+            <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+            следующая
+          </span>
+        {% endif %}
+      </nav>
     {% else %}
-      <span class="px-3 py-2 rounded-lg border bg-gray-100 text-gray-500">Назад</span>
+      <nav class="mt-8 flex items-center justify-center gap-2 text-sm">
+        {% if page_obj.has_previous %}
+          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.previous_page_number %}">Назад</a>
+        {% else %}
+          <span class="rounded-lg border bg-gray-100 px-3 py-2 text-gray-500">Назад</span>
+        {% endif %}
+
+        <span class="px-3 py-2 text-gray-600">
+          Страница <span class="font-semibold">{{ page_obj.number }}</span> из {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.next_page_number %}">Вперёд</a>
+        {% else %}
+          <span class="rounded-lg border bg-gray-100 px-3 py-2 text-gray-500">Вперёд</span>
+        {% endif %}
+      </nav>
     {% endif %}
-
-    <span class="px-3 py-2 text-gray-600">
-      Страница <span class="font-semibold">{{ page_obj.number }}</span> из {{ page_obj.paginator.num_pages }}
-    </span>
-
-    {% if page_obj.has_next %}
-      <a class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50"
-        href="?page={{ page_obj.next_page_number }}">Вперёд</a>
-    {% else %}
-      <span class="px-3 py-2 rounded-lg border bg-gray-100 text-gray-500">Вперёд</span>
-    {% endif %}
-
-  </nav>
+  {% endwith %}
 {% endif %}

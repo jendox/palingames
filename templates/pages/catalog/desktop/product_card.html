@@ -1,0 +1,43 @@
+{% load static i18n %}
+
+<article class="w-[250px] overflow-hidden rounded-[6px] bg-[var(--color-white)] shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+  <a href="{{ product.url }}" class="block">
+    <div class="relative">
+      <img
+        src="{{ product.image_url }}"
+        alt="{{ product.title }}"
+        class="h-[250px] w-full object-cover"
+        draggable="false"
+      >
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[112px] bg-[linear-gradient(180deg,rgba(86,94,58,0)_0%,rgba(90,96,62,0.92)_100%)]"></div>
+      <button
+        type="button"
+        class="absolute right-[12px] top-[12px] inline-flex size-[30px] items-center justify-center rounded-full bg-[rgba(251,251,251,0.96)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+        aria-label="{% trans 'Добавить в избранное' %}"
+      >
+        <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+      </button>
+      <div class="absolute inset-x-0 bottom-0 px-[14px] pb-[10px] text-[var(--color-white)]">
+        <div class="min-h-[34px] text-[13px] font-bold leading-[16px]">
+          {{ product.title }}
+        </div>
+        <div class="mt-[4px] text-[9px] uppercase tracking-[0.02em] text-[rgba(255,255,255,0.8)]">
+          {{ product.kind|lower }}
+        </div>
+
+        <div class="mt-[10px] flex items-end justify-between gap-[10px]">
+          <div class="text-[12px] font-bold leading-none">
+            {{ product.price }}
+          </div>
+          <button
+            type="button"
+            class="inline-flex size-[24px] items-center justify-center rounded-[6px] bg-[rgba(255,255,255,0.92)]"
+            aria-label="{% trans 'Скачать PDF' %}"
+          >
+            <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="h-[12px] w-[10px]" aria-hidden="true">
+          </button>
+        </div>
+      </div>
+    </div>
+  </a>
+</article>
