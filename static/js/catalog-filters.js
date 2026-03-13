@@ -181,6 +181,11 @@ function initCatalogFilterReset() {
         input.value = input.dataset.defaultValue || "";
       });
 
+      if (window.htmx) {
+        window.htmx.trigger(form, "submit");
+        return;
+      }
+
       form.requestSubmit();
     });
   });
