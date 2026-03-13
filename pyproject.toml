@@ -15,6 +15,7 @@ dependencies = [
     "editorconfig-checker>=3.6.0",
     "markdown>=3.10.2",
     "pillow>=12.1.1",
+    "pydantic>=2.11.3",
     "pre-commit>=4.5.1",
     "psycopg2-binary>=2.9.11",
     "ruff>=0.14.13",

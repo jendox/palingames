@@ -9,7 +9,6 @@ from django.views.generic import TemplateView
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
 
-
 SAMPLE_RELATED_PRODUCTS = [
     {
         "title": "Белорусский национальный строй",
@@ -133,6 +132,7 @@ class CartPageView(TemplateView):
             "image_url": static("images/example-product-image-2.png"),
         },
     ]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cart_items"] = self.sample_cart_items
