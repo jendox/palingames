@@ -31,7 +31,7 @@
   <button
     type="button"
     data-dialog-close
-    class="absolute right-[30px] top-[30px] inline-flex h-[25px] w-[25px] items-center justify-center"
+    class="absolute right-[25px] top-[25px] inline-flex h-[25px] w-[25px] cursor-pointer items-center justify-center"
     aria-label="{% trans 'Закрыть' %}"
   >
     <img
@@ -47,24 +47,23 @@
     <img
       src="{% static 'images/icons/warning-icon.svg' %}"
       alt=""
-      class="h-[160px] w-[160px]"
+      class="h-[127px] w-[127px]"
       aria-hidden="true"
       draggable="false"
     >
 
-    <p class="mt-[25px] text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
+    <p class="mt-[24px] text-[18px] font-bold leading-none text-[var(--color-black)]">
       {% trans "Вы уверены что хотите выйти?" %}
     </p>
 
-    <form data-headless-logout-form method="post" action="#" class="mt-[30px] flex items-center justify-center gap-[30px]">
+    <form data-headless-logout-form method="post" action="#" class="mt-[24px] flex items-center justify-center gap-[21px]">
       {% csrf_token %}
-      <button type="button" data-dialog-close class="btn-soft-pink h-[55px] w-[220px]">
+      <button type="button" data-dialog-close class="btn-soft-pink h-[55px] w-[165px]">
         {% trans "отменить" %}
       </button>
-      <button type="submit" class="btn-soft-green h-[55px] w-[220px]">
+      <button type="submit" class="btn-soft-green h-[55px] w-[165px]">
         {% trans "Выйти" %}
       </button>
     </form>
   </div>
 </div>
-
