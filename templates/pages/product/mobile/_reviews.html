@@ -45,19 +45,6 @@
       </summary>
 
       <form class="mt-[30px] space-y-[14px]">
-        <div>
-          <label for="mobile-review-name" class="block text-[12px] font-bold text-[var(--color-black)]">
-            {% trans "Имя" %}
-          </label>
-          <input
-            id="mobile-review-name"
-            type="text"
-            value="{{ request.user.display_name|default:request.user.get_username }}"
-            class="account-input account-input-thin mt-[10px] h-[40px] rounded-[8px] border-black/10 px-[12px] text-[14px]"
-            autocomplete="name"
-          >
-        </div>
-
         <div class="pt-[20px]">
           <div class="block text-[12px] font-bold text-[var(--color-black)]">
             {% trans "Текст отзыва" %}

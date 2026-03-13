@@ -1,7 +1,8 @@
 import markdown
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg
+from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -11,8 +12,8 @@ from config import settings
 
 
 class Category(TimeStampedModel):
-    title = models.CharField(unique=True, max_length=100)
-    slug = models.SlugField(unique=True)
+    title = models.CharField("Название", unique=True, max_length=100)
+    slug = models.SlugField("Слаг", unique=True)
 
     class Meta:
         ordering = ["id"]
@@ -35,7 +36,7 @@ class AgeGroup(models.TextChoices):
 
 
 class AgeGroupTag(TimeStampedModel):
-    value = models.CharField(choices=AgeGroup.choices, max_length=10, unique=True)
+    value = models.CharField("Значение", choices=AgeGroup.choices, max_length=10, unique=True)
 
     class Meta:
         verbose_name = _("Возрастная группа")
@@ -46,8 +47,13 @@ class AgeGroupTag(TimeStampedModel):
 
 
 class SubType(TimeStampedModel):
-    title = models.CharField(unique=True, max_length=100)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="subtypes")
+    title = models.CharField("Название", unique=True, max_length=100)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="subtypes",
+        verbose_name="Категория",
+    )
 
     class Meta:
         verbose_name = _("Подтип")
@@ -58,7 +64,7 @@ class SubType(TimeStampedModel):
 
 
 class DevelopmentAreaTag(TimeStampedModel):
-    title = models.CharField(max_length=100, unique=True)
+    title = models.CharField("Название", max_length=100, unique=True)
 
     class Meta:
         verbose_name = _("Область развития")
@@ -69,7 +75,7 @@ class DevelopmentAreaTag(TimeStampedModel):
 
 
 class Theme(TimeStampedModel):
-    title = models.CharField(max_length=100, unique=True)
+    title = models.CharField("Название", max_length=100, unique=True)
 
     class Meta:
         verbose_name = _("Тема")
@@ -81,16 +87,26 @@ class Theme(TimeStampedModel):
 
 class Product(TimeStampedModel):
     title = models.CharField(_("Название"), unique=True, max_length=255)
-    slug = models.SlugField(unique=True)
+    slug = models.SlugField("Слаг", unique=True)
     content = models.TextField(_("Контент"), blank=True)
     description = models.TextField(_("Описание"), blank=True)
     price = models.DecimalField(_("Цена"), max_digits=10, decimal_places=2)
 
-    categories = models.ManyToManyField(Category, related_name="products")
-    subtypes = models.ManyToManyField(SubType, blank=True, related_name="products")
-    age_groups = models.ManyToManyField(AgeGroupTag, blank=True, related_name="products")
-    development_areas = models.ManyToManyField(DevelopmentAreaTag, blank=True, related_name="products")
-    themes = models.ManyToManyField(Theme, blank=True, related_name="products")
+    categories = models.ManyToManyField(Category, related_name="products", verbose_name="Категории")
+    subtypes = models.ManyToManyField(SubType, blank=True, related_name="products", verbose_name="Подтипы")
+    age_groups = models.ManyToManyField(
+        AgeGroupTag,
+        blank=True,
+        related_name="products",
+        verbose_name="Возрастные группы",
+    )
+    development_areas = models.ManyToManyField(
+        DevelopmentAreaTag,
+        blank=True,
+        related_name="products",
+        verbose_name="Области развития",
+    )
+    themes = models.ManyToManyField(Theme, blank=True, related_name="products", verbose_name="Темы")
 
     class Meta:
         verbose_name = _("Продукт")
@@ -103,6 +119,9 @@ class Product(TimeStampedModel):
         if not self.slug:
             self.slug = slugify(self.title)
         super().save(*args, **kwargs)
+
+    def get_absolute_url(self) -> str:
+        return reverse("product-detail", kwargs={"slug": self.slug})
 
     def description_as_html(self):
         return mark_safe(markdown.markdown(self.description))

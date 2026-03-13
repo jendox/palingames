@@ -136,7 +136,7 @@ class ProductAdmin(admin.ModelAdmin):
                     "age_groups",
                     "development_areas",
                     "themes",
-                )
+                ),
             },
         ),
         (_("Контент"), {"fields": ("description", "content")}),

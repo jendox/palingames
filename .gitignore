@@ -293,3 +293,6 @@ pyrightconfig.json
 /assets/css/tailwind.css
 
 .vscode/
+tags_fixture.json
+media/
+fixtures/

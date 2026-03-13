@@ -96,7 +96,7 @@ class ProductDetailView(DetailView):
         context["product_image_urls"] = images or [static("images/example-product-image-1.png")]
         context["product_reviews"] = [
             {
-                "author": review.user.display_name or review.user.get_username(),
+                "author": review.user.review_name,
                 "date": review.created_at.strftime("%d.%m.%Y"),
                 "rating": review.rating,
                 "text": review.comment,
