@@ -46,140 +46,22 @@
     </h1>
 
     <div class="mx-auto mt-[40px] max-w-[360px] space-y-[15px]">
-      <a
-        href="{% url 'catalog' %}?category=didactic-games"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/didactic-games.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
+      {% for category in catalog_categories %}
+        <a
+          href="{{ category.url }}"
+          class="flex items-center gap-x-[25px] rounded-[10px] {{ category.background_class }} px-[25px] py-[18px]"
         >
-        <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Дидактические игры" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=lapbooks"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/laptops.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-purple)]">
-          {% trans "Лэпбуки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=interactive-games"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/interactive-games.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Интерактивные игры" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=group-design"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/group-design.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-purple)]">
-          {% trans "Оформление групп" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=themed-images"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/themed-images.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Тематические изображения" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=file-cabinets"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/file-cabinets.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-purple)]">
-          {% trans "Картотеки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=visualization"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/visualization.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Визуализация" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=learn-languages"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-lilac)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/learn-languages.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-purple)]">
-          {% trans "Изучаем языки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=methodological-materials"
-        class="flex items-center gap-x-[25px] rounded-[10px] bg-[var(--color-mint)] px-[25px] py-[18px]"
-      >
-        <img
-          src="{% static 'images/catalog/methodological-materials.svg' %}"
-          alt=""
-          class="h-[34px] w-[41px] flex-none"
-          draggable="false"
-        >
-        <div class="text-[18px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Методические рекомендации" %}
-        </div>
-      </a>
+          <img
+            src="{{ category.image_url }}"
+            alt=""
+            class="h-[34px] w-[41px] flex-none"
+            draggable="false"
+          >
+          <div class="text-[18px] font-bold {{ category.text_class }}">
+            {{ category.title }}
+          </div>
+        </a>
+      {% endfor %}
     </div>
   </div>
 </section>

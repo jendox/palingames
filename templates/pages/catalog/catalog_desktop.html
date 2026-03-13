@@ -71,140 +71,22 @@
     </h1>
 
     <div class="mx-auto mt-[70px] grid w-fit grid-cols-3 gap-x-[30px] gap-y-[50px] xl:gap-x-[100px] xl:gap-y-[100px]">
-      <a
-        href="{% url 'catalog' %}?category=didactic-games"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-mint)]"
-      >
-        <img
-          src="{% static 'images/catalog/didactic-games.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
+      {% for category in catalog_categories %}
+        <a
+          href="{{ category.url }}"
+          class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] {{ category.background_class }}"
         >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Дидактические игры" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=lapbooks"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-lilac)]"
-      >
-        <img
-          src="{% static 'images/catalog/laptops.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-purple)]">
-          {% trans "Лэпбуки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=interactive-games"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-mint)]"
-      >
-        <img
-          src="{% static 'images/catalog/interactive-games.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Интерактивные игры" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=group-design"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-lilac)]"
-      >
-        <img
-          src="{% static 'images/catalog/group-design.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-purple)]">
-          {% trans "Оформление группы" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=themed-images"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-mint)]"
-      >
-        <img
-          src="{% static 'images/catalog/themed-images.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[230px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Тематические изображения" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=file-cabinets"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-lilac)]"
-      >
-        <img
-          src="{% static 'images/catalog/file-cabinets.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-purple)]">
-          {% trans "Картотеки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=visualization"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-mint)]"
-      >
-        <img
-          src="{% static 'images/catalog/visualization.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Визуализация" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=learn-languages"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-lilac)]"
-      >
-        <img
-          src="{% static 'images/catalog/learn-languages.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[210px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-purple)]">
-          {% trans "Изучаем языки" %}
-        </div>
-      </a>
-
-      <a
-        href="{% url 'catalog' %}?category=methodological-materials"
-        class="flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] bg-[var(--color-mint)]"
-      >
-        <img
-          src="{% static 'images/catalog/methodological-materials.svg' %}"
-          alt=""
-          class="h-[94px] w-[100px]"
-          draggable="false"
-        >
-        <div class="mt-[10px] max-w-[230px] text-balance text-center text-[24px] leading-[36px] font-bold text-[var(--color-turquoise)]">
-          {% trans "Методические материалы" %}
-        </div>
-      </a>
+          <img
+            src="{{ category.image_url }}"
+            alt=""
+            class="h-[94px] w-[100px]"
+            draggable="false"
+          >
+          <div class="mt-[10px] max-w-[230px] text-balance text-center text-[24px] leading-[36px] font-bold {{ category.text_class }}">
+            {{ category.title }}
+          </div>
+        </a>
+      {% endfor %}
     </div>
   </div>
 </section>

@@ -71,10 +71,6 @@ class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
 
 
-class CatalogPageView(TemplateView):
-    template_name = "pages/catalog.html"
-
-
 class ProductPageView(TemplateView):
     template_name = "pages/product.html"
     tab_templates = {
