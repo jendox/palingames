@@ -68,6 +68,8 @@ class CatalogView(TemplateView):
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(selected_category or product.categories.first()),
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
+            "is_favorited": False,
+            "is_in_cart": False,
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 

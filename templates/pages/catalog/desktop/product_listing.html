@@ -12,6 +12,9 @@
     <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute right-[170px] bottom-[96px] w-[34px] opacity-85" draggable="false">
   </div>
 
+  <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
+    {{ selected_category.title }}
+  </h1>
   <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
     <div class="flex items-center justify-between">
       <details class="group relative" data-catalog-dropdown>
@@ -28,10 +31,6 @@
 
         {% include "pages/catalog/desktop/filter_dropdown.html" %}
       </details>
-
-      <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
-        {{ selected_category.title }}
-      </h1>
 
       <details class="group relative" data-catalog-dropdown data-sort-dropdown>
         <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">

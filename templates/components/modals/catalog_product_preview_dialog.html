@@ -1,0 +1,61 @@
+{% load static i18n %}
+
+<dialog
+  id="catalogProductPreviewDialog"
+  class="m-auto w-[min(920px,calc(100%-48px))] rounded-[24px] bg-[var(--color-white)] p-0 text-[var(--color-black)] opacity-0 scale-95 transition duration-150 backdrop:bg-[rgba(31,31,31,0.45)]"
+>
+  <div class="relative overflow-hidden rounded-[24px]">
+    <button
+      type="button"
+      class="absolute right-[20px] top-[20px] z-20 inline-flex size-[42px] items-center justify-center rounded-full bg-[rgba(251,251,251,0.94)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+      aria-label="{% trans 'Закрыть превью товара' %}"
+      data-catalog-preview-close
+    >
+      <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="size-[16px]" aria-hidden="true">
+    </button>
+
+    <div class="grid min-h-[520px] grid-cols-[420px_1fr]">
+      <div class="relative bg-[var(--color-lilac)]">
+        <img
+          src=""
+          alt=""
+          class="h-full w-full object-cover"
+          data-catalog-preview-image
+        >
+        <div class="absolute left-[24px] top-[24px] inline-flex items-center gap-[10px] rounded-[10px] bg-[rgba(31,31,31,0.35)] px-[16px] py-[10px] text-[var(--color-white)] backdrop-blur-[8px]">
+          <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[22px]" aria-hidden="true">
+          <span class="text-[20px] font-black leading-none" data-catalog-preview-rating></span>
+        </div>
+      </div>
+
+      <div class="flex flex-col justify-between px-[36px] py-[34px]">
+        <div>
+          <div class="text-[16px] leading-[1.2] text-[var(--color-black-80)]" data-catalog-preview-category></div>
+          <h3 class="mt-[14px] max-w-[360px] text-[36px] font-bold leading-[1.08]" data-catalog-preview-title></h3>
+          <div class="mt-[28px] text-[28px] font-black leading-none" data-catalog-preview-price></div>
+
+          <p class="mt-[24px] max-w-[380px] text-[16px] leading-[1.45] text-[var(--color-black-80)]">
+            {% trans "Быстрый просмотр показывает ключевую информацию о товаре. Для полного описания, отзывов и способа оплаты откройте страницу продукта." %}
+          </p>
+        </div>
+
+        <div class="flex items-center gap-[16px]">
+          <a
+            href="#"
+            class="btn-primary h-[56px] min-w-[240px] px-[28px] text-[18px]"
+            data-catalog-preview-link
+          >
+            {% trans "Открыть страницу товара" %}
+          </a>
+          <button
+            type="button"
+            class="btn-reset-control h-[56px] w-[180px] text-[16px]"
+            data-catalog-preview-close
+          >
+            {% trans "Закрыть" %}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>

@@ -29,8 +29,8 @@ function formatCommaFloat(value) {
   return value.toFixed(2).replace(".", ",");
 }
 
-function initCatalogFloatInputs() {
-  const inputs = document.querySelectorAll("[data-float-input]");
+function initCatalogFloatInputs(root = document) {
+  const inputs = root.querySelectorAll("[data-float-input]");
 
   inputs.forEach((input) => {
     if (input.dataset.floatInputBound === "true") {
@@ -91,8 +91,8 @@ function initCatalogFloatInputs() {
   });
 }
 
-function initCatalogDropdowns() {
-  const dropdowns = document.querySelectorAll("[data-catalog-dropdown]");
+function initCatalogDropdowns(root = document) {
+  const dropdowns = root.querySelectorAll("[data-catalog-dropdown]");
 
   dropdowns.forEach((dropdown) => {
     if (dropdown.dataset.catalogDropdownBound === "true") {
@@ -136,8 +136,8 @@ function updateCatalogSortState(selectedValue) {
   });
 }
 
-function initCatalogSortControls() {
-  document.querySelectorAll("[data-sort-option]").forEach((option) => {
+function initCatalogSortControls(root = document) {
+  root.querySelectorAll("[data-sort-option]").forEach((option) => {
     if (option.dataset.sortBound === "true") {
       return;
     }
@@ -148,7 +148,7 @@ function initCatalogSortControls() {
     });
   });
 
-  document.querySelectorAll("[data-sort-reset]").forEach((control) => {
+  root.querySelectorAll("[data-sort-reset]").forEach((control) => {
     if (control.dataset.sortResetBound === "true") {
       return;
     }
@@ -160,8 +160,8 @@ function initCatalogSortControls() {
   });
 }
 
-function initCatalogFilterReset() {
-  document.querySelectorAll("[data-filter-reset]").forEach((button) => {
+function initCatalogFilterReset(root = document) {
+  root.querySelectorAll("[data-filter-reset]").forEach((button) => {
     if (button.dataset.filterResetBound === "true") {
       return;
     }
@@ -191,16 +191,161 @@ function initCatalogFilterReset() {
   });
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    initCatalogFloatInputs();
-    initCatalogDropdowns();
-    initCatalogSortControls();
-    initCatalogFilterReset();
-  });
-} else {
-  initCatalogFloatInputs();
-  initCatalogDropdowns();
-  initCatalogSortControls();
-  initCatalogFilterReset();
+function setFavoriteState(button, isFavorited) {
+  button.dataset.favorited = isFavorited ? "true" : "false";
+  button.setAttribute("aria-label", isFavorited ? "Удалить из избранного" : "Добавить в избранное");
+
+  const icon = button.querySelector("[data-favorite-icon]");
+  if (!(icon instanceof HTMLImageElement)) {
+    return;
+  }
+
+  icon.src = isFavorited ? icon.dataset.iconActive : icon.dataset.iconInactive;
 }
+
+function setCartState(button, isInCart) {
+  button.dataset.inCart = isInCart ? "true" : "false";
+  button.classList.toggle("catalog-card-cart-button-active", isInCart);
+  button.setAttribute("aria-label", isInCart ? "Удалить из корзины" : "Добавить в корзину");
+}
+
+function getCatalogPreviewDialog() {
+  const dialog = document.getElementById("catalogProductPreviewDialog");
+  return dialog instanceof HTMLDialogElement ? dialog : null;
+}
+
+function closeCatalogPreviewDialog(dialog) {
+  dialog.classList.remove("opacity-100", "scale-100");
+  dialog.classList.add("opacity-0", "scale-95");
+
+  window.setTimeout(() => {
+    if (dialog.open) {
+      dialog.close();
+    }
+  }, 150);
+}
+
+function openCatalogPreviewDialog(trigger) {
+  const dialog = getCatalogPreviewDialog();
+  if (!dialog) {
+    return;
+  }
+
+  const image = dialog.querySelector("[data-catalog-preview-image]");
+  const title = dialog.querySelector("[data-catalog-preview-title]");
+  const category = dialog.querySelector("[data-catalog-preview-category]");
+  const price = dialog.querySelector("[data-catalog-preview-price]");
+  const rating = dialog.querySelector("[data-catalog-preview-rating]");
+  const link = dialog.querySelector("[data-catalog-preview-link]");
+
+  if (image instanceof HTMLImageElement) {
+    image.src = trigger.dataset.previewImage || "";
+    image.alt = trigger.dataset.previewTitle || "";
+  }
+  if (title instanceof HTMLElement) {
+    title.textContent = trigger.dataset.previewTitle || "";
+  }
+  if (category instanceof HTMLElement) {
+    category.textContent = trigger.dataset.previewCategory || "";
+  }
+  if (price instanceof HTMLElement) {
+    price.textContent = trigger.dataset.previewPrice || "";
+  }
+  if (rating instanceof HTMLElement) {
+    rating.textContent = trigger.dataset.previewRating || "";
+  }
+  if (link instanceof HTMLAnchorElement) {
+    link.href = trigger.dataset.previewUrl || "#";
+  }
+
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+
+  requestAnimationFrame(() => {
+    dialog.classList.remove("opacity-0", "scale-95");
+    dialog.classList.add("opacity-100", "scale-100");
+  });
+}
+
+function initCatalogPreviewDialog() {
+  const dialog = getCatalogPreviewDialog();
+  if (!dialog || dialog.dataset.catalogPreviewBound === "true") {
+    return;
+  }
+
+  dialog.dataset.catalogPreviewBound = "true";
+
+  dialog.querySelectorAll("[data-catalog-preview-close]").forEach((button) => {
+    button.addEventListener("click", () => {
+      closeCatalogPreviewDialog(dialog);
+    });
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) {
+      closeCatalogPreviewDialog(dialog);
+    }
+  });
+
+  dialog.addEventListener("close", () => {
+    dialog.classList.remove("opacity-100", "scale-100");
+    dialog.classList.add("opacity-0", "scale-95");
+  });
+}
+
+function initCatalogProductCards(root = document) {
+  root.querySelectorAll("[data-catalog-favorite-toggle]").forEach((button) => {
+    if (button.dataset.favoriteBound === "true") {
+      return;
+    }
+
+    button.dataset.favoriteBound = "true";
+    button.addEventListener("click", () => {
+      const isFavorited = button.dataset.favorited === "true";
+      setFavoriteState(button, !isFavorited);
+    });
+  });
+
+  root.querySelectorAll("[data-catalog-cart-toggle]").forEach((button) => {
+    if (button.dataset.cartBound === "true") {
+      return;
+    }
+
+    button.dataset.cartBound = "true";
+    button.addEventListener("click", () => {
+      const isInCart = button.dataset.inCart === "true";
+      setCartState(button, !isInCart);
+    });
+  });
+
+  root.querySelectorAll("[data-catalog-preview-open]").forEach((button) => {
+    if (button.dataset.previewBound === "true") {
+      return;
+    }
+
+    button.dataset.previewBound = "true";
+    button.addEventListener("click", () => {
+      openCatalogPreviewDialog(button);
+    });
+  });
+}
+
+function initCatalogUi(root = document) {
+  initCatalogFloatInputs(root);
+  initCatalogDropdowns(root);
+  initCatalogSortControls(root);
+  initCatalogFilterReset(root);
+  initCatalogProductCards(root);
+  initCatalogPreviewDialog();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => initCatalogUi(document));
+} else {
+  initCatalogUi(document);
+}
+
+document.body.addEventListener("htmx:load", (event) => {
+  initCatalogUi(event.target);
+});

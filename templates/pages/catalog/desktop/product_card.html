@@ -1,12 +1,12 @@
 {% load static i18n %}
 
-<article class="w-[436px] overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_18px_38px_rgba(0,0,0,0.08)]">
+<article class="w-full max-w-[436px] overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_18px_38px_rgba(0,0,0,0.08)]">
   <div class="relative">
     <a href="{{ product.url }}" class="block">
       <img
         src="{{ product.image_url }}"
         alt="{{ product.title }}"
-        class="h-[510px] w-full object-cover"
+        class="aspect-[436/510] w-full object-cover"
         draggable="false"
       >
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[175px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"></div>
@@ -16,23 +16,6 @@
           <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[24px]" aria-hidden="true">
           <span class="text-[20px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
         </div>
-      </div>
-
-      <div class="absolute right-[35px] top-[15px] flex flex-col gap-[15px]">
-        <button
-          type="button"
-          class="inline-flex h-[38px] w-[40px] items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
-          aria-label="{% trans 'Добавить в избранное' %}"
-        >
-          <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
-        </button>
-        <a
-          href="{{ product.url }}"
-          class="inline-flex h-[38px] w-[40px] items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
-          aria-label="{% trans 'Предпросмотр товара' %}"
-        >
-          <img src="{% static 'images/icons/preview.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
-        </a>
       </div>
 
       <div class="absolute inset-x-0 bottom-0 h-[175px] px-[20px] pb-[18px] text-[var(--color-white)]">
@@ -47,21 +30,58 @@
             {{ product.category }}
           </div>
         </div>
-
         <div class="absolute inset-x-[20px] bottom-[18px] flex items-center justify-between">
           <div class="text-[20px] font-black leading-none">
             {{ product.price }}
           </div>
-
-          <button
-            type="button"
-            class="inline-flex size-[60px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
-            aria-label="{% trans 'Добавить в корзину' %}"
-          >
-            <img src="{% static 'images/icons/cart.svg' %}" alt="" class="h-[60px] w-[60px]" aria-hidden="true">
-          </button>
         </div>
       </div>
     </a>
+
+    <div class="absolute right-[35px] top-[15px] z-10 flex flex-col gap-[15px]">
+      <button
+        type="button"
+        class="inline-flex h-[38px] w-[40px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+        aria-label="{% trans 'Добавить в избранное' %}"
+        data-catalog-favorite-toggle
+        data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}"
+      >
+        <img
+          src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
+          alt=""
+          class="size-[40px]"
+          aria-hidden="true"
+          data-favorite-icon
+          data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+          data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+        >
+      </button>
+      <button
+        type="button"
+        class="inline-flex h-[38px] w-[40px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+        aria-label="{% trans 'Быстрый просмотр товара' %}"
+        data-catalog-preview-open
+        data-preview-title="{{ product.title }}"
+        data-preview-category="{{ product.category }}"
+        data-preview-price="{{ product.price }}"
+        data-preview-rating="{{ product.rating }}"
+        data-preview-image="{{ product.image_url }}"
+        data-preview-url="{{ product.url }}"
+      >
+        <img src="{% static 'images/icons/preview.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
+      </button>
+    </div>
+
+    <div class="absolute bottom-[18px] right-[20px] z-10">
+      <button
+        type="button"
+        class="catalog-card-cart-button inline-flex size-[60px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04] {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
+        aria-label="{% trans 'Добавить в корзину' %}"
+        data-catalog-cart-toggle
+        data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"
+      >
+        <img src="{% static 'images/icons/cart.svg' %}" alt="" class="h-[60px] w-[60px]" aria-hidden="true">
+      </button>
+    </div>
   </div>
 </article>

@@ -220,6 +220,12 @@
     background-color: color-mix(in srgb, var(--color-lilac) 35%, var(--color-white));
   }
 
+  .catalog-card-cart-button-active {
+    border-radius: 10px;
+    background-color: rgb(251 251 251 / 0.22);
+    backdrop-filter: blur(8px);
+  }
+
   .btn-header-primary {
     display: inline-flex;
     align-items: center;
