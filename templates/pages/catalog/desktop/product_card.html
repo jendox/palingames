@@ -1,43 +1,67 @@
 {% load static i18n %}
 
-<article class="w-[250px] overflow-hidden rounded-[6px] bg-[var(--color-white)] shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
-  <a href="{{ product.url }}" class="block">
-    <div class="relative">
+<article class="w-[436px] overflow-hidden rounded-[14px] bg-[var(--color-white)] shadow-[0_18px_38px_rgba(0,0,0,0.08)]">
+  <div class="relative">
+    <a href="{{ product.url }}" class="block">
       <img
         src="{{ product.image_url }}"
         alt="{{ product.title }}"
-        class="h-[250px] w-full object-cover"
+        class="h-[510px] w-full object-cover"
         draggable="false"
       >
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[112px] bg-[linear-gradient(180deg,rgba(86,94,58,0)_0%,rgba(90,96,62,0.92)_100%)]"></div>
-      <button
-        type="button"
-        class="absolute right-[12px] top-[12px] inline-flex size-[30px] items-center justify-center rounded-full bg-[rgba(251,251,251,0.96)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
-        aria-label="{% trans 'Добавить в избранное' %}"
-      >
-        <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-      </button>
-      <div class="absolute inset-x-0 bottom-0 px-[14px] pb-[10px] text-[var(--color-white)]">
-        <div class="min-h-[34px] text-[13px] font-bold leading-[16px]">
-          {{ product.title }}
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[175px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"></div>
+
+      <div class="absolute left-[15px] top-[15px]">
+        <div class="inline-flex items-center gap-[10px] rounded-[8px] bg-[rgba(31,31,31,0.3)] px-[15px] py-[8px] backdrop-blur-[8px]">
+          <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[24px]" aria-hidden="true">
+          <span class="text-[20px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
         </div>
-        <div class="mt-[4px] text-[9px] uppercase tracking-[0.02em] text-[rgba(255,255,255,0.8)]">
-          {{ product.kind|lower }}
+      </div>
+
+      <div class="absolute right-[35px] top-[15px] flex flex-col gap-[15px]">
+        <button
+          type="button"
+          class="inline-flex h-[38px] w-[40px] items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+          aria-label="{% trans 'Добавить в избранное' %}"
+        >
+          <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
+        </button>
+        <a
+          href="{{ product.url }}"
+          class="inline-flex h-[38px] w-[40px] items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+          aria-label="{% trans 'Предпросмотр товара' %}"
+        >
+          <img src="{% static 'images/icons/preview.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
+        </a>
+      </div>
+
+      <div class="absolute inset-x-0 bottom-0 h-[175px] px-[20px] pb-[18px] text-[var(--color-white)]">
+        <div class="pt-[28px]">
+          <div
+            class="min-h-[58px] text-[24px] font-bold leading-[1.2]"
+            style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
+          >
+            {{ product.title }}
+          </div>
+          <div class="text-[16px] font-normal leading-[1.2] text-[rgba(255,255,255,0.84)]">
+            {{ product.category }}
+          </div>
         </div>
 
-        <div class="mt-[10px] flex items-end justify-between gap-[10px]">
-          <div class="text-[12px] font-bold leading-none">
+        <div class="absolute inset-x-[20px] bottom-[18px] flex items-center justify-between">
+          <div class="text-[20px] font-black leading-none">
             {{ product.price }}
           </div>
+
           <button
             type="button"
-            class="inline-flex size-[24px] items-center justify-center rounded-[6px] bg-[rgba(255,255,255,0.92)]"
-            aria-label="{% trans 'Скачать PDF' %}"
+            class="inline-flex size-[60px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+            aria-label="{% trans 'Добавить в корзину' %}"
           >
-            <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="h-[12px] w-[10px]" aria-hidden="true">
+            <img src="{% static 'images/icons/cart.svg' %}" alt="" class="h-[60px] w-[60px]" aria-hidden="true">
           </button>
         </div>
       </div>
-    </div>
-  </a>
+    </a>
+  </div>
 </article>

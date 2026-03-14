@@ -39,7 +39,26 @@ class CatalogView(TemplateView):
             Prefetch("images", queryset=ProductImage.objects.order_by("order")),
         )
 
-    def _build_product_card(self, product):
+    def _format_category_label(self, category):
+        if category is None:
+            return ""
+
+        replacements = (
+            ("ческие игры", "ческая игра"),
+            ("тивные игры", "тивная игра"),
+            ("ные игры", "ная игра"),
+            ("ые игры", "ая игра"),
+            ("ие игры", "ая игра"),
+            ("ги", "га"),
+        )
+
+        title = category.title
+        for source, target in replacements:
+            if title.endswith(source):
+                return title[: -len(source)] + target
+        return title
+
+    def _build_product_card(self, product, selected_category=None):
         primary_kind = product.subtypes.first() or product.categories.first()
         primary_image = next(iter(product.images.all()), None)
         return {
@@ -47,6 +66,8 @@ class CatalogView(TemplateView):
             "url": product.get_absolute_url(),
             "price": f"{product.price:.2f}".replace(".", ",") + " BYN",
             "kind": primary_kind.title if primary_kind else "",
+            "category": self._format_category_label(selected_category or product.categories.first()),
+            "rating": f"{product.average_rating:.1f}".replace(".", ","),
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
@@ -158,7 +179,9 @@ class CatalogView(TemplateView):
         paginator = Paginator(sorted_queryset, 9)
         page_obj = paginator.get_page(page_number)
 
-        context["catalog_products"] = [self._build_product_card(product) for product in page_obj.object_list]
+        context["catalog_products"] = [
+            self._build_product_card(product, selected_category=selected_category) for product in page_obj.object_list
+        ]
         context["catalog_products_count"] = paginator.count
         context["catalog_page_obj"] = page_obj
         context["catalog_pagination"] = {
