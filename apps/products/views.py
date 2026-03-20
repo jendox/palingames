@@ -1,7 +1,7 @@
 from enum import StrEnum
 
-from django.db.models import Count, Max, Min, Prefetch
 from django.core.paginator import Paginator
+from django.db.models import Count, Max, Min, Prefetch
 from django.templatetags.static import static
 from django.views.generic import DetailView, TemplateView
 
@@ -86,21 +86,21 @@ class CatalogView(TemplateView):
         return self.request.GET.getlist(key)
 
     def _apply_filters(self, queryset):
-        subtype_ids = self._selected_values("subtype")
-        age_ids = self._selected_values("age")
-        area_ids = self._selected_values("area")
-        theme_ids = self._selected_values("theme")
+        many_to_many_filters = (
+            ("subtype", "subtypes__id__in"),
+            ("age", "age_groups__id__in"),
+            ("area", "development_areas__id__in"),
+            ("theme", "themes__id__in"),
+        )
+
+        for param_name, lookup in many_to_many_filters:
+            selected_values = self._selected_values(param_name)
+            if selected_values:
+                queryset = queryset.filter(**{lookup: selected_values})
+
         price_from = self.request.GET.get("price_from")
         price_to = self.request.GET.get("price_to")
 
-        if subtype_ids:
-            queryset = queryset.filter(subtypes__id__in=subtype_ids)
-        if age_ids:
-            queryset = queryset.filter(age_groups__id__in=age_ids)
-        if area_ids:
-            queryset = queryset.filter(development_areas__id__in=area_ids)
-        if theme_ids:
-            queryset = queryset.filter(themes__id__in=theme_ids)
         if price_from:
             try:
                 queryset = queryset.filter(price__gte=price_from.replace(",", "."))
@@ -133,100 +133,26 @@ class CatalogView(TemplateView):
             .distinct()
         )
 
-    def get_template_names(self):
-        category_slug = self.request.GET.get("category")
-        if self.request.headers.get("HX-Request") == "true" and category_slug:
-            return [self.htmx_results_template_name]
-        return [self.template_name]
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        categories = []
-        for index, category in enumerate(Category.objects.order_by("id")):
-            style = self.card_styles[index % len(self.card_styles)]
-            categories.append(
-                {
-                    "title": category.title,
-                    "slug": category.slug,
-                    "url": f"/catalog/?category={category.slug}",
-                    "image_url": static(f"images/catalog/{category.slug}.svg"),
-                    **style,
-                },
-            )
-        context["catalog_categories"] = categories
-
-        selected_category = None
-        category_slug = self.request.GET.get("category")
-        if category_slug:
-            selected_category = Category.objects.filter(slug=category_slug).first()
-
-        context["selected_category"] = selected_category
-        context["catalog_mode"] = "products" if selected_category else "categories"
-
-        if not selected_category:
-            return context
-
-        sort_value = self.request.GET.get("sort", "")
-        page_number = self.request.GET.get("page") or 1
-        category_queryset = self._base_products_queryset().filter(categories=selected_category)
-        price_bounds = category_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
-        filtered_queryset = self._apply_filters(category_queryset)
-        sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
-        selected_subtypes = self._selected_values("subtype")
-        selected_ages = self._selected_values("age")
-        selected_areas = self._selected_values("area")
-        selected_themes = self._selected_values("theme")
-
-        subtype_options = self._filter_option_queryset(SubType, "products", category_queryset, category=selected_category)
+    def _build_catalog_filters_context(
+        self,
+        selected_category,
+        category_queryset,
+        selected_subtypes,
+        selected_ages,
+        selected_areas,
+        selected_themes,
+    ):
+        subtype_options = self._filter_option_queryset(
+            SubType,
+            "products",
+            category_queryset,
+            category=selected_category,
+        )
         age_options = self._filter_option_queryset(AgeGroupTag, "products", category_queryset)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", category_queryset)
         theme_options = self._filter_option_queryset(Theme, "products", category_queryset)
 
-        paginator = Paginator(sorted_queryset, 9)
-        page_obj = paginator.get_page(page_number)
-        cart_product_ids = set(get_cart_product_ids(self.request))
-
-        context["catalog_products"] = [
-            self._build_product_card(
-                product,
-                selected_category=selected_category,
-                cart_product_ids=cart_product_ids,
-            )
-            for product in page_obj.object_list
-        ]
-        context["catalog_products_count"] = paginator.count
-        context["catalog_page_obj"] = page_obj
-        context["catalog_pagination"] = {
-            "current": page_obj.number,
-            "total": paginator.num_pages,
-            "has_previous": page_obj.has_previous(),
-            "has_next": page_obj.has_next(),
-            "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None,
-            "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
-            "pages": list(paginator.page_range),
-        }
-        context["catalog_sort_value"] = sort_value
-        context["catalog_sort_options"] = [
-            {"value": value, "label": label, "selected": value == sort_value}
-            for value, label in self.sort_options
-        ]
-        context["catalog_selected_filters"] = {
-            "subtypes": selected_subtypes,
-            "ages": selected_ages,
-            "areas": selected_areas,
-            "themes": selected_themes,
-        }
-        context["catalog_price_bounds"] = {
-            "min": price_bounds["min_price"],
-            "max": price_bounds["max_price"],
-        }
-        context["catalog_selected_price_from"] = self.request.GET.get("price_from", "")
-        context["catalog_selected_price_to"] = self.request.GET.get("price_to", "")
-        context["catalog_price_bounds_display"] = {
-            "min": self._format_price_value(price_bounds["min_price"]),
-            "max": self._format_price_value(price_bounds["max_price"]),
-        }
-        context["catalog_filters"] = {
+        catalog_filters = {
             "subtypes": [
                 {
                     "id": option.pk,
@@ -264,14 +190,123 @@ class CatalogView(TemplateView):
                 for option in theme_options
             ],
         }
-        context["catalog_quick_filters"] = [
+
+        catalog_quick_filters = [
             {
                 "id": option["id"],
                 "label": option["label"],
                 "selected": option["selected"],
             }
-            for option in context["catalog_filters"]["areas"][:5]
+            for option in catalog_filters["areas"][:5]
         ]
+
+        return catalog_filters, catalog_quick_filters
+
+    def _build_products_mode_context(self, selected_category):
+        sort_value = self.request.GET.get("sort", "")
+        page_number = self.request.GET.get("page") or 1
+        category_queryset = self._base_products_queryset().filter(categories=selected_category)
+        price_bounds = category_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
+        filtered_queryset = self._apply_filters(category_queryset)
+        sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
+
+        selected_subtypes = self._selected_values("subtype")
+        selected_ages = self._selected_values("age")
+        selected_areas = self._selected_values("area")
+        selected_themes = self._selected_values("theme")
+
+        catalog_filters, catalog_quick_filters = self._build_catalog_filters_context(
+            selected_category,
+            category_queryset,
+            selected_subtypes,
+            selected_ages,
+            selected_areas,
+            selected_themes,
+        )
+
+        paginator = Paginator(sorted_queryset, 9)
+        page_obj = paginator.get_page(page_number)
+        cart_product_ids = set(get_cart_product_ids(self.request))
+
+        return {
+            "catalog_products": [
+                self._build_product_card(
+                    product,
+                    selected_category=selected_category,
+                    cart_product_ids=cart_product_ids,
+                )
+                for product in page_obj.object_list
+            ],
+            "catalog_products_count": paginator.count,
+            "catalog_page_obj": page_obj,
+            "catalog_pagination": {
+                "current": page_obj.number,
+                "total": paginator.num_pages,
+                "has_previous": page_obj.has_previous(),
+                "has_next": page_obj.has_next(),
+                "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None,
+                "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
+                "pages": list(paginator.page_range),
+            },
+            "catalog_sort_value": sort_value,
+            "catalog_sort_options": [
+                {"value": value, "label": label, "selected": value == sort_value}
+                for value, label in self.sort_options
+            ],
+            "catalog_selected_filters": {
+                "subtypes": selected_subtypes,
+                "ages": selected_ages,
+                "areas": selected_areas,
+                "themes": selected_themes,
+            },
+            "catalog_price_bounds": {
+                "min": price_bounds["min_price"],
+                "max": price_bounds["max_price"],
+            },
+            "catalog_selected_price_from": self.request.GET.get("price_from", ""),
+            "catalog_selected_price_to": self.request.GET.get("price_to", ""),
+            "catalog_price_bounds_display": {
+                "min": self._format_price_value(price_bounds["min_price"]),
+                "max": self._format_price_value(price_bounds["max_price"]),
+            },
+            "catalog_filters": catalog_filters,
+            "catalog_quick_filters": catalog_quick_filters,
+        }
+
+    def get_template_names(self):
+        category_slug = self.request.GET.get("category")
+        if self.request.headers.get("HX-Request") == "true" and category_slug:
+            return [self.htmx_results_template_name]
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        categories = []
+        for index, category in enumerate(Category.objects.order_by("id")):
+            style = self.card_styles[index % len(self.card_styles)]
+            categories.append(
+                {
+                    "title": category.title,
+                    "slug": category.slug,
+                    "url": f"/catalog/?category={category.slug}",
+                    "image_url": static(f"images/catalog/{category.slug}.svg"),
+                    **style,
+                },
+            )
+        context["catalog_categories"] = categories
+
+        selected_category = None
+        category_slug = self.request.GET.get("category")
+        if category_slug:
+            selected_category = Category.objects.filter(slug=category_slug).first()
+
+        context["selected_category"] = selected_category
+        context["catalog_mode"] = "products" if selected_category else "categories"
+
+        if not selected_category:
+            return context
+
+        context.update(self._build_products_mode_context(selected_category))
         return context
 
 

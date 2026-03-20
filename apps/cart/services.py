@@ -44,7 +44,9 @@ def _get_or_create_user_cart(user) -> Cart:
 def get_cart_product_ids(request) -> list[int]:
     if request.user.is_authenticated:
         return list(
-            CartItem.objects.filter(cart__user=request.user).order_by("created_at").values_list("product_id", flat=True)
+            CartItem.objects.filter(cart__user=request.user)
+            .order_by("created_at")
+            .values_list("product_id", flat=True),
         )
     return _get_guest_cart_ids(request)
 
@@ -140,9 +142,10 @@ def get_cart_page_context(request) -> dict:
     )
 
     ordered_products = [products[product_id] for product_id in product_ids if product_id in products]
-    selected_category_by_id = {
-        product.id: (product.categories.first().title if product.categories.first() else "") for product in ordered_products
-    }
+    selected_category_by_id = {}
+    for product in ordered_products:
+        first_category = product.categories.first()
+        selected_category_by_id[product.id] = first_category.title if first_category else ""
     cart_items = [_build_cart_item(product, selected_category_by_id) for product in ordered_products]
     total = sum((product.price for product in ordered_products), Decimal("0.00"))
 
@@ -152,4 +155,3 @@ def get_cart_page_context(request) -> dict:
         "cart_count": len(ordered_products),
         "cart_product_ids": [product.id for product in ordered_products],
     }
-
