@@ -1,0 +1,37 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[18px] pb-[30px] pt-[18px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[12px] top-[12px] w-[50px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[12px] top-[18px] w-[38px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[18px] bottom-[18px] w-[44px] opacity-70" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[18px] bottom-[16px] w-[34px] opacity-70" draggable="false">
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[20px] top-[20px] z-20 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true" draggable="false">
+  </button>
+
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <img src="{% static 'images/icons/trash-light-green.svg' %}" alt="" class="h-[57px] w-[50px]" aria-hidden="true" draggable="false">
+
+    <p class="mt-[18px] text-[14px] font-bold leading-none text-[var(--color-black)]">
+      {% trans "Уверены, что хотите чистить корзину?" %}
+    </p>
+
+    <form method="post" action="{% url 'cart-clear' %}" class="mt-[31px] flex flex-col items-center gap-[20px]">
+      {% csrf_token %}
+      <button type="button" data-dialog-close class="btn-soft-pink h-[40px] w-[246px] text-[12px] leading-[12px]">
+        {% trans "Отменить" %}
+      </button>
+      <button type="submit" class="btn-soft-green h-[40px] w-[246px] text-[12px] leading-[12px]">
+        {% trans "Очистить корзину" %}
+      </button>
+    </form>
+  </div>
+</div>

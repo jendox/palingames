@@ -5,6 +5,8 @@ from django.core.paginator import Paginator
 from django.templatetags.static import static
 from django.views.generic import DetailView, TemplateView
 
+from apps.cart.services import get_cart_product_ids
+
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 
 
@@ -58,10 +60,12 @@ class CatalogView(TemplateView):
                 return title[: -len(source)] + target
         return title
 
-    def _build_product_card(self, product, selected_category=None):
+    def _build_product_card(self, product, selected_category=None, cart_product_ids=None):
         primary_kind = product.subtypes.first() or product.categories.first()
         primary_image = next(iter(product.images.all()), None)
+        cart_ids = cart_product_ids or set()
         return {
+            "id": product.id,
             "title": product.title,
             "url": product.get_absolute_url(),
             "price": f"{product.price:.2f}".replace(".", ",") + " BYN",
@@ -69,7 +73,7 @@ class CatalogView(TemplateView):
             "category": self._format_category_label(selected_category or product.categories.first()),
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
             "is_favorited": False,
-            "is_in_cart": False,
+            "is_in_cart": product.id in cart_ids,
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
@@ -180,9 +184,15 @@ class CatalogView(TemplateView):
 
         paginator = Paginator(sorted_queryset, 9)
         page_obj = paginator.get_page(page_number)
+        cart_product_ids = set(get_cart_product_ids(self.request))
 
         context["catalog_products"] = [
-            self._build_product_card(product, selected_category=selected_category) for product in page_obj.object_list
+            self._build_product_card(
+                product,
+                selected_category=selected_category,
+                cart_product_ids=cart_product_ids,
+            )
+            for product in page_obj.object_list
         ]
         context["catalog_products_count"] = paginator.count
         context["catalog_page_obj"] = page_obj

@@ -37,41 +37,50 @@
       {% trans "Моя корзина" %}
     </h1>
 
-    <div class="mx-auto mt-[48px] grid max-w-[1500px] grid-cols-1 items-start gap-[48px] min-[1200px]:mt-[70px] min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(360px,500px)] min-[1200px]:gap-[48px] min-[1536px]:gap-[100px]">
+    <div class="mx-auto mt-[48px] grid max-w-[1500px] grid-cols-1 items-start gap-[48px] min-[1200px]:mt-[70px] min-[1200px]:gap-[48px] min-[1536px]:gap-[100px] {% if cart_items %}min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(360px,500px)]{% endif %}">
       <div>
         <div class="space-y-[25px]">
           {% for item in cart_items %}
             {% include "pages/cart/desktop/_cart_item.html" %}
+          {% empty %}
+            <div class="mx-auto w-full max-w-[640px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[24px] py-[30px] text-center text-[18px] font-semibold text-[var(--color-black-80)]">
+              {% trans "Корзина пока пуста." %}
+            </div>
           {% endfor %}
         </div>
         <div class="mt-[35px] flex justify-center min-[1200px]:justify-end">
-          <button
-            type="button"
-            class="inline-flex h-[55px] w-[165px] items-center justify-center gap-[10px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-bold text-[var(--color-black)] hover:border-[var(--color-black-80)] cursor-pointer"
-          >
-            {% trans "очистить корзину" %}
-          </button>
+          {% if cart_items %}
+            <button
+              type="button"
+              data-dialog-open="cartClearDialog"
+              class="inline-flex h-[55px] w-[165px] items-center justify-center gap-[10px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-bold text-[var(--color-black)] hover:border-[var(--color-black-80)] cursor-pointer"
+            >
+              {% trans "очистить корзину" %}
+            </button>
+          {% endif %}
         </div>
       </div>
 
-      <aside class="w-full max-w-[500px] justify-self-center rounded-[20px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[30px] pb-[30px] pt-[30px] min-[1200px]:justify-self-end">
-        <p class="text-[24px] font-bold">
-          {% trans "Ваш заказ" %}
-        </p>
-        <div class="mt-[30px] flex items-end justify-between gap-[16px] text-[20px] leading-[26px] text-[var(--color-black-80)]">
-          <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
-          <span class="font-medium text-[var(--color-black)]">{{ cart_total }}</span>
-        </div>
-        <div class="mt-[25px] border-t border-[var(--color-grey)] pt-[30px]">
-          <div class="flex items-end justify-between gap-[16px]">
-            <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{% trans "Итого:" %}</span>
-            <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{{ cart_total }}</span>
+      {% if cart_items %}
+        <aside class="w-full max-w-[500px] justify-self-center rounded-[20px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[30px] pb-[30px] pt-[30px] min-[1200px]:justify-self-end">
+          <p class="text-[24px] font-bold">
+            {% trans "Ваш заказ" %}
+          </p>
+          <div class="mt-[30px] flex items-end justify-between gap-[16px] text-[20px] leading-[26px] text-[var(--color-black-80)]">
+            <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+            <span class="font-medium text-[var(--color-black)]">{{ cart_total }}</span>
           </div>
-        </div>
-        <button type="button" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
-          {% trans "Оформить заказ" %}
-        </button>
-      </aside>
+          <div class="mt-[25px] border-t border-[var(--color-grey)] pt-[30px]">
+            <div class="flex items-end justify-between gap-[16px]">
+              <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{% trans "Итого:" %}</span>
+              <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{{ cart_total }}</span>
+            </div>
+          </div>
+          <button type="button" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+            {% trans "Оформить заказ" %}
+          </button>
+        </aside>
+      {% endif %}
     </div>
   </div>
 </section>

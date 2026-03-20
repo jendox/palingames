@@ -1,15 +1,25 @@
 {% load static i18n %}
 
 <article class="grid grid-cols-[24px_24px_110px_24px_minmax(0,1fr)] items-start rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] pl-[24px] pr-[16px] py-[16px] min-[1280px]:grid-cols-[30px_60px_130px_70px_minmax(0,1fr)] min-[1280px]:pl-[50px] min-[1280px]:pr-[20px] min-[1280px]:py-[20px]">
-  <button type="button" class="col-start-1 self-center inline-flex h-[24px] w-[24px] cursor-pointer items-center justify-center min-[1280px]:h-[27px] min-[1280px]:w-[30px]" aria-label="{% trans 'Удалить товар' %}">
-    <img
-      src="{% static 'images/icons/trash-green.svg' %}"
-      sizes="30px"
-      alt=""
-      aria-hidden="true"
-      class="h-full w-full object-contain"
-    >
-  </button>
+  <form
+    method="post"
+    action="{% url 'cart-remove' item.product_id %}"
+    hx-post="{% url 'cart-remove' item.product_id %}"
+    hx-target="#cart-page-content"
+    hx-swap="outerHTML"
+    class="col-start-1 self-center"
+  >
+    {% csrf_token %}
+    <button type="submit" class="inline-flex h-[24px] w-[24px] cursor-pointer items-center justify-center min-[1280px]:h-[27px] min-[1280px]:w-[30px]" aria-label="{% trans 'Удалить товар' %}">
+      <img
+        src="{% static 'images/icons/trash-green.svg' %}"
+        sizes="30px"
+        alt=""
+        aria-hidden="true"
+        class="h-full w-full object-contain"
+      >
+    </button>
+  </form>
 
   <div class="col-start-3 overflow-hidden rounded-[8px] bg-[var(--color-white)]">
     <img

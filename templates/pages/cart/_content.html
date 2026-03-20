@@ -1,0 +1,11 @@
+{% load i18n %}
+
+<div id="cart-page-content">
+  <div class="min-[1024px]:hidden">
+    {% include "pages/cart/cart_mobile.html" %}
+  </div>
+
+  <div class="hidden min-[1024px]:block">
+    {% include "pages/cart/cart_desktop.html" %}
+  </div>
+</div>

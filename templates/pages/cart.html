@@ -4,16 +4,14 @@
 
 {% block title %}{% trans "Корзина" %} — PaliGames{% endblock %}
 
+{% block head %}
+  <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>
+{% endblock %}
+
 {% block main_class %}w-full px-0 py-0{% endblock %}
 
 {% block content %}
   {% include "components/dividers/clouds.html" %}
-  <div class="min-[1024px]:hidden">
-    {% include "pages/cart/cart_mobile.html" %}
-  </div>
-
-  <div class="hidden min-[1024px]:block">
-    {% include "pages/cart/cart_desktop.html" %}
-  </div>
+  {% include "pages/cart/_content.html" %}
   {% include "components/dividers/clouds.html" %}
 {% endblock %}

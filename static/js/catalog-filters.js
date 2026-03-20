@@ -209,6 +209,39 @@ function setCartState(button, isInCart) {
   button.setAttribute("aria-label", isInCart ? "Удалить из корзины" : "Добавить в корзину");
 }
 
+function getCookie(name) {
+  const cookieString = document.cookie || "";
+  for (const part of cookieString.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+  return null;
+}
+
+async function toggleCartOnServer(productId) {
+  const csrfToken = getCookie("csrftoken");
+  const body = new URLSearchParams({ product_id: String(productId) });
+
+  const response = await fetch("/cart/toggle/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Cart toggle failed");
+  }
+
+  return response.json();
+}
+
 function getCatalogPreviewDialog() {
   const dialog = document.getElementById("catalogProductPreviewDialog");
   return dialog instanceof HTMLDialogElement ? dialog : null;
@@ -313,9 +346,28 @@ function initCatalogProductCards(root = document) {
     }
 
     button.dataset.cartBound = "true";
-    button.addEventListener("click", () => {
-      const isInCart = button.dataset.inCart === "true";
-      setCartState(button, !isInCart);
+    button.addEventListener("click", async () => {
+      if (button.dataset.cartPending === "true") {
+        return;
+      }
+
+      const productId = Number.parseInt(button.dataset.productId || "", 10);
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return;
+      }
+
+      button.dataset.cartPending = "true";
+      button.setAttribute("aria-busy", "true");
+
+      try {
+        const payload = await toggleCartOnServer(productId);
+        setCartState(button, Boolean(payload.in_cart));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        button.dataset.cartPending = "false";
+        button.removeAttribute("aria-busy");
+      }
     });
   });
 

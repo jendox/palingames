@@ -78,6 +78,7 @@
         class="catalog-card-cart-button inline-flex size-[60px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04] {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
         aria-label="{% trans 'Добавить в корзину' %}"
         data-catalog-cart-toggle
+        data-product-id="{{ product.id }}"
         data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"
       >
         <img src="{% static 'images/icons/cart.svg' %}" alt="" class="h-[60px] w-[60px]" aria-hidden="true">

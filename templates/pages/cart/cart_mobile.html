@@ -9,27 +9,33 @@
     <div class="mt-[40px] space-y-[20px]">
       {% for item in cart_items %}
         {% include "pages/cart/mobile/_cart_item.html" %}
+      {% empty %}
+        <div class="mx-auto w-full max-w-[320px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[20px] text-center text-[14px] font-semibold text-[var(--color-black-80)]">
+          {% trans "Корзина пока пуста." %}
+        </div>
       {% endfor %}
     </div>
 
-    <div class="mt-[50px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
-      <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">
-        {% trans "Ваш заказ" %}
-      </p>
-      <div class="mt-[20px] flex items-end justify-between gap-[14px] text-[12px] leading-[130%] text-[var(--color-black-80)]">
-        <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
-        <span class="font-normal text-[var(--color-black)]">{{ cart_total }}</span>
-      </div>
-      <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
-        <div class="flex items-end justify-between gap-[14px]">
-          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
-          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{{ cart_total }}</span>
+    {% if cart_items %}
+      <div class="mt-[50px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
+        <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">
+          {% trans "Ваш заказ" %}
+        </p>
+        <div class="mt-[20px] flex items-end justify-between gap-[14px] text-[12px] leading-[130%] text-[var(--color-black-80)]">
+          <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+          <span class="font-normal text-[var(--color-black)]">{{ cart_total }}</span>
+        </div>
+        <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
+          <div class="flex items-end justify-between gap-[14px]">
+            <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
+            <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{{ cart_total }}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <button type="button" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
-      {% trans "Оформить заказ" %}
-    </button>
+      <button type="button" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
+        {% trans "Оформить заказ" %}
+      </button>
+    {% endif %}
   </div>
 </section>

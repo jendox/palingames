@@ -4,7 +4,6 @@ from urllib.parse import quote
 from django.contrib.auth import update_session_auth_hash
 from django.http import HttpResponse
 from django.shortcuts import redirect
-from django.templatetags.static import static
 from django.views.generic import TemplateView
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
@@ -34,30 +33,6 @@ class AboutPageView(TemplateView):
 
 class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
-
-
-class CartPageView(TemplateView):
-    template_name = "pages/cart.html"
-    sample_cart_items = [
-        {
-            "title": "Мой первый английский",
-            "kind": "Интерактивный плакат",
-            "price": "1,2 BYN",
-            "image_url": static("images/example-product-image-1.png"),
-        },
-        {
-            "title": "Белорусский национальный строй",
-            "kind": "Дидактическая игра",
-            "price": "1,5 BYN",
-            "image_url": static("images/example-product-image-2.png"),
-        },
-    ]
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["cart_items"] = self.sample_cart_items
-        context["cart_total"] = "2,7 BYN"
-        return context
 
 
 class AccountPageView(TemplateView):
