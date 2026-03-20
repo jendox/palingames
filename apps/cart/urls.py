@@ -8,4 +8,3 @@ urlpatterns = [
     path("cart/remove/<int:product_id>/", cart_remove_view, name="cart-remove"),
     path("cart/clear/", cart_clear_view, name="cart-clear"),
 ]
-

@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.http import Http404, JsonResponse
-from django.shortcuts import render
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
@@ -49,7 +48,7 @@ def cart_toggle_view(request):
             "ok": True,
             "in_cart": in_cart,
             "cart_count": len(cart_ids),
-        }
+        },
     )
 
 

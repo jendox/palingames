@@ -29,4 +29,3 @@ class CartItem(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"CartItem(cart={self.cart_id}, product={self.product_id})"
-

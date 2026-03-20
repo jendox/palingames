@@ -9,4 +9,3 @@ def merge_guest_cart_after_login(sender, user, request, **kwargs):
     if request is None:
         return
     merge_guest_cart_to_user(request, user)
-
