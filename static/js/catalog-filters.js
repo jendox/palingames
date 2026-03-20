@@ -207,6 +207,13 @@ function setCartState(button, isInCart) {
   button.dataset.inCart = isInCart ? "true" : "false";
   button.classList.toggle("catalog-card-cart-button-active", isInCart);
   button.setAttribute("aria-label", isInCart ? "Удалить из корзины" : "Добавить в корзину");
+
+  const icon = button.querySelector("[data-cart-icon]");
+  if (!(icon instanceof HTMLImageElement)) {
+    return;
+  }
+
+  icon.src = isInCart ? icon.dataset.iconFull : icon.dataset.iconEmpty;
 }
 
 function getCookie(name) {
@@ -346,6 +353,7 @@ function initCatalogProductCards(root = document) {
     }
 
     button.dataset.cartBound = "true";
+    setCartState(button, button.dataset.inCart === "true");
     button.addEventListener("click", async () => {
       if (button.dataset.cartPending === "true") {
         return;
