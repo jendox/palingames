@@ -1,70 +1,76 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)]">
-  <div class="mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[88px] min-[1600px]:px-[72px]">
-    <div class="flex items-start justify-between gap-[40px]">
+<section class="relative overflow-hidden">
+  <img
+    src="{% static 'images/decor/clouds/cloud-2.svg' %}"
+    alt=""
+    class="pointer-events-none absolute left-[50px] top-[34px] w-[180px] opacity-80"
+    aria-hidden="true"
+  >
+  <img
+    src="{% static 'images/decor/clouds/cloud-1.svg' %}"
+    alt=""
+    class="pointer-events-none absolute right-[182px] top-[30px] w-[176px] opacity-80"
+    aria-hidden="true"
+  >
+  <img
+    src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+    alt=""
+    class="pointer-events-none absolute right-[730px] top-[250px] w-[82px] opacity-80"
+    aria-hidden="true"
+  >
+  <img
+    src="{% static 'images/decor/clouds/cloud-3.svg' %}"
+    alt=""
+    class="pointer-events-none absolute right-[530px] bottom-[80px] w-[110px] opacity-80"
+    aria-hidden="true"
+  >
+  <img
+    src="{% static 'images/decor/aerostats/aerostat-yellow.svg' %}"
+    alt=""
+    class="pointer-events-none absolute bottom-[85px] right-[350px] h-[200px] w-[144px] opacity-90"
+    aria-hidden="true"
+  >
+
+  <div class="relative z-10 mx-auto max-w-[1500px] px-6 pb-[90px] pt-[56px] min-[1280px]:px-[42px] min-[1600px]:px-[72px]">
+    <h1 class="text-center text-[32px] font-bold uppercase leading-[32px] text-[var(--color-black)] min-[1280px]:text-[40px] min-[1280px]:leading-[40px]">
+      {% trans "Моя корзина" %}
+    </h1>
+
+    <div class="mx-auto mt-[48px] grid max-w-[1500px] grid-cols-1 items-start gap-[48px] min-[1200px]:mt-[70px] min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(360px,500px)] min-[1200px]:gap-[48px] min-[1536px]:gap-[100px]">
       <div>
-        <h1 class="text-[40px] font-bold uppercase leading-[40px] text-[var(--color-black)]">
-          {% trans "Корзина" %}
-        </h1>
-        <p class="mt-[18px] text-[20px] font-bold leading-[20px] text-[var(--color-black-80)]">
-          {% blocktrans count count=cart_items|length %}{{ count }} товар{% plural %}{{ count }} товара{% endblocktrans %}
-        </p>
-      </div>
-
-      <a
-        href="{% url 'catalog' %}"
-        class="inline-flex items-center gap-[10px] pt-[8px] text-[20px] font-bold leading-[20px] text-[var(--color-black)] underline underline-offset-[4px] hover:text-[var(--color-turquoise)]"
-      >
-        <img src="{% static 'images/header/cart_hover.svg' %}" alt="" class="h-[16px] w-[18px]" aria-hidden="true">
-        {% trans "Продолжить покупки" %}
-      </a>
-    </div>
-
-    <div class="mt-[52px] grid grid-cols-[minmax(0,1fr)_373px] items-start gap-[34px] min-[1440px]:grid-cols-[minmax(0,1fr)_406px] min-[1440px]:gap-[46px]">
-      <div class="space-y-[30px]">
-        {% for item in cart_items %}
-          {% include "pages/cart/desktop/_cart_item.html" %}
-        {% endfor %}
-      </div>
-
-      <aside class="sticky top-[24px] overflow-hidden rounded-[20px] bg-[var(--color-white)] shadow-[0_14px_40px_rgba(0,0,0,0.08)] ring-1 ring-black/5">
-        <div class="bg-[var(--color-mint)] px-[32px] pb-[24px] pt-[28px]">
-          <p class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-            {% trans "Ваш заказ" %}
-          </p>
-          <div class="mt-[28px] space-y-[18px] text-[18px] leading-[20px] text-[var(--color-black)]">
-            <div class="flex items-center justify-between gap-4">
-              <span>{% trans "Товаров" %}</span>
-              <span class="font-bold">{{ cart_items|length }}</span>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <span>{% trans "Формат" %}</span>
-              <span class="font-bold">{% trans "PDF" %}</span>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-              <span>{% trans "Доставка" %}</span>
-              <span class="font-bold">{% trans "онлайн" %}</span>
-            </div>
-          </div>
+        <div class="space-y-[25px]">
+          {% for item in cart_items %}
+            {% include "pages/cart/desktop/_cart_item.html" %}
+          {% endfor %}
         </div>
-
-        <div class="px-[32px] pb-[30px] pt-[28px]">
-          <div class="flex items-end justify-between gap-4">
-            <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-              {% trans "Итого" %}
-            </span>
-            <span class="text-[40px] font-bold leading-[40px] text-[var(--color-black)]">{{ cart_total }}</span>
-          </div>
-
-          <button type="button" class="btn-orange mt-[34px] w-full text-[20px]">
-            {% trans "Оформить заказ" %}
+        <div class="mt-[35px] flex justify-center min-[1200px]:justify-end">
+          <button
+            type="button"
+            class="inline-flex h-[55px] w-[165px] items-center justify-center gap-[10px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-bold text-[var(--color-black)] hover:border-[var(--color-black-80)] cursor-pointer"
+          >
+            {% trans "очистить корзину" %}
           </button>
-
-          <p class="mt-[20px] max-w-[300px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-            {% trans "Цифровые материалы будут доступны сразу после подтверждения оплаты и отправятся на указанный email." %}
-          </p>
         </div>
+      </div>
+
+      <aside class="w-full max-w-[500px] justify-self-center rounded-[20px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[30px] pb-[30px] pt-[30px] min-[1200px]:justify-self-end">
+        <p class="text-[24px] font-bold">
+          {% trans "Ваш заказ" %}
+        </p>
+        <div class="mt-[30px] flex items-end justify-between gap-[16px] text-[20px] leading-[26px] text-[var(--color-black-80)]">
+          <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+          <span class="font-medium text-[var(--color-black)]">{{ cart_total }}</span>
+        </div>
+        <div class="mt-[25px] border-t border-[var(--color-grey)] pt-[30px]">
+          <div class="flex items-end justify-between gap-[16px]">
+            <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{% trans "Итого:" %}</span>
+            <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{{ cart_total }}</span>
+          </div>
+        </div>
+        <button type="button" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+          {% trans "Оформить заказ" %}
+        </button>
       </aside>
     </div>
   </div>
