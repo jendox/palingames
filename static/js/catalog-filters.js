@@ -222,43 +222,44 @@ function initCatalogFilterReset(root = document) {
 }
 
 function initCatalogMobileFilterDialog(root = document) {
-  const dialog = root.querySelector("#catalogMobileFilterDialog");
-  if (!(dialog instanceof HTMLDialogElement) || dialog.dataset.catalogMobileFilterBound === "true") {
-    return;
-  }
-
-  dialog.dataset.catalogMobileFilterBound = "true";
-
-  const form = dialog.querySelector("[data-catalog-mobile-filter-form]");
-  if (!(form instanceof HTMLFormElement)) {
-    return;
-  }
-
-  form.addEventListener("change", () => {
-    form.dataset.filterDirty = "true";
-  });
-
-  form.addEventListener("input", () => {
-    form.dataset.filterDirty = "true";
-  });
-
-  form.addEventListener("submit", () => {
-    delete form.dataset.filterDirty;
-  });
-
-  dialog.addEventListener("close", () => {
-    if (form.dataset.filterDirty !== "true") {
+  root.querySelectorAll("dialog").forEach((dialog) => {
+    if (!(dialog instanceof HTMLDialogElement) || dialog.dataset.catalogMobileFilterBound === "true") {
       return;
     }
 
-    delete form.dataset.filterDirty;
-
-    if (window.htmx) {
-      window.htmx.trigger(form, "submit");
+    const form = dialog.querySelector("[data-catalog-mobile-filter-form]");
+    if (!(form instanceof HTMLFormElement)) {
       return;
     }
 
-    form.requestSubmit();
+    dialog.dataset.catalogMobileFilterBound = "true";
+
+    form.addEventListener("change", () => {
+      form.dataset.filterDirty = "true";
+    });
+
+    form.addEventListener("input", () => {
+      form.dataset.filterDirty = "true";
+    });
+
+    form.addEventListener("submit", () => {
+      delete form.dataset.filterDirty;
+    });
+
+    dialog.addEventListener("close", () => {
+      if (form.dataset.filterDirty !== "true") {
+        return;
+      }
+
+      delete form.dataset.filterDirty;
+
+      if (window.htmx) {
+        window.htmx.trigger(form, "submit");
+        return;
+      }
+
+      form.requestSubmit();
+    });
   });
 }
 
@@ -590,10 +591,16 @@ function initCatalogMobileListing(root = document) {
         });
       });
 
-      listing.querySelectorAll('[data-dialog-open="catalogMobileFilterDialog"]').forEach((button) => {
+      listing.querySelectorAll("[data-dialog-open]").forEach((button) => {
         button.addEventListener("click", () => {
           window.setTimeout(() => {
-            const surface = document.querySelector("[data-catalog-mobile-filter-surface]");
+            const dialogId = button.getAttribute("data-dialog-open");
+            if (!dialogId) {
+              return;
+            }
+
+            const dialog = document.getElementById(dialogId);
+            const surface = dialog?.querySelector("[data-catalog-mobile-filter-surface]");
             if (surface instanceof HTMLElement) {
               surface.focus({ preventScroll: true });
             }

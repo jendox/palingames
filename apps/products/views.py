@@ -31,6 +31,8 @@ class CatalogView(TemplateView):
         ("newest", "новые игры"),
         ("oldest", "старые игры"),
     )
+    mobile_pagination_compact_limit = 3
+    mobile_pagination_leading_window = 2
 
     def _base_products_queryset(self):
         return Product.objects.prefetch_related(
@@ -86,6 +88,13 @@ class CatalogView(TemplateView):
     def _selected_values(self, key):
         return self.request.GET.getlist(key)
 
+    def _mobile_pagination_page_item(self, page_number, current_page):
+        return {
+            "type": "page",
+            "number": page_number,
+            "current": page_number == current_page,
+        }
+
     def _build_mobile_pagination(self, page_obj):
         total_pages = page_obj.paginator.num_pages
         current_page = page_obj.number
@@ -93,49 +102,41 @@ class CatalogView(TemplateView):
         if total_pages <= 1:
             return []
 
-        items = []
+        if total_pages <= self.mobile_pagination_compact_limit:
+            return [
+                self._mobile_pagination_page_item(page_number, current_page)
+                for page_number in range(1, total_pages + 1)
+            ]
 
-        def add_page(page_number):
-            items.append(
-                {
-                    "type": "page",
-                    "number": page_number,
-                    "current": page_number == current_page,
-                }
-            )
-
-        def add_ellipsis():
-            if items and items[-1]["type"] == "ellipsis":
-                return
-            items.append({"type": "ellipsis"})
-
-        if total_pages <= 3:
-            for page_number in range(1, total_pages + 1):
-                add_page(page_number)
-            return items
-
-        if current_page <= 2:
-            add_page(1)
-            add_page(2)
-            add_page(3)
-            add_ellipsis()
-            add_page(total_pages)
-            return items
+        if current_page <= self.mobile_pagination_leading_window:
+            visible_pages = (1, 2, 3, total_pages)
+            return [
+                *[
+                    self._mobile_pagination_page_item(page_number, current_page)
+                    for page_number in visible_pages[:-1]
+                ],
+                {"type": "ellipsis"},
+                self._mobile_pagination_page_item(visible_pages[-1], current_page),
+            ]
 
         if current_page >= total_pages - 1:
-            add_page(1)
-            add_ellipsis()
-            add_page(total_pages - 2)
-            add_page(total_pages - 1)
-            add_page(total_pages)
-            return items
+            trailing_pages = (1, total_pages - 2, total_pages - 1, total_pages)
+            return [
+                self._mobile_pagination_page_item(trailing_pages[0], current_page),
+                {"type": "ellipsis"},
+                *[
+                    self._mobile_pagination_page_item(page_number, current_page)
+                    for page_number in trailing_pages[1:]
+                ],
+            ]
 
-        add_page(1)
-        add_ellipsis()
-        add_page(current_page)
-        add_ellipsis()
-        add_page(total_pages)
-        return items
+        return [
+            self._mobile_pagination_page_item(1, current_page),
+            {"type": "ellipsis"},
+            self._mobile_pagination_page_item(current_page, current_page),
+            {"type": "ellipsis"},
+            self._mobile_pagination_page_item(total_pages, current_page),
+        ]
 
     def _apply_filters(self, queryset):
         many_to_many_filters = (
@@ -254,7 +255,7 @@ class CatalogView(TemplateView):
 
         return catalog_filters, catalog_quick_filters
 
-    def _build_products_mode_context(self, selected_category):
+    def _build_products_mode_context(self, selected_category):  # noqa: PLR0914
         sort_value = self.request.GET.get("sort", "")
         page_number = self.request.GET.get("page") or 1
         category_queryset = self._base_products_queryset().filter(categories=selected_category)
@@ -381,7 +382,7 @@ class CatalogView(TemplateView):
 
 class AlphabetNavigatorView(CatalogView):
     template_name = "pages/alphabet_navigator.html"
-    htmx_results_template_name = "pages/alphabet_navigator/desktop/product_listing.html"
+    htmx_results_template_name = "pages/alphabet_navigator/desktop/results_panel.html"
     htmx_mobile_template_name = "pages/alphabet_navigator/mobile/product_listing.html"
     alphabet_letters = (
         "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "К", "Л", "М", "Н",
@@ -435,7 +436,14 @@ class AlphabetNavigatorView(CatalogView):
             for row in self.alphabet_desktop_letter_rows
         ]
 
-    def _build_alphabet_filters_context(self, queryset, selected_subtypes, selected_ages, selected_areas, selected_themes):
+    def _build_alphabet_filters_context(
+        self,
+        queryset,
+        selected_subtypes,
+        selected_ages,
+        selected_areas,
+        selected_themes,
+    ):
         subtype_options = self._filter_option_queryset(SubType, "products", queryset)
         age_options = self._filter_option_queryset(AgeGroupTag, "products", queryset)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", queryset)
@@ -480,7 +488,7 @@ class AlphabetNavigatorView(CatalogView):
             ],
         }
 
-    def _build_products_mode_context(self, selected_category=None):
+    def _build_products_mode_context(self, selected_category=None):  # noqa: PLR0914
         sort_value = self.request.GET.get("sort", "")
         page_number = self.request.GET.get("page") or 1
         selected_letter = self._selected_letter()

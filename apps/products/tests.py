@@ -160,18 +160,21 @@ class AlphabetNavigatorViewTests(TestCase):
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
         cls.subtype = SubType.objects.create(title="Карточки", category=cls.category)
+        cls.alt_subtype = SubType.objects.create(title="Наборы", category=cls.category)
         cls.age = AgeGroupTag.objects.create(value=AgeGroup.AGE_2_3)
+        cls.alt_age = AgeGroupTag.objects.create(value=AgeGroup.AGE_4_5)
 
         cls._make_product("Альфа", "alpha-nav", Decimal("30.00"))
         cls._make_product("Арфа", "harp-nav", Decimal("20.00"))
         cls._make_product("Бета", "beta-nav", Decimal("10.00"))
+        cls._make_product("Астра", "astra-nav", Decimal("15.00"), subtype=cls.alt_subtype, age=cls.alt_age)
 
     @classmethod
-    def _make_product(cls, title, slug, price):
+    def _make_product(cls, title, slug, price, subtype=None, age=None):
         product = Product.objects.create(title=title, slug=slug, price=price)
         product.categories.add(cls.category)
-        product.subtypes.add(cls.subtype)
-        product.age_groups.add(cls.age)
+        product.subtypes.add(subtype or cls.subtype)
+        product.age_groups.add(age or cls.age)
         return product
 
     def test_alphabet_navigator_defaults_to_letter_a(self):
@@ -180,7 +183,7 @@ class AlphabetNavigatorViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         titles = [product["title"] for product in response.context["alphabet_products"]]
 
-        self.assertCountEqual(titles, ["Альфа", "Арфа"])
+        self.assertCountEqual(titles, ["Альфа", "Арфа", "Астра"])
         self.assertNotIn("Бета", titles)
         self.assertEqual(response.context["alphabet_selected_letter"], "А")
 
@@ -206,3 +209,37 @@ class AlphabetNavigatorViewTests(TestCase):
         self.assertIn('id="alphabet-mobile-listing-root"', content)
         self.assertIn("Алфавитный навигатор", content)
         self.assertIn("сортировка", content.lower())
+
+    def test_alphabet_navigator_filters_inside_selected_letter(self):
+        response = self.client.get(
+            reverse("alphabet-navigator"),
+            {"letter": "А", "subtype": str(self.alt_subtype.pk), "age": str(self.alt_age.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["alphabet_products"]]
+
+        self.assertEqual(titles, ["Астра"])
+
+    def test_alphabet_navigator_uses_catalog_like_htmx_targets(self):
+        response = self.client.get(reverse("alphabet-navigator"))
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn('hx-target="#alphabet-desktop-results"', content)
+        self.assertIn('hx-target="#alphabet-mobile-listing-root"', content)
+
+    def test_alphabet_navigator_desktop_htmx_returns_results_panel_partial(self):
+        response = self.client.get(
+            reverse("alphabet-navigator"),
+            {"letter": "А", "subtype": str(self.subtype.pk)},
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="alphabet-desktop-results",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn('id="alphabet-desktop-results"', content)
+        self.assertNotIn('id="alphabet-desktop-listing-root"', content)

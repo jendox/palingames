@@ -71,7 +71,7 @@
                 <a
                   href="{% querystring sort=option.value page=None %}"
                   hx-get="{% querystring sort=option.value page=None %}"
-                  hx-target="#alphabet-desktop-listing-root"
+                  hx-target="#alphabet-desktop-results"
                   hx-swap="outerHTML"
                   hx-push-url="true"
                   data-sort-option
@@ -90,7 +90,7 @@
               <a
                 href="{% querystring sort=None page=None %}"
                 hx-get="{% querystring sort=None page=None %}"
-                hx-target="#alphabet-desktop-listing-root"
+                hx-target="#alphabet-desktop-results"
                 hx-swap="outerHTML"
                 hx-push-url="true"
                 data-sort-reset
