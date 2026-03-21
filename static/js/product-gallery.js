@@ -26,6 +26,10 @@ function initProductGallery(root) {
 
   let activeIndex = 0;
   let autoplayId = null;
+  let swipeStartX = null;
+  let swipeStartY = null;
+  let swipePointerId = null;
+  const swipeThresholdPx = 40;
 
   function getThumbIndex(offset) {
     return (activeIndex + offset) % images.length;
@@ -78,6 +82,25 @@ function initProductGallery(root) {
     startAutoplay();
   }
 
+  function clearSwipeState() {
+    swipeStartX = null;
+    swipeStartY = null;
+    swipePointerId = null;
+  }
+
+  function handleSwipe(deltaX, deltaY) {
+    if (Math.abs(deltaX) < swipeThresholdPx || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      goTo((activeIndex + 1) % images.length);
+      return;
+    }
+
+    goTo((activeIndex - 1 + images.length) % images.length);
+  }
+
   if (prevButton) {
     prevButton.addEventListener("click", () => {
       goTo((activeIndex - 1 + images.length) % images.length);
@@ -108,6 +131,68 @@ function initProductGallery(root) {
       }
     }
   });
+
+  if (images.length > 1) {
+    root.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+      }
+
+      swipeStartX = event.clientX;
+      swipeStartY = event.clientY;
+      swipePointerId = event.pointerId;
+    });
+
+    root.addEventListener("pointerup", (event) => {
+      if (swipePointerId !== event.pointerId || swipeStartX === null || swipeStartY === null) {
+        return;
+      }
+
+      const deltaX = event.clientX - swipeStartX;
+      const deltaY = event.clientY - swipeStartY;
+
+      clearSwipeState();
+      handleSwipe(deltaX, deltaY);
+    });
+
+    root.addEventListener("pointercancel", clearSwipeState);
+
+    root.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = event.changedTouches[0];
+        if (!touch) {
+          return;
+        }
+
+        swipeStartX = touch.clientX;
+        swipeStartY = touch.clientY;
+      },
+      { passive: true },
+    );
+
+    root.addEventListener(
+      "touchend",
+      (event) => {
+        if (swipeStartX === null || swipeStartY === null) {
+          return;
+        }
+
+        const touch = event.changedTouches[0];
+        if (!touch) {
+          clearSwipeState();
+          return;
+        }
+
+        const deltaX = touch.clientX - swipeStartX;
+        const deltaY = touch.clientY - swipeStartY;
+
+        clearSwipeState();
+        handleSwipe(deltaX, deltaY);
+      },
+      { passive: true },
+    );
+  }
 
   if (autoplayMs > 0) {
     root.addEventListener("mouseenter", stopAutoplay);
