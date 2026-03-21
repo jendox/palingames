@@ -256,8 +256,8 @@
     </template>
 
     <template data-catalog-mobile-list-template>
-      <article class="flex items-center gap-[14px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[10px] py-[8px]">
-        <a href="#" class="block h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
+      <article class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]">
+        <a href="#" class="block h-[77px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
           <img
             data-product-image
             src="{% static 'images/example-product-image-1.png' %}"
@@ -267,26 +267,34 @@
           >
         </a>
 
-        <div class="min-w-0 flex-1">
+        <div class="min-w-0 flex-1 pl-[45px] pr-[61px]">
           <a href="#" data-product-link class="block">
-            <h2 class="min-h-[28px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]" data-product-title></h2>
+            <h2
+              class="min-h-[28px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]"
+              style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
+              data-product-title
+            ></h2>
           </a>
-          <p class="mt-[6px] text-[8px] uppercase leading-[10px] tracking-[0.02em] text-[var(--color-black-80)]" data-product-kind></p>
-          <p class="mt-[14px] text-[12px] font-black leading-[12px] text-[var(--color-black)]" data-product-price></p>
+          <p class="mt-[6px] leading-[13px] text-[var(--color-black-80)]">
+            <span class="text-[10px] font-semibold">{% trans "Категория:" %}</span>
+            <span class="text-[10px] font-normal" data-product-category></span>
+          </p>
+          <p class="mt-[12px] text-[14px] font-black leading-[14px] text-[var(--color-black)]" data-product-price></p>
         </div>
 
         <button
           type="button"
-          class="catalog-card-cart-button inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px] transition-transform duration-200"
+          class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[34px] w-[34px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200"
           aria-label="{% trans 'Добавить в корзину' %}"
           data-catalog-cart-toggle
+          data-cart-border-toggle
           data-product-id=""
           data-in-cart="false"
         >
           <img
             src="{% static 'images/icons/cart-empty.svg' %}"
             alt=""
-            class="h-[24px] w-[24px]"
+            class="h-[34px] w-[34px]"
             aria-hidden="true"
             data-cart-icon
             data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"

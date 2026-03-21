@@ -206,6 +206,9 @@ function setFavoriteState(button, isFavorited) {
 function setCartState(button, isInCart) {
   button.dataset.inCart = isInCart ? "true" : "false";
   button.classList.toggle("catalog-card-cart-button-active", isInCart);
+  if (button.hasAttribute("data-cart-border-toggle")) {
+    button.classList.toggle("border", !isInCart);
+  }
   button.setAttribute("aria-label", isInCart ? "Удалить из корзины" : "Добавить в корзину");
 
   const icon = button.querySelector("[data-cart-icon]");
@@ -385,6 +388,12 @@ function fillCatalogMobileProduct(node, product) {
   if (kind instanceof HTMLElement) {
     kind.textContent = product.category || "";
   }
+
+  node.querySelectorAll("[data-product-category]").forEach((categoryNode) => {
+    if (categoryNode instanceof HTMLElement) {
+      categoryNode.textContent = product.category || "";
+    }
+  });
 
   const price = node.querySelector("[data-product-price]");
   if (price instanceof HTMLElement) {
