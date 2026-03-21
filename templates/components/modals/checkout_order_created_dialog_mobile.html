@@ -1,0 +1,38 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[18px] pb-[24px] pt-[18px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[18px] top-[18px] w-[36px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[18px] top-[24px] w-[42px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[26px] bottom-[18px] w-[42px] opacity-80" draggable="false">
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[18px] top-[18px] z-20 inline-flex h-[22px] w-[22px] cursor-pointer items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="h-[22px] w-[22px]" aria-hidden="true" draggable="false">
+  </button>
+
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <img src="{% static 'images/decor/balloons/order-balloon.svg' %}" alt="" class="h-[125px] w-[95px]" aria-hidden="true" draggable="false">
+
+    <p class="mt-[10px] text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
+      {% trans "Ваш заказ оформлен!" %}
+    </p>
+
+    <p class="mt-[10px] text-[10px] leading-[14px] text-[var(--color-black)]">
+      {% trans "Номер заказа" %} <span class="font-bold">№ 12345</span>
+    </p>
+
+    <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
+      {% trans "Мы отправили письмо с деталями для оплаты на Вашу электронную почту. Проверьте почтовый ящик, включая папку “Спам”." %}
+    </p>
+
+    <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
+      {% trans "После оплаты материалы будут доступны для скачивания." %}
+    </p>
+  </div>
+</div>

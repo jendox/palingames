@@ -1,44 +1,58 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[50px] pt-[50px]">
-  <div class="mx-auto max-w-[380px]">
+<section class="relative overflow-hidden bg-[var(--color-white)] px-[20px] pb-[50px] pt-[50px]" data-checkout-scope="mobile">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[8px] top-[8px] w-[46px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-1/2 top-[14px] w-[28px] -translate-x-1/2 opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[90px] bottom-[4px] w-[40px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[26px] bottom-[12px] w-[28px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[22px] top-[214px] w-[50px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[50px] top-[628px] w-[46px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[88px] top-[818px] w-[34px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[92px] bottom-[116px] w-[34px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute right-[18px] top-[36px] w-[26px]" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute left-[26px] bottom-[18px] w-[24px]" draggable="false">
+    <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[22px] top-[518px] w-[36px]" draggable="false">
+    <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[14px] top-[246px] w-[26px] rotate-[20deg]" draggable="false">
+  </div>
+
+  <div class="relative z-10 mx-auto max-w-[335px]">
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
       {% trans "Оформление заказа" %}
     </h1>
 
-    <div class="mt-[35px] flex items-center justify-center gap-[10px]">
-      <img
-        src="{% static 'images/icons/' %}{% if checkout_step == 1 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
-        alt=""
-        class="h-[38px] w-[38px]"
-        aria-hidden="true"
-      >
-      <img src="{% static 'images/icons/airplane-step.svg' %}" alt="" class="h-[12px] w-[58px]" aria-hidden="true">
-      <img
-        src="{% static 'images/icons/' %}{% if checkout_step == 2 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
-        alt=""
-        class="h-[38px] w-[38px]"
-        aria-hidden="true"
-      >
-    </div>
+    <div class="mt-[40px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] pb-[20px] pt-[20px]">
+      <p class="text-[12px] font-bold leading-[12px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
 
-    <div class="mt-[40px] rounded-[12px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
-      <p class="text-[16px] font-bold text-[var(--color-black)]">{% trans "Контактные данные" %}</p>
-      <input
-        type="email"
-        value="{{ checkout_email }}"
-        placeholder="email@example.com"
-        class="account-input mt-[18px] h-[40px] rounded-[8px] border-[var(--color-grey)] px-[12px] text-[14px]"
-        {% if checkout_step == 1 %}autofocus{% endif %}
-      >
-    </div>
-
-    <div class="mt-[30px] rounded-[12px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
-      <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
-      <div class="mt-[20px] flex items-end justify-between gap-[14px] text-[12px] leading-[130%] text-[var(--color-black-80)]">
-        <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
-        <span class="font-normal text-[var(--color-black)]">{{ cart_total }}</span>
+      <div class="mt-[20px] space-y-[20px]">
+        {% for item in cart_items %}
+          <div class="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-[20px]">
+            <img
+              src="{{ item.image_url }}"
+              alt="{{ item.title }}"
+              class="h-[73px] w-[60px] rounded-[4px] object-cover"
+              draggable="false"
+            >
+            <div class="flex min-h-[73px] flex-col justify-center">
+              <p class="min-h-[30px] text-[12px] font-semibold leading-[15px] text-[var(--color-black)]">
+                {{ item.title }}
+              </p>
+              <p class="mt-[7px] text-[10px] leading-[12px] text-[var(--color-black-80)]">
+                {{ item.kind }}
+              </p>
+              <p class="mt-[7px] text-[12px] font-black leading-none text-[var(--color-black)]">
+                {{ item.price }}
+              </p>
+            </div>
+          </div>
+        {% endfor %}
       </div>
+
+      <div class="mt-[20px] flex items-end justify-between gap-[12px] text-[12px] font-normal leading-[16px] text-[var(--color-black-80)]">
+        <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+        <span class="text-[14px] font-normal leading-[16px] text-[var(--color-black)]">{{ cart_total }}</span>
+      </div>
+
       <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
         <div class="flex items-end justify-between gap-[14px]">
           <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
@@ -47,8 +61,108 @@
       </div>
     </div>
 
-    <button type="button" class="mt-[40px] flex h-[40px] w-full items-center justify-center rounded-[10px] bg-[var(--color-green)] px-[30px] text-[16px] font-bold leading-none text-[var(--color-white)]">
-      {% trans "Перейти к оплате" %}
+    <div class="mt-[30px]">
+      <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
+        <div class="relative h-[64px] w-[64px]">
+          <img
+            src="{% static 'images/icons/' %}{% if checkout_step == 1 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+            alt=""
+            class="h-[64px] w-[64px]"
+            aria-hidden="true"
+            data-checkout-step-icon="1"
+            data-active-src="{% static 'images/icons/puzzle-step-active.svg' %}"
+            data-inactive-src="{% static 'images/icons/puzzle-step-inactive.svg' %}"
+          >
+          <span class="absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none {% if checkout_step == 1 %}text-[var(--color-white)]{% else %}text-[var(--color-black)]{% endif %}" data-checkout-step-digit="1">1</span>
+        </div>
+
+        <div class="pt-[16px]">
+          <h2 class="text-[15px] font-bold leading-[15px] text-[var(--color-black)]">
+            {% trans "Введите Ваш" %} <span class="text-[var(--color-green)]">Email</span>
+          </h2>
+          <p class="mt-[10px] max-w-[238px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "На этот адрес мы отправим ссылку на оплату" %}
+          </p>
+        </div>
+      </div>
+
+      <input
+        id="checkout-email-mobile"
+        type="email"
+        value="{{ checkout_email }}"
+        placeholder="xxxxxxx@gmail.com"
+        class="account-input account-input-thin mt-[20px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+        data-checkout-email
+        title="Email"
+        required
+        {% if checkout_step == 1 %}autofocus{% endif %}
+      >
+      <p class="mt-[8px] hidden text-[10px] leading-[12px] text-[#D45A5A]" data-checkout-email-error>
+        {% trans "Введите корректный Email." %}
+      </p>
+
+      <div class="flex h-[62px] w-full items-center justify-start">
+        <img src="{% static 'images/icons/airplane-step-mobile.svg' %}" alt="" class="h-[52px] w-auto" aria-hidden="true">
+      </div>
+
+      <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
+        <div class="relative h-[64px] w-[64px]">
+          <img
+            src="{% static 'images/icons/' %}{% if checkout_step == 2 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+            alt=""
+            class="h-[64px] w-[64px]"
+            aria-hidden="true"
+            data-checkout-step-icon="2"
+            data-active-src="{% static 'images/icons/puzzle-step-active.svg' %}"
+            data-inactive-src="{% static 'images/icons/puzzle-step-inactive.svg' %}"
+          >
+          <span class="absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none {% if checkout_step == 2 %}text-[var(--color-white)]{% else %}text-[var(--color-black)]{% endif %}" data-checkout-step-digit="2">2</span>
+        </div>
+
+        <div class="pt-[16px] max-w-[236px]">
+          <h3 class="text-[15px] font-bold leading-[15px] text-[var(--color-black)]">
+            {% trans "Оплата" %}
+          </h3>
+          <p class="mt-[10px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "Ссылку для оплаты мы отправим на Вашу электронную почту. Проверьте “Входящие” (а также папку “Спам”) и перейдите по ссылке для завершения покупки." %}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex h-[62px] w-full items-center justify-end">
+        <img src="{% static 'images/icons/airplane-step-mobile.svg' %}" alt="" class="h-[52px] w-auto -scale-x-100" aria-hidden="true">
+      </div>
+
+      <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
+        <div class="relative h-[64px] w-[64px]">
+          <img src="{% static 'images/icons/puzzle-step-inactive.svg' %}" alt="" class="h-[64px] w-[64px]" aria-hidden="true">
+          <span class="absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]">3</span>
+        </div>
+
+        <div class="pt-[16px] max-w-[242px]">
+          <h3 class="text-[15px] font-bold leading-[15px] text-[var(--color-black)]">
+            {% trans "Завершение покупки" %}
+          </h3>
+          <p class="mt-[10px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "Оплата прошла успешно. Ссылка для скачивания находится в личном кабинете." %}
+          </p>
+          <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "Если Вы оформили заказ как гость, ссылка для оплаты будет отправлена на Ваш почтовый ящик в течении 3 - 5 минут." %}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <p class="mx-auto mt-[35px] max-w-[240px] text-center text-[10px] font-normal leading-[14px] text-[var(--color-black-80)]">
+      {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный Email" %}
+    </p>
+
+    <button
+      type="button"
+      class="mt-[15px] flex h-[40px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-[var(--color-green)] px-[20px] text-[16px] font-bold leading-none text-[var(--color-white)]"
+      data-checkout-submit
+    >
+      {% trans "Оформить заказ" %}
     </button>
   </div>
 </section>

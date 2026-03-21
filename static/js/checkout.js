@@ -1,11 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const emailInput = document.querySelector("[data-checkout-email]");
-  const emailError = document.querySelector("[data-checkout-email-error]");
-  const submitButton = document.querySelector("[data-checkout-submit]");
-  const stepOneIcon = document.querySelector('[data-checkout-step-icon="1"]');
-  const stepTwoIcon = document.querySelector('[data-checkout-step-icon="2"]');
-  const stepOneDigit = document.querySelector('[data-checkout-step-digit="1"]');
-  const stepTwoDigit = document.querySelector('[data-checkout-step-digit="2"]');
+  const checkoutScopes = Array.from(document.querySelectorAll("[data-checkout-scope]"));
+  const activeScope =
+    checkoutScopes.find((scope) => scope.offsetParent !== null) || checkoutScopes[0] || null;
+
+  if (!activeScope) {
+    return;
+  }
+
+  const emailInput = activeScope.querySelector("[data-checkout-email]");
+  const emailError = activeScope.querySelector("[data-checkout-email-error]");
+  const submitButton = activeScope.querySelector("[data-checkout-submit]");
+  const stepOneIcon = activeScope.querySelector('[data-checkout-step-icon="1"]');
+  const stepTwoIcon = activeScope.querySelector('[data-checkout-step-icon="2"]');
+  const stepOneDigit = activeScope.querySelector('[data-checkout-step-digit="1"]');
+  const stepTwoDigit = activeScope.querySelector('[data-checkout-step-digit="2"]');
   const createdDialog = document.getElementById("checkoutOrderCreatedDialog");
 
   if (!emailInput || !emailError || !submitButton || !stepOneIcon || !stepTwoIcon || !stepOneDigit || !stepTwoDigit || !createdDialog) {
