@@ -13,6 +13,7 @@ from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductI
 class CatalogView(TemplateView):
     template_name = "pages/catalog.html"
     htmx_results_template_name = "pages/catalog/desktop/results_panel.html"
+    htmx_mobile_template_name = "pages/catalog/mobile/product_listing.html"
     card_styles = (
         {
             "background_class": "bg-[var(--color-mint)]",
@@ -276,6 +277,8 @@ class CatalogView(TemplateView):
     def get_template_names(self):
         category_slug = self.request.GET.get("category")
         if self.request.headers.get("HX-Request") == "true" and category_slug:
+            if self.request.headers.get("HX-Target") == "catalog-mobile-listing-root":
+                return [self.htmx_mobile_template_name]
             return [self.htmx_results_template_name]
         return [self.template_name]
 

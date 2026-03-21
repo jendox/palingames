@@ -1,6 +1,6 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
+<section id="catalog-mobile-listing-root" class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
   <div class="mx-auto max-w-[356px]" data-catalog-mobile-listing>
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
       {{ selected_category.title }}
@@ -10,7 +10,7 @@
       <div class="flex items-center justify-between gap-[10px]">
         <button
           type="button"
-          data-catalog-mobile-filter
+          data-dialog-open="catalogMobileFilterDialog"
           class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.06)] bg-[var(--color-white)]"
           aria-label="{% trans 'Фильтры каталога' %}"
         >
@@ -38,127 +38,9 @@
           </button>
         </div>
       </div>
-
-      <p class="mt-[10px] text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
-        {% if catalog_page_obj %}
-          {{ catalog_page_obj.start_index }}-{{ catalog_page_obj.end_index }} {% trans "из" %} {{ catalog_products_count }}
-        {% else %}
-          0-0 {% trans "из" %} 0
-        {% endif %}
-      </p>
     </div>
 
-    <div class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
-      {% for product in catalog_products %}
-        <article class="h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
-          <div class="relative">
-            <a href="{{ product.url }}" class="block">
-              <img
-                src="{{ product.image_url }}"
-                alt="{{ product.title }}"
-                class="h-[213px] w-[170px] object-cover"
-                draggable="false"
-              >
-              <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>
-
-              <div class="absolute left-[8px] top-[8px]">
-                <div class="inline-flex items-center gap-[5px] rounded-[6px] bg-[rgba(31,31,31,0.3)] px-[7px] py-[4px] backdrop-blur-[4px]">
-                  <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="h-[12px] w-[12px]" aria-hidden="true">
-                  <span class="text-[10px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
-                </div>
-              </div>
-
-              <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
-                <button
-                  type="button"
-                  class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
-                  aria-label="{% trans 'Добавить в избранное' %}"
-                  data-catalog-favorite-toggle
-                  data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}"
-                >
-                  <img
-                    src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
-                    alt=""
-                    class="h-[20px] w-[20px]"
-                    aria-hidden="true"
-                    data-favorite-icon
-                    data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
-                    data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
-                  >
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
-                  aria-label="{% trans 'Быстрый просмотр товара' %}"
-                  data-catalog-preview-open
-                  data-preview-title="{{ product.title }}"
-                  data-preview-category="{{ product.category }}"
-                  data-preview-price="{{ product.price }}"
-                  data-preview-rating="{{ product.rating }}"
-                  data-preview-image="{{ product.image_url }}"
-                  data-preview-url="{{ product.url }}"
-                >
-                  <img src="{% static 'images/icons/preview.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true">
-                </button>
-              </div>
-
-              <div class="absolute inset-x-0 bottom-0 h-[74px] px-[10px] pb-[9px] text-[var(--color-white)]">
-                <div class="pt-[10px]">
-                  <div
-                    class="min-h-[24px] text-[10px] font-bold leading-[12px]"
-                    style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
-                  >
-                    {{ product.title }}
-                  </div>
-                  <div class="mt-[2px] text-[9px] leading-[11px] text-[rgba(255,255,255,0.84)]">
-                    {{ product.category }}
-                  </div>
-                </div>
-                <div class="absolute inset-x-[10px] bottom-[9px] flex items-center justify-between">
-                  <div class="text-[12px] font-black leading-none">
-                    {{ product.price }}
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            <div class="absolute bottom-[6px] right-[8px] z-20">
-              <button
-                type="button"
-                class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200 {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
-                aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}"
-                data-catalog-cart-toggle
-                data-product-id="{{ product.id }}"
-                data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"
-              >
-                <img
-                  src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}"
-                  alt=""
-                  class="h-[26px] w-[26px]"
-                  aria-hidden="true"
-                  data-cart-icon
-                  data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
-                  data-icon-full="{% static 'images/icons/cart-full.svg' %}"
-                >
-              </button>
-            </div>
-          </div>
-        </article>
-      {% endfor %}
-    </div>
-
-    <p class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-catalog-mobile-empty {% if catalog_products %}hidden{% endif %}>
-      {% trans "По выбранным фильтрам пока ничего не найдено." %}
-    </p>
-
-    <nav
-      class="mt-[22px]"
-      aria-label="{% trans 'Пагинация каталога' %}"
-      data-catalog-mobile-pagination
-      data-pagination-variant="mobile"
-      data-page-current="{{ catalog_page_obj.number|default:1 }}"
-      data-page-total="{{ catalog_page_obj.paginator.num_pages|default:1 }}"
-    ></nav>
+    {% include "pages/catalog/mobile/results_panel.html" %}
 
     {{ catalog_products|json_script:"catalog-mobile-products-data" }}
 
@@ -304,4 +186,103 @@
       </article>
     </template>
   </div>
+
+  <dialog
+    id="catalogMobileFilterDialog"
+    class="m-auto w-[calc(100%-24px)] max-w-[356px] rounded-[18px] border-none bg-transparent p-0 text-[var(--color-black)] backdrop:bg-black/30"
+  >
+    <div tabindex="-1" data-catalog-mobile-filter-surface class="rounded-[18px] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.12)]">
+      <form
+        method="get"
+        action="{% url 'catalog' %}"
+        hx-get="{% url 'catalog' %}"
+        hx-target="#catalog-mobile-listing-root"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-trigger="submit"
+        class="max-h-[72vh] overflow-y-auto px-[18px] pb-[20px] pt-[18px]"
+        data-catalog-filter-form
+        data-catalog-mobile-filter-form
+      >
+        <input type="hidden" name="category" value="{{ selected_category.slug }}">
+        <input type="hidden" name="sort" value="{{ catalog_sort_value }}" {% if not catalog_sort_value %}disabled{% endif %} data-catalog-sort-input>
+
+        <details class="filter-group group py-[16px]" open>
+          <summary class="flex cursor-pointer list-none select-none items-center justify-between gap-[16px] outline-none">
+            <span class="text-[18px] font-bold leading-[22px] text-[var(--color-black)]">{% trans "Цена" %}</span>
+            <span class="flex h-[8px] w-[12px] items-center justify-center" aria-hidden="true">
+              <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="filter-summary-arrow-down h-[8px] w-[12px]">
+              <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="filter-summary-arrow-up h-[8px] w-[12px] rotate-180">
+            </span>
+          </summary>
+          <div class="mt-[14px] flex gap-[12px]">
+            <input
+              type="text"
+              name="price_from"
+              value="{{ catalog_selected_price_from|default:catalog_price_bounds_display.min|default:'' }}"
+              placeholder="{% trans 'от' %}"
+              inputmode="decimal"
+              pattern="[0-9]+([,][0-9]+)?"
+              data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
+              data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+              data-default-value="{{ catalog_price_bounds_display.min|default:'' }}"
+              data-float-input="comma"
+              class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
+              style="font-size: 16px;"
+            >
+            <input
+              type="text"
+              name="price_to"
+              value="{{ catalog_selected_price_to|default:catalog_price_bounds_display.max|default:'' }}"
+              placeholder="{% trans 'до' %}"
+              inputmode="decimal"
+              pattern="[0-9]+([,][0-9]+)?"
+              data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
+              data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
+              data-default-value="{{ catalog_price_bounds_display.max|default:'' }}"
+              data-float-input="comma"
+              class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
+              style="font-size: 16px;"
+            >
+          </div>
+        </details>
+
+        <details class="filter-group group py-[16px]">
+          <summary class="flex cursor-pointer list-none select-none items-center justify-between gap-[16px] outline-none">
+            <span class="text-[18px] font-bold leading-[22px] text-[var(--color-black)]">{% trans "Сортировка" %}</span>
+            <span class="flex h-[8px] w-[12px] items-center justify-center" aria-hidden="true">
+              <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="filter-summary-arrow-down h-[8px] w-[12px]">
+              <img src="{% static 'images/icons/arrow-down-black.svg' %}" alt="" class="filter-summary-arrow-up h-[8px] w-[12px] rotate-180">
+            </span>
+          </summary>
+          <div class="space-y-[14px] pt-[18px]">
+            {% for option in catalog_sort_options %}
+              <button
+                type="button"
+                data-sort-option
+                data-sort-value="{{ option.value }}"
+                class="flex min-h-[24px] w-full items-center text-left"
+              >
+                <span class="checkbox-option">
+                  <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
+                  <span class="font-normal leading-[18px]">{{ option.label }}</span>
+                </span>
+              </button>
+            {% endfor %}
+          </div>
+        </details>
+
+        {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=catalog_filters.ages show_counts=False disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=catalog_filters.subtypes show_counts=False disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options="" show_counts=False always_render=True disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True disable_default_open=True %}
+
+        <div class="mt-[14px] flex justify-center pb-[12px]">
+          <button type="button" class="btn-reset-control" data-filter-reset>
+            {% trans "сбросить" %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 </section>

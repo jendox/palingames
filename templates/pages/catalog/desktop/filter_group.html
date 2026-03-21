@@ -1,7 +1,7 @@
 {% load static i18n %}
 
 {% if options or always_render %}
-  <details class="filter-group group py-[16px]" {% if field_name == "age" %}open{% endif %}>
+  <details class="filter-group group py-[16px]" {% if field_name == "age" and not disable_default_open %}open{% endif %}>
     <summary class="flex cursor-pointer list-none select-none items-center justify-between gap-[16px] outline-none">
       <span class="text-[18px] font-bold leading-[22px] text-[var(--color-black)]">{{ title }}</span>
       <span class="flex h-[8px] w-[12px] items-center justify-center" aria-hidden="true">

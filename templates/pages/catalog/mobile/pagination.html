@@ -1,0 +1,53 @@
+{% load static %}
+
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+  {% with hx_target=pagination_hx_target|default:"" hx_swap=pagination_hx_swap|default:"outerHTML" hx_push_url=pagination_hx_push_url|default:"true" %}
+    <nav class="flex items-center justify-center gap-[10px]" aria-label="Pagination">
+      {% if page_obj.has_previous %}
+        <a
+          href="{% querystring page=page_obj.previous_page_number %}"
+          {% if hx_target %}hx-get="{% querystring page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}" hx-push-url="{{ hx_push_url }}"{% endif %}
+          class="inline-flex h-[34px] items-center justify-center rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[12px] text-[12px] font-semibold leading-none text-[var(--color-black)]"
+        >
+          <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+        </a>
+      {% else %}
+        <span class="inline-flex h-[34px] items-center justify-center rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[12px] opacity-40">
+          <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+        </span>
+      {% endif %}
+
+      <div class="flex items-center gap-[8px]">
+        {% for page_number in page_obj.paginator.page_range %}
+          {% if page_number == page_obj.number %}
+            <span class="inline-flex size-[34px] items-center justify-center rounded-full bg-[var(--color-purple)] text-[12px] font-semibold leading-none text-[var(--color-white)]">
+              {{ page_number }}
+            </span>
+          {% else %}
+            <a
+              href="{% querystring page=page_number %}"
+              {% if hx_target %}hx-get="{% querystring page=page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}" hx-push-url="{{ hx_push_url }}"{% endif %}
+              class="inline-flex size-[34px] items-center justify-center rounded-full border border-[var(--color-purple)] bg-[var(--color-white)] text-[12px] font-semibold leading-none text-[var(--color-black)]"
+            >
+              {{ page_number }}
+            </a>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% if page_obj.has_next %}
+        <a
+          href="{% querystring page=page_obj.next_page_number %}"
+          {% if hx_target %}hx-get="{% querystring page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}" hx-push-url="{{ hx_push_url }}"{% endif %}
+          class="inline-flex h-[34px] items-center justify-center rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[12px] text-[12px] font-semibold leading-none text-[var(--color-black)]"
+        >
+          <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+        </a>
+      {% else %}
+        <span class="inline-flex h-[34px] items-center justify-center rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[12px] opacity-40">
+          <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[10px] w-[7px]" aria-hidden="true">
+        </span>
+      {% endif %}
+    </nav>
+  {% endwith %}
+{% endif %}

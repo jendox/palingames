@@ -1,2 +1,95 @@
 
-# Create your tests here.
+from decimal import Decimal
+
+from django.test import TestCase
+from django.urls import reverse
+
+from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, SubType
+
+
+class CatalogViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
+        cls.other_category = Category.objects.create(title="Настольные игры", slug="board-games")
+
+        cls.age_2_3 = AgeGroupTag.objects.create(value=AgeGroup.AGE_2_3)
+        cls.age_4_5 = AgeGroupTag.objects.create(value=AgeGroup.AGE_4_5)
+
+        cls.subtype_cards = SubType.objects.create(title="Карточки", category=cls.category)
+        cls.subtype_sets = SubType.objects.create(title="Наборы", category=cls.category)
+
+        cls.alpha = cls._make_product("Альфа", "alpha", Decimal("30.00"), cls.category, cls.subtype_cards, cls.age_2_3)
+        cls.beta = cls._make_product("Бета", "beta", Decimal("10.00"), cls.category, cls.subtype_sets, cls.age_4_5)
+        cls.gamma = cls._make_product("Гамма", "gamma", Decimal("20.00"), cls.category, cls.subtype_cards, cls.age_4_5)
+
+        cls.foreign_product = Product.objects.create(
+            title="Чужой товар",
+            slug="foreign-product",
+            price=Decimal("99.00"),
+        )
+        cls.foreign_product.categories.add(cls.other_category)
+
+    @classmethod
+    def _make_product(cls, title, slug, price, category, subtype, age_group):
+        product = Product.objects.create(
+            title=title,
+            slug=slug,
+            price=price,
+        )
+        product.categories.add(category)
+        product.subtypes.add(subtype)
+        product.age_groups.add(age_group)
+        return product
+
+    def test_catalog_filters_products_by_selected_category(self):
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+
+        self.assertEqual(response.status_code, 200)
+        products = response.context["catalog_products"]
+        titles = [product["title"] for product in products]
+
+        self.assertCountEqual(titles, ["Альфа", "Бета", "Гамма"])
+        self.assertNotIn("Чужой товар", titles)
+
+    def test_catalog_sorts_products_by_price_ascending(self):
+        response = self.client.get(
+            reverse("catalog"),
+            {"category": self.category.slug, "sort": "price_asc"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["catalog_products"]]
+
+        self.assertEqual(titles, ["Бета", "Гамма", "Альфа"])
+
+    def test_catalog_filters_products_by_subtype_and_age(self):
+        response = self.client.get(
+            reverse("catalog"),
+            {
+                "category": self.category.slug,
+                "subtype": str(self.subtype_cards.pk),
+                "age": str(self.age_4_5.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["catalog_products"]]
+
+        self.assertEqual(titles, ["Гамма"])
+
+    def test_mobile_htmx_request_returns_mobile_listing_partial(self):
+        response = self.client.get(
+            reverse("catalog"),
+            {"category": self.category.slug, "sort": "price_desc"},
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="catalog-mobile-listing-root",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn('id="catalog-mobile-listing-root"', content)
+        self.assertIn('data-catalog-mobile-filter-form', content)
+        self.assertIn('name="sort" value="price_desc"', content)
+        self.assertIn("Сортировка", content)
