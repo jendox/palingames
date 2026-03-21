@@ -76,9 +76,15 @@
               <span class="text-[24px] uppercase font-bold leading-[24px] text-[var(--color-black-80)]">{{ cart_total }}</span>
             </div>
           </div>
-          <button type="button" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
-            {% trans "Оформить заказ" %}
-          </button>
+          {% if request.user.is_authenticated %}
+            <a href="{% url 'checkout' %}" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+              {% trans "Оформить заказ" %}
+            </a>
+          {% else %}
+            <button type="button" data-dialog-open="checkoutAuthChoiceDialog" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+              {% trans "Оформить заказ" %}
+            </button>
+          {% endif %}
         </aside>
       {% endif %}
     </div>

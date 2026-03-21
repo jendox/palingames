@@ -1,0 +1,25 @@
+{% extends "base/base.html" %}
+
+{% load static i18n %}
+
+{% block title %}{% trans "Оформление заказа" %} — PaliGames{% endblock %}
+
+{% block head %}
+  {{ block.super }}
+  <script src="{% static 'js/checkout.js' %}" defer></script>
+{% endblock %}
+
+{% block main_class %}w-full px-0 py-0{% endblock %}
+
+{% block content %}
+  {% include "components/dividers/clouds.html" %}
+  <div class="min-[1024px]:hidden">
+    {% include "pages/checkout/checkout_mobile.html" %}
+  </div>
+
+  <div class="hidden min-[1024px]:block">
+    {% include "pages/checkout/checkout_desktop.html" %}
+  </div>
+  {% include "components/modals/checkout_order_created_dialog.html" %}
+  {% include "components/dividers/clouds.html" %}
+{% endblock %}

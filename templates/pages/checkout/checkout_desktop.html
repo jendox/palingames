@@ -1,0 +1,170 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[60px] top-[22px] w-[90px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[322px] top-[60px] w-[34px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[88px] top-[22px] w-[98px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[178px] top-[210px] w-[32px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[280px] bottom-[178px] w-[46px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[490px] bottom-[56px] w-[64px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[394px] top-[336px] w-[74px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[188px] bottom-[34px] w-[34px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute left-[390px] top-[250px] w-[44px]" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute left-[540px] bottom-[34px] w-[58px]" draggable="false">
+    <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[92px] bottom-[62px] w-[78px]" draggable="false">
+  </div>
+
+  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[88px] pt-[70px] min-[1600px]:px-[72px]">
+    <h1 class="text-center text-[40px] font-bold uppercase leading-[40px] text-[var(--color-black)]">
+      {% trans "Оформление заказа" %}
+    </h1>
+
+    <div class="mx-auto mt-[70px] grid max-w-[1440px] grid-cols-[minmax(0,1fr)_minmax(460px,595px)] items-start gap-[72px]">
+      <section class="pt-[4px]">
+        <div class="max-w-[535px]">
+          <div class="grid grid-cols-[126px_minmax(0,1fr)] items-start gap-x-[25px]">
+            <div class="relative h-[126px] w-[126px]">
+              <img
+                src="{% static 'images/icons/' %}{% if checkout_step == 1 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+                alt=""
+                class="h-[126px] w-[126px]"
+                aria-hidden="true"
+                data-checkout-step-icon="1"
+                data-active-src="{% static 'images/icons/puzzle-step-active.svg' %}"
+                data-inactive-src="{% static 'images/icons/puzzle-step-inactive.svg' %}"
+              >
+              <span class="absolute inset-0 flex items-center justify-center pt-[6px] font-airfool text-[40px] leading-none {% if checkout_step == 1 %}text-[var(--color-white)]{% else %}text-[var(--color-black)]{% endif %}" data-checkout-step-digit="1">
+                1
+              </span>
+            </div>
+
+            <div class="pt-[40px]">
+              <h2 class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
+                {% trans "Введите Ваш" %} <span class="text-[var(--color-green)]">Email</span>
+              </h2>
+              <p class="mt-[15px] max-w-[310px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+                {% trans "На этот адрес мы отправим ссылку на оплату" %}
+              </p>
+              <input
+                id="checkout-email"
+                type="email"
+                value="{{ checkout_email }}"
+                placeholder="username@gmail.com"
+                class="account-input mt-[16px] h-[54px] w-[384px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[20px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+                data-checkout-email
+                title="Email"
+                required
+                {% if checkout_step == 1 %}autofocus{% endif %}
+              >
+              <p class="mt-[10px] hidden text-[12px] leading-[14px] text-[#D45A5A]" data-checkout-email-error>
+                {% trans "Введите корректный Email." %}
+              </p>
+            </div>
+          </div>
+
+          <div class="ml-[15px] flex h-[180px] w-[96px] items-center justify-center">
+            <img src="{% static 'images/icons/airplane-step.svg' %}" alt="" class="h-[180px] w-[96px]" aria-hidden="true">
+          </div>
+
+          <div class="grid grid-cols-[126px_minmax(0,1fr)] items-start gap-x-[25px]">
+            <div class="relative h-[126px] w-[126px]">
+              <img
+                src="{% static 'images/icons/' %}{% if checkout_step == 2 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+                alt=""
+                class="h-[126px] w-[126px]"
+                aria-hidden="true"
+                data-checkout-step-icon="2"
+                data-active-src="{% static 'images/icons/puzzle-step-active.svg' %}"
+                data-inactive-src="{% static 'images/icons/puzzle-step-inactive.svg' %}"
+              >
+              <span class="absolute inset-0 flex items-center justify-center pt-[6px] font-airfool text-[40px] leading-none {% if checkout_step == 2 %}text-[var(--color-white)]{% else %}text-[var(--color-black)]{% endif %}" data-checkout-step-digit="2">
+                2
+              </span>
+            </div>
+
+            <div class="pt-[40px] max-w-[250px]">
+              <h3 class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
+                {% trans "Оплата" %}
+              </h3>
+              <p class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+                {% trans "Ссылку на оплату мы отправим на Вашу электронную почту. Проверьте “Входящие” (а также папку “Спам”) и перейдите по ссылке для завершения покупки." %}
+              </p>
+            </div>
+          </div>
+
+          <div class="ml-[15px] flex h-[180px] w-[96px] items-center justify-center">
+            <img src="{% static 'images/icons/airplane-step.svg' %}" alt="" class="h-[180px] w-[96px]" aria-hidden="true">
+          </div>
+
+          <div class="grid grid-cols-[126px_minmax(0,1fr)] items-start gap-x-[25px]">
+            <div class="relative h-[126px] w-[126px]">
+              <img src="{% static 'images/icons/puzzle-step-inactive.svg' %}" alt="" class="h-[126px] w-[126px]" aria-hidden="true">
+              <span class="absolute inset-0 flex items-center justify-center pt-[6px] font-airfool text-[40px] leading-none text-[var(--color-black)]">
+                3
+              </span>
+            </div>
+
+            <div class="pt-[40px] max-w-[286px]">
+              <h3 class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
+                {% trans "Завершение покупки" %}
+              </h3>
+              <p class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+                {% trans "Оплата прошла успешно. Ссылка для скачивания находится в личном кабинете." %}
+              </p>
+              <div class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
+                <span>{% trans "Если вы оформили заказ как гость, ссылка для оплаты будет отправлена на Вашу почту в течение 3 - 5 минут." %}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="w-full max-w-[595px] justify-self-end pt-[6px]">
+        <div class="w-full rounded-[6px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[55px] pb-[50px] pt-[50px]">
+          <p class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
+
+          <div class="mt-[30px] space-y-[30px]">
+            {% for item in cart_items %}
+              <div class="grid grid-cols-[132px_minmax(0,1fr)] items-center gap-[45px]">
+                <img
+                  src="{{ item.image_url }}"
+                  alt="{{ item.title }}"
+                  class="h-[172px] w-[132px] rounded-[6px] object-cover"
+                  draggable="false"
+                >
+                <div class="flex min-h-[172px] flex-col justify-center">
+                  <p class="min-h-[48px] text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
+                    {{ item.title }}
+                  </p>
+                  <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+                    <span class="font-semibold">{% trans "Категория:" %}</span>
+                    <span class="font-normal">{{ item.kind }}</span>
+                  </p>
+                  <p class="mt-[30px] text-[20px] font-black leading-none text-[var(--color-black)]">
+                    {{ item.price }}
+                  </p>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="mt-[40px] border-t border-[var(--color-grey)] pt-[45px]">
+            <div class="flex items-end justify-between gap-[16px]">
+              <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
+              <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">{{ cart_total }}</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="mx-auto mt-[45px] max-w-[260px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
+          {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный E-mail" %}
+        </p>
+
+        <button type="button" class="mx-auto mt-[20px] flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-green-hover)]" data-checkout-submit>
+          {% trans "Оформить заказ" %}
+        </button>
+      </aside>
+    </div>
+  </div>
+</section>

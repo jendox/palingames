@@ -1,0 +1,43 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[48px] pb-[48px] pt-[34px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[242px] top-[26px] w-[42px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[104px] top-[62px] w-[72px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[360px] bottom-[66px] w-[54px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[48px] bottom-[48px] w-[96px] opacity-80" draggable="false">
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[28px] top-[18px] z-20 inline-flex h-[28px] w-[28px] cursor-pointer items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="h-[28px] w-[28px]" aria-hidden="true" draggable="false">
+  </button>
+
+  <div class="relative z-10 grid grid-cols-[220px_minmax(0,1fr)] items-center gap-[28px] pt-[18px]">
+    <div class="flex items-center justify-center">
+      <img src="{% static 'images/decor/balloons/order-balloon.svg' %}" alt="" class="h-[292px] w-[203px]" aria-hidden="true" draggable="false">
+    </div>
+
+    <div class="pr-[20px]">
+      <p class="text-[22px] font-bold leading-[28px] text-[var(--color-black)]">
+        {% trans "Ваш заказ оформлен!" %}
+      </p>
+
+      <p class="mt-[10px] text-[18px] leading-[24px] text-[var(--color-black)]">
+        {% trans "Номер заказа" %} <span class="font-bold">№ 12345</span>
+      </p>
+
+      <p class="mt-[28px] text-[18px] leading-[24px] text-[var(--color-black)]">
+        {% trans "Мы отправили письмо с деталями для оплаты на Вашу электронную почту. Пожалуйста проверьте почтовый ящик (включая папку “Спам”)." %}
+      </p>
+
+      <p class="mt-[20px] text-[18px] leading-[24px] text-[var(--color-black)]">
+        {% trans "Ожидаем оплаты - после этого материалы будут доступны для скачивания" %}
+      </p>
+    </div>
+  </div>
+</div>

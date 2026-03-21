@@ -33,9 +33,15 @@
         </div>
       </div>
 
-      <button type="button" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
-        {% trans "Оформить заказ" %}
-      </button>
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'checkout' %}" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
+          {% trans "Оформить заказ" %}
+        </a>
+      {% else %}
+        <button type="button" data-dialog-open="checkoutAuthChoiceDialog" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
+          {% trans "Оформить заказ" %}
+        </button>
+      {% endif %}
     {% endif %}
   </div>
 </section>
