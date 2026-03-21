@@ -93,3 +93,36 @@ class CatalogViewTests(TestCase):
         self.assertIn('data-catalog-mobile-filter-form', content)
         self.assertIn('name="sort" value="price_desc"', content)
         self.assertIn("Сортировка", content)
+
+    def test_catalog_uses_different_page_sizes_for_desktop_and_mobile(self):
+        for index in range(6):
+            self._make_product(
+                f"Дополнительный {index}",
+                f"extra-{index}",
+                Decimal(f"{40 + index}.00"),
+                self.category,
+                self.subtype_cards,
+                self.age_2_3,
+            )
+
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["catalog_products"]), 9)
+        self.assertEqual(len(response.context["catalog_mobile_products"]), 8)
+
+    def test_desktop_results_panel_shows_current_page_range(self):
+        for index in range(15):
+            self._make_product(
+                f"Диапазон {index}",
+                f"range-{index}",
+                Decimal(f"{40 + index}.00"),
+                self.category,
+                self.subtype_cards,
+                self.age_2_3,
+            )
+
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1-9 из 18")

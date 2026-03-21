@@ -42,7 +42,7 @@
 
     {% include "pages/catalog/mobile/results_panel.html" %}
 
-    {{ catalog_products|json_script:"catalog-mobile-products-data" }}
+    {{ catalog_mobile_products|json_script:"catalog-mobile-products-data" }}
 
     <template data-catalog-mobile-grid-template>
       <article class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">

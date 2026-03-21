@@ -225,9 +225,13 @@ class CatalogView(TemplateView):
             selected_themes,
         )
 
-        paginator = Paginator(sorted_queryset, 8)
-        page_obj = paginator.get_page(page_number)
         cart_product_ids = set(get_cart_product_ids(self.request))
+
+        desktop_paginator = Paginator(sorted_queryset, 9)
+        desktop_page_obj = desktop_paginator.get_page(page_number)
+
+        mobile_paginator = Paginator(sorted_queryset, 8)
+        mobile_page_obj = mobile_paginator.get_page(page_number)
 
         return {
             "catalog_products": [
@@ -236,19 +240,29 @@ class CatalogView(TemplateView):
                     selected_category=selected_category,
                     cart_product_ids=cart_product_ids,
                 )
-                for product in page_obj.object_list
+                for product in desktop_page_obj.object_list
             ],
-            "catalog_products_count": paginator.count,
-            "catalog_page_obj": page_obj,
+            "catalog_products_count": desktop_paginator.count,
+            "catalog_page_obj": desktop_page_obj,
             "catalog_pagination": {
-                "current": page_obj.number,
-                "total": paginator.num_pages,
-                "has_previous": page_obj.has_previous(),
-                "has_next": page_obj.has_next(),
-                "previous_page": page_obj.previous_page_number() if page_obj.has_previous() else None,
-                "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
-                "pages": list(paginator.page_range),
+                "current": desktop_page_obj.number,
+                "total": desktop_paginator.num_pages,
+                "has_previous": desktop_page_obj.has_previous(),
+                "has_next": desktop_page_obj.has_next(),
+                "previous_page": desktop_page_obj.previous_page_number() if desktop_page_obj.has_previous() else None,
+                "next_page": desktop_page_obj.next_page_number() if desktop_page_obj.has_next() else None,
+                "pages": list(desktop_paginator.page_range),
             },
+            "catalog_mobile_products": [
+                self._build_product_card(
+                    product,
+                    selected_category=selected_category,
+                    cart_product_ids=cart_product_ids,
+                )
+                for product in mobile_page_obj.object_list
+            ],
+            "catalog_mobile_products_count": mobile_paginator.count,
+            "catalog_mobile_page_obj": mobile_page_obj,
             "catalog_sort_value": sort_value,
             "catalog_sort_options": [
                 {"value": value, "label": label, "selected": value == sort_value}

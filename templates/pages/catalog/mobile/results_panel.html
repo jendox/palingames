@@ -2,15 +2,15 @@
 
 <div id="catalog-mobile-results">
   <p class="mt-[10px] text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
-    {% if catalog_page_obj and catalog_products_count %}
-      {{ catalog_page_obj.start_index }}-{{ catalog_page_obj.end_index }} {% trans "из" %} {{ catalog_products_count }}
+    {% if catalog_mobile_page_obj and catalog_mobile_products_count %}
+      {{ catalog_mobile_page_obj.start_index }}-{{ catalog_mobile_page_obj.end_index }} {% trans "из" %} {{ catalog_mobile_products_count }}
     {% else %}
       0-0 {% trans "из" %} 0
     {% endif %}
   </p>
 
   <div class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
-    {% for product in catalog_products %}
+    {% for product in catalog_mobile_products %}
       <article class="h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
         <div class="relative">
           <a href="{{ product.url }}" class="block">
@@ -108,11 +108,11 @@
     {% endfor %}
   </div>
 
-  <p class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-catalog-mobile-empty {% if catalog_products %}hidden{% endif %}>
+  <p class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-catalog-mobile-empty {% if catalog_mobile_products %}hidden{% endif %}>
     {% trans "По выбранным фильтрам пока ничего не найдено." %}
   </p>
 
   <div class="mt-[22px]">
-    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_page_obj pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" %}
+    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_mobile_page_obj pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" %}
   </div>
 </div>

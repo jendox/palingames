@@ -17,7 +17,11 @@
   </div>
 
   <div class="mt-[22px] flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
-    {% blocktrans with count=catalog_products_count %}1-{{ count }} из {{ count }}{% endblocktrans %}
+    {% if catalog_page_obj and catalog_products_count %}
+      {{ catalog_page_obj.start_index }}-{{ catalog_page_obj.end_index }} {% trans "из" %} {{ catalog_products_count }}
+    {% else %}
+      0-0 {% trans "из" %} 0
+    {% endif %}
   </div>
 
   <div class="mt-[18px]">
