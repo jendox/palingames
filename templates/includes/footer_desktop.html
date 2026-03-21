@@ -10,7 +10,7 @@
         <ul class="mt-[41px] space-y-[27px] text-[24px] font-semibold leading-[24px] text-[var(--color-black)]">
           <li><a href="{% url 'home' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Главная" %}</a></li>
           <li><a href="{% url 'catalog' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Каталог" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Алфавитный навигатор" %}</a></li>
+          <li><a href="{% url 'alphabet-navigator' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Алфавитный навигатор" %}</a></li>
           <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Игра на заказ" %}</a></li>
           <li><a href="{% url 'about' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "О нас" %}</a></li>
           <li><a href="{% url 'payment' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Оплата" %}</a></li>
@@ -32,7 +32,7 @@
             <a href="#" aria-label="Telegram">
               <img src="{% static 'images/social/telegram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
             </a>
-            <a href="#" aria-label="Instagram">
+            <a href="https://www.instagram.com/palingamess/" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
               <img src="{% static 'images/social/instagram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
             </a>
           </div>
@@ -44,15 +44,15 @@
           {% trans "Каталог" %}
         </div>
         <ul class="mt-[41px] space-y-[27px] text-[24px] font-semibold leading-[24px] text-[var(--color-black)]">
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Визуализация" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Дидактические игры" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Изучаем языки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Интерактивные игры" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Картотеки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Лэпбуки" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Методические материалы" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Оформление группы" %}</a></li>
-          <li><a href="#" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Тематические изображения" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=vizualizacia" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Визуализация" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=didakticheskiye-igry" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Дидактические игры" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=izuchaem-yazyki" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Изучаем языки" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=interaktivnye-igry" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Интерактивные игры" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=kartoteki" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Картотеки" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=lepbuki" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Лэпбуки" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=metodicheskie-materialy" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Методические материалы" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=oformlenie-gruppy" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Оформление группы" %}</a></li>
+          <li><a href="{% url 'catalog' %}?category=tematicheskie-izobrazheniya" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Тематические изображения" %}</a></li>
         </ul>
       </div>
     </div>
