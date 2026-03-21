@@ -35,6 +35,10 @@ class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
 
 
+class CustomGamePageView(TemplateView):
+    template_name = "pages/custom_game.html"
+
+
 class AccountPageView(TemplateView):
     template_name = "pages/account.html"
     tab_templates = {

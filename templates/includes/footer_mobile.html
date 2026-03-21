@@ -11,7 +11,7 @@
           <li><a href="{% url 'home' %}" class="hover:text-[var(--color-turquoise)]">{% trans "Главная" %}</a></li>
           <li><a href="{% url 'catalog' %}" class="hover:text-[var(--color-turquoise)]">{% trans "Каталог" %}</a></li>
           <li><a href="{% url 'alphabet-navigator' %}" class="hover:text-[var(--color-turquoise)]">{% trans "Алфавитный навигатор" %}</a></li>
-          <li><a href="#" class="hover:text-[var(--color-turquoise)]">{% trans "Игра на заказ" %}</a></li>
+          <li><a href="{% url 'custom-game' %}" class="hover:text-[var(--color-turquoise)]">{% trans "Игра на заказ" %}</a></li>
           <li><a href="{% url 'about' %}" class="hover:text-[var(--color-turquoise)]">{% trans "О нас" %}</a></li>
           <li><a href="{% url 'payment' %}" class="hover:text-[var(--color-turquoise)]">{% trans "Оплата" %}</a></li>
         </ul>

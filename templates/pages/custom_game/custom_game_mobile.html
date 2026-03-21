@@ -1,0 +1,19 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[20px] top-[20px] w-[70px]" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[20px] top-[35px] w-[80px]" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute left-[35px] bottom-[70px] w-[46px]" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute right-[35px] bottom-[80px] w-[46px]" draggable="false">
+  </div>
+
+  <div class="mx-auto flex min-h-[340px] w-full max-w-[420px] flex-col items-center justify-center px-4 py-[50px] text-center">
+    <h1 class="text-[20px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Игра на заказ" %}
+    </h1>
+    <p class="mt-[24px] text-[16px] font-semibold leading-[22px] text-[var(--color-black-80)]">
+      {% trans "Раздел в разработке." %}
+    </p>
+  </div>
+</section>

@@ -132,7 +132,7 @@
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Каталог" %}
                 </a>
-                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                <a href="{% url 'custom-game' %}" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Игра на заказ" %}
                 </a>

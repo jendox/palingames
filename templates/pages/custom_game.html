@@ -1,0 +1,17 @@
+{% extends "base/base.html" %}
+
+{% block title %}Игра на заказ — PaliGames{% endblock %}
+
+{% block main_class %}w-full px-0 py-0{% endblock %}
+
+{% block content %}
+  {% include "components/dividers/clouds.html" %}
+  <div class="min-[1024px]:hidden">
+    {% include "pages/custom_game/custom_game_mobile.html" %}
+  </div>
+
+  <div class="hidden min-[1024px]:block">
+    {% include "pages/custom_game/custom_game_desktop.html" %}
+  </div>
+  {% include "components/dividers/clouds.html" %}
+{% endblock %}
