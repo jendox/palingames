@@ -113,6 +113,6 @@
   </p>
 
   <div class="mt-[22px]">
-    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_mobile_page_obj pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" pagination_scroll_anchor="catalog-mobile-controls" %}
+    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_mobile_page_obj pagination_items=catalog_mobile_pagination_items pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" pagination_scroll_anchor="catalog-mobile-controls" %}
   </div>
 </div>

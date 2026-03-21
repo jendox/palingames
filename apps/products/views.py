@@ -86,6 +86,57 @@ class CatalogView(TemplateView):
     def _selected_values(self, key):
         return self.request.GET.getlist(key)
 
+    def _build_mobile_pagination(self, page_obj):
+        total_pages = page_obj.paginator.num_pages
+        current_page = page_obj.number
+
+        if total_pages <= 1:
+            return []
+
+        items = []
+
+        def add_page(page_number):
+            items.append(
+                {
+                    "type": "page",
+                    "number": page_number,
+                    "current": page_number == current_page,
+                }
+            )
+
+        def add_ellipsis():
+            if items and items[-1]["type"] == "ellipsis":
+                return
+            items.append({"type": "ellipsis"})
+
+        if total_pages <= 3:
+            for page_number in range(1, total_pages + 1):
+                add_page(page_number)
+            return items
+
+        if current_page <= 2:
+            add_page(1)
+            add_page(2)
+            add_page(3)
+            add_ellipsis()
+            add_page(total_pages)
+            return items
+
+        if current_page >= total_pages - 1:
+            add_page(1)
+            add_ellipsis()
+            add_page(total_pages - 2)
+            add_page(total_pages - 1)
+            add_page(total_pages)
+            return items
+
+        add_page(1)
+        add_ellipsis()
+        add_page(current_page)
+        add_ellipsis()
+        add_page(total_pages)
+        return items
+
     def _apply_filters(self, queryset):
         many_to_many_filters = (
             ("subtype", "subtypes__id__in"),
@@ -263,6 +314,7 @@ class CatalogView(TemplateView):
             ],
             "catalog_mobile_products_count": mobile_paginator.count,
             "catalog_mobile_page_obj": mobile_page_obj,
+            "catalog_mobile_pagination_items": self._build_mobile_pagination(mobile_page_obj),
             "catalog_sort_value": sort_value,
             "catalog_sort_options": [
                 {"value": value, "label": label, "selected": value == sort_value}
@@ -475,6 +527,7 @@ class AlphabetNavigatorView(CatalogView):
             ],
             "alphabet_mobile_products_count": mobile_paginator.count,
             "alphabet_mobile_page_obj": mobile_page_obj,
+            "alphabet_mobile_pagination_items": self._build_mobile_pagination(mobile_page_obj),
             "alphabet_sort_value": sort_value,
             "alphabet_sort_options": [
                 {"value": value, "label": label, "selected": value == sort_value}

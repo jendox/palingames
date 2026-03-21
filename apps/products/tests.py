@@ -127,6 +127,33 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "1-9 из 18")
 
+    def test_mobile_pagination_uses_compact_page_items_with_ellipsis(self):
+        for index in range(22):
+            self._make_product(
+                f"Пагинация {index}",
+                f"pagination-{index}",
+                Decimal(f"{40 + index}.00"),
+                self.category,
+                self.subtype_cards,
+                self.age_2_3,
+            )
+
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug, "page": 2})
+
+        self.assertEqual(response.status_code, 200)
+        pagination_items = response.context["catalog_mobile_pagination_items"]
+
+        self.assertEqual(
+            pagination_items,
+            [
+                {"type": "page", "number": 1, "current": False},
+                {"type": "page", "number": 2, "current": True},
+                {"type": "page", "number": 3, "current": False},
+                {"type": "ellipsis"},
+                {"type": "page", "number": 4, "current": False},
+            ],
+        )
+
 
 class AlphabetNavigatorViewTests(TestCase):
     @classmethod
