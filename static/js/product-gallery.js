@@ -139,6 +139,39 @@ function initMobileDisclosures() {
   });
 }
 
+function getCookie(name) {
+  const cookieString = document.cookie || "";
+  for (const part of cookieString.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+  return null;
+}
+
+async function toggleCartOnServer(productId) {
+  const csrfToken = getCookie("csrftoken");
+  const body = new URLSearchParams({ product_id: String(productId) });
+
+  const response = await fetch("/cart/toggle/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Cart toggle failed");
+  }
+
+  return response.json();
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -201,14 +234,115 @@ function initShareButtons() {
   });
 }
 
+function openProductAddedDialog(button) {
+  const dialogId = button.dataset.productAddedDialog;
+  if (!dialogId) {
+    return;
+  }
+
+  const dialog = document.getElementById(dialogId);
+  if (!(dialog instanceof HTMLDialogElement)) {
+    return;
+  }
+
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+
+  requestAnimationFrame(() => {
+    dialog.classList.remove("opacity-0", "scale-95");
+    dialog.classList.add("opacity-100", "scale-100");
+  });
+}
+
+function setProductFavoriteState(button, isFavorited) {
+  button.dataset.favorited = isFavorited ? "true" : "false";
+  button.setAttribute("aria-label", isFavorited ? "Удалить из избранного" : "Добавить в избранное");
+
+  const icon = button.querySelector("[data-favorite-icon]");
+  if (!(icon instanceof HTMLImageElement)) {
+    return;
+  }
+
+  icon.src = isFavorited ? icon.dataset.iconActive : icon.dataset.iconInactive;
+}
+
+function initProductFavoriteButtons() {
+  document.querySelectorAll("[data-product-favorite-toggle]").forEach((button) => {
+    if (!(button instanceof HTMLElement) || button.dataset.favoriteBound === "true") {
+      return;
+    }
+
+    button.dataset.favoriteBound = "true";
+    setProductFavoriteState(button, button.dataset.favorited === "true");
+
+    button.addEventListener("click", () => {
+      const isFavorited = button.dataset.favorited === "true";
+      setProductFavoriteState(button, !isFavorited);
+    });
+  });
+}
+
+function setProductCartState(button, isInCart) {
+  button.dataset.inCart = isInCart ? "true" : "false";
+}
+
+function initProductCartButtons() {
+  document.querySelectorAll("[data-product-cart-toggle]").forEach((button) => {
+    if (!(button instanceof HTMLElement) || button.dataset.productCartBound === "true") {
+      return;
+    }
+
+    button.dataset.productCartBound = "true";
+    setProductCartState(button, button.dataset.inCart === "true");
+
+    button.addEventListener("click", async () => {
+      if (button.dataset.inCart === "true") {
+        openProductAddedDialog(button);
+        return;
+      }
+
+      if (button.dataset.cartPending === "true") {
+        return;
+      }
+
+      const productId = Number.parseInt(button.dataset.productId || "", 10);
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return;
+      }
+
+      button.dataset.cartPending = "true";
+      button.setAttribute("aria-busy", "true");
+
+      try {
+        const payload = await toggleCartOnServer(productId);
+        const isInCart = Boolean(payload.in_cart);
+        setProductCartState(button, isInCart);
+        if (isInCart) {
+          openProductAddedDialog(button);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        button.dataset.cartPending = "false";
+        button.removeAttribute("aria-busy");
+      }
+    });
+  });
+}
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     initProductGalleries();
     initMobileDisclosures();
     initShareButtons();
+    initProductFavoriteButtons();
+    initProductCartButtons();
   });
 } else {
   initProductGalleries();
   initMobileDisclosures();
   initShareButtons();
+  initProductFavoriteButtons();
+  initProductCartButtons();
 }

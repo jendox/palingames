@@ -104,13 +104,27 @@
           </div>
 
           <div class="flex w-[34px] shrink-0 flex-col items-center gap-[25px]">
-            <button type="button" class="inline-flex size-[34px] items-center justify-center cursor-pointer" aria-label="{% trans 'Добавить в избранное' %}">
-              <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
+            <button
+              type="button"
+              class="inline-flex size-[34px] items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-[1.04]"
+              aria-label="{% trans 'Добавить в избранное' %}"
+              data-product-favorite-toggle
+              data-favorited="false"
+            >
+              <img
+                src="{% static 'images/icons/favorite-inactive.svg' %}"
+                alt=""
+                class="size-[34px]"
+                aria-hidden="true"
+                data-favorite-icon
+                data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+                data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+              >
             </button>
             <div class="relative flex items-center justify-center">
               <button
                 type="button"
-                class="inline-flex size-[34px] items-center justify-center cursor-pointer"
+                class="inline-flex size-[34px] items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-[1.04]"
                 title="Поделиться"
                 aria-label="{% trans 'Поделиться' %}"
                 data-copy-url-button
@@ -125,9 +139,6 @@
                 {% trans "Ссылка скопирована" %}
               </span>
             </div>
-            <button type="button" class="inline-flex size-[34px] items-center justify-center cursor-pointer" aria-label="{% trans 'Скачать PDF' %}">
-              <img src="{% static 'images/icons/pdf.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
-            </button>
           </div>
         </div>
 
@@ -136,8 +147,15 @@
           <button
             type="button"
             class="btn-orange w-[211px]"
+            data-product-cart-toggle
+            data-product-id="{{ product.id }}"
+            data-in-cart="{% if product_is_in_cart %}true{% else %}false{% endif %}"
+            data-product-added-dialog="productAddedDialog"
+            aria-label="{% trans 'Купить' %}"
           >
-            {% trans "Купить" %}
+            <span data-product-cart-label>
+              {% trans "Купить" %}
+            </span>
           </button>
         </div>
       </div>

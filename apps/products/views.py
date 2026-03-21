@@ -619,6 +619,7 @@ class ProductDetailView(DetailView):
         images = [image.image.url for image in product.images.all()]
         reviews = getattr(product, "published_reviews_list", [])
         primary_kind = product.subtypes.first() or product.categories.first()
+        cart_product_ids = set(get_cart_product_ids(self.request))
 
         context["product_active_tab"] = active_tab
         context["product_active_tab_template"] = self.tab_templates[active_tab]
@@ -634,6 +635,7 @@ class ProductDetailView(DetailView):
         ]
         context["product_kind"] = primary_kind.title if primary_kind else ""
         context["product_price"] = f"{product.price:.2f}".replace(".", ",") + " BYN"
+        context["product_is_in_cart"] = product.id in cart_product_ids
         context["product_reviews_count"] = len(reviews)
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()

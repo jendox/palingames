@@ -1,0 +1,36 @@
+{% load static i18n %}
+
+<div class="relative w-full px-[18px] pb-[30px] pt-[18px]">
+  <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[12px] top-[12px] w-[50px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[12px] top-[18px] w-[38px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[18px] bottom-[18px] w-[44px] opacity-70" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute right-[18px] bottom-[16px] w-[34px] opacity-70" draggable="false">
+  </div>
+
+  <button
+    type="button"
+    data-dialog-close
+    class="absolute right-[20px] top-[20px] z-20 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center"
+    aria-label="{% trans 'Закрыть' %}"
+  >
+    <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true" draggable="false">
+  </button>
+
+  <div class="relative z-10 flex flex-col items-center text-center">
+    <img src="{% static 'images/icons/cart.svg' %}" alt="" class="h-[88px] w-[88px]" aria-hidden="true" draggable="false">
+
+    <p class="mt-[18px] text-[14px] font-bold leading-none text-[var(--color-black)]">
+      {% trans "Товар добавлен в корзину" %}
+    </p>
+
+    <div class="mt-[31px] flex flex-col items-center gap-[20px]">
+      <a href="{% url 'cart' %}" class="inline-flex h-[40px] w-[246px] items-center justify-center rounded-[10px] bg-[var(--color-green-hover)] px-[20px] text-[12px] font-bold leading-[12px] text-[var(--color-black)]">
+        {% trans "Перейти к оформлению" %}
+      </a>
+      <button type="button" data-dialog-close class="inline-flex h-[40px] w-[246px] items-center justify-center rounded-[10px] bg-[var(--color-pink-hover)] px-[20px] text-[12px] font-bold leading-[12px] text-[var(--color-black)] cursor-pointer">
+        {% trans "Продолжить покупки" %}
+      </button>
+    </div>
+  </div>
+</div>

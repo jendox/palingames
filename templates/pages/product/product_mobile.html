@@ -44,15 +44,55 @@
         {{ product_kind }}
       </p>
 
-      <div class="mt-[20px] flex items-center gap-[5px]">
-        {% for _ in "12345" %}
-          {% if forloop.counter <= product_average_rating %}
-            <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-          {% else %}
-            <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
-          {% endif %}
-        {% endfor %}
-        <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
+      <div class="mt-[20px] flex items-center justify-between gap-[16px]">
+        <div class="flex items-center gap-[5px]">
+          {% for _ in "12345" %}
+            {% if forloop.counter <= product_average_rating %}
+              <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+            {% else %}
+              <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
+            {% endif %}
+          {% endfor %}
+          <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
+        </div>
+
+        <div class="flex items-center gap-[8px]">
+          <button
+            type="button"
+            class="inline-flex size-[34px] items-center justify-center cursor-pointer"
+            aria-label="{% trans 'Добавить в избранное' %}"
+            data-product-favorite-toggle
+            data-favorited="false"
+          >
+            <img
+              src="{% static 'images/icons/favorite-inactive.svg' %}"
+              alt=""
+              class="size-[24px]"
+              aria-hidden="true"
+              data-favorite-icon
+              data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+              data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+            >
+          </button>
+
+          <div class="relative">
+            <button
+              type="button"
+              class="inline-flex size-[34px] items-center justify-center cursor-pointer"
+              aria-label="{% trans 'Поделиться' %}"
+              data-copy-url-button
+              data-copy-url="{{ product.get_absolute_url }}"
+            >
+              <img src="{% static 'images/icons/share.svg' %}" alt="" class="size-[24px]" aria-hidden="true">
+            </button>
+            <span
+              class="pointer-events-none absolute right-[42px] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-[8px] bg-[var(--color-white)] px-[10px] py-[6px] text-[11px] font-bold text-[var(--color-purple)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+              data-copy-url-feedback
+            >
+              {% trans "Скопировано" %}
+            </span>
+          </div>
+        </div>
       </div>
 
       <p class="mt-[20px] max-w-[330px] text-[14px] text-[var(--color-black-80)]">
@@ -68,27 +108,21 @@
         </div>
       {% endif %}
 
-      <div class="mt-[24px] flex items-center justify-between gap-[16px]">
-        <div class="text-[26px] font-airfool leading-none text-[var(--color-black)]">
+      <div class="mt-[30px] flex items-center justify-between gap-[16px]">
+        <div class="text-[20px] font-airfool leading-none text-[var(--color-black)]">
           {{ product_price }}
         </div>
-        <div class="relative">
-          <button
-            type="button"
-            class="inline-flex size-[34px] items-center justify-center cursor-pointer"
-            aria-label="{% trans 'Поделиться' %}"
-            data-copy-url-button
-            data-copy-url="{{ product.get_absolute_url }}"
-          >
-            <img src="{% static 'images/icons/share.svg' %}" alt="" class="size-[30px]" aria-hidden="true">
-          </button>
-          <span
-            class="pointer-events-none absolute right-[42px] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-[8px] bg-[var(--color-white)] px-[10px] py-[6px] text-[11px] font-bold text-[var(--color-purple)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
-            data-copy-url-feedback
-          >
-            {% trans "Скопировано" %}
-          </span>
-        </div>
+        <button
+          type="button"
+          class="inline-flex h-[40px] w-[140px] items-center justify-center rounded-[8px] bg-[var(--color-orange)] text-[14px] font-semibold leading-[14px] text-[var(--color-white)] cursor-pointer hover:bg-[var(--color-orange-hover)]"
+          data-product-cart-toggle
+          data-product-id="{{ product.id }}"
+          data-in-cart="{% if product_is_in_cart %}true{% else %}false{% endif %}"
+          data-product-added-dialog="productAddedDialog"
+          aria-label="{% trans 'Купить' %}"
+        >
+          <span data-product-cart-label>{% trans "Купить" %}</span>
+        </button>
       </div>
     </div>
 
