@@ -327,6 +327,182 @@ class CatalogView(TemplateView):
         return context
 
 
+class AlphabetNavigatorView(CatalogView):
+    template_name = "pages/alphabet_navigator.html"
+    htmx_results_template_name = "pages/alphabet_navigator/desktop/product_listing.html"
+    htmx_mobile_template_name = "pages/alphabet_navigator/mobile/product_listing.html"
+    alphabet_letters = (
+        "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "К", "Л", "М", "Н",
+        "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Э", "Ю", "Я",
+    )
+    alphabet_mobile_letter_rows = (
+        ("А", "Б", "В", "Г", "Д", "Е", "Ж"),
+        ("З", "И", "К", "Л", "М", "Н", "О", "П"),
+        ("Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш"),
+        ("Щ", "Э", "Ю", "Я"),
+    )
+    alphabet_desktop_letter_rows = (
+        ("А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т"),
+        ("У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Э", "Ю", "Я"),
+    )
+
+    def _selected_letter(self):
+        letter = (self.request.GET.get("letter") or "А").strip().upper()
+        return letter if letter in self.alphabet_letters else "А"
+
+    def _build_alphabet_letters_context(self, selected_letter):
+        return [
+            {
+                "value": letter,
+                "selected": letter == selected_letter,
+            }
+            for letter in self.alphabet_letters
+        ]
+
+    def _build_alphabet_mobile_letter_rows_context(self, selected_letter):
+        return [
+            [
+                {
+                    "value": letter,
+                    "selected": letter == selected_letter,
+                }
+                for letter in row
+            ]
+            for row in self.alphabet_mobile_letter_rows
+        ]
+
+    def _build_alphabet_desktop_letter_rows_context(self, selected_letter):
+        return [
+            [
+                {
+                    "value": letter,
+                    "selected": letter == selected_letter,
+                }
+                for letter in row
+            ]
+            for row in self.alphabet_desktop_letter_rows
+        ]
+
+    def _build_alphabet_filters_context(self, queryset, selected_subtypes, selected_ages, selected_areas, selected_themes):
+        subtype_options = self._filter_option_queryset(SubType, "products", queryset)
+        age_options = self._filter_option_queryset(AgeGroupTag, "products", queryset)
+        area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", queryset)
+        theme_options = self._filter_option_queryset(Theme, "products", queryset)
+
+        return {
+            "subtypes": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_subtypes,
+                }
+                for option in subtype_options
+            ],
+            "ages": [
+                {
+                    "id": option.pk,
+                    "label": option.value,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_ages,
+                }
+                for option in age_options
+            ],
+            "areas": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_areas,
+                }
+                for option in area_options
+            ],
+            "themes": [
+                {
+                    "id": option.pk,
+                    "label": option.title,
+                    "count": option.product_count,
+                    "selected": str(option.pk) in selected_themes,
+                }
+                for option in theme_options
+            ],
+        }
+
+    def _build_products_mode_context(self, selected_category=None):
+        sort_value = self.request.GET.get("sort", "")
+        page_number = self.request.GET.get("page") or 1
+        selected_letter = self._selected_letter()
+
+        base_queryset = self._base_products_queryset().filter(title__istartswith=selected_letter)
+        price_bounds = base_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
+        filtered_queryset = self._apply_filters(base_queryset)
+        sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
+        cart_product_ids = set(get_cart_product_ids(self.request))
+
+        selected_subtypes = self._selected_values("subtype")
+        selected_ages = self._selected_values("age")
+        selected_areas = self._selected_values("area")
+        selected_themes = self._selected_values("theme")
+
+        alphabet_filters = self._build_alphabet_filters_context(
+            base_queryset,
+            selected_subtypes,
+            selected_ages,
+            selected_areas,
+            selected_themes,
+        )
+
+        desktop_paginator = Paginator(sorted_queryset, 9)
+        desktop_page_obj = desktop_paginator.get_page(page_number)
+
+        mobile_paginator = Paginator(sorted_queryset, 8)
+        mobile_page_obj = mobile_paginator.get_page(page_number)
+
+        return {
+            "alphabet_letters": self._build_alphabet_letters_context(selected_letter),
+            "alphabet_desktop_letter_rows": self._build_alphabet_desktop_letter_rows_context(selected_letter),
+            "alphabet_mobile_letter_rows": self._build_alphabet_mobile_letter_rows_context(selected_letter),
+            "alphabet_selected_letter": selected_letter,
+            "alphabet_products": [
+                self._build_product_card(product, cart_product_ids=cart_product_ids)
+                for product in desktop_page_obj.object_list
+            ],
+            "alphabet_products_count": desktop_paginator.count,
+            "alphabet_page_obj": desktop_page_obj,
+            "alphabet_mobile_products": [
+                self._build_product_card(product, cart_product_ids=cart_product_ids)
+                for product in mobile_page_obj.object_list
+            ],
+            "alphabet_mobile_products_count": mobile_paginator.count,
+            "alphabet_mobile_page_obj": mobile_page_obj,
+            "alphabet_sort_value": sort_value,
+            "alphabet_sort_options": [
+                {"value": value, "label": label, "selected": value == sort_value}
+                for value, label in self.sort_options
+            ],
+            "alphabet_filters": alphabet_filters,
+            "alphabet_selected_price_from": self.request.GET.get("price_from", ""),
+            "alphabet_selected_price_to": self.request.GET.get("price_to", ""),
+            "alphabet_price_bounds_display": {
+                "min": self._format_price_value(price_bounds["min_price"]),
+                "max": self._format_price_value(price_bounds["max_price"]),
+            },
+        }
+
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request") == "true":
+            if self.request.headers.get("HX-Target") == "alphabet-mobile-listing-root":
+                return [self.htmx_mobile_template_name]
+            return [self.htmx_results_template_name]
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = TemplateView.get_context_data(self, **kwargs)
+        context["alphabet_mode"] = "products"
+        context.update(self._build_products_mode_context())
+        return context
+
+
 class ProductTab(StrEnum):
     DESCRIPTION = "description"
     REVIEWS = "reviews"

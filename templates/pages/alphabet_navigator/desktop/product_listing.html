@@ -1,6 +1,6 @@
 {% load static i18n %}
 
-<section class="relative mt-[70px] min-h-[1120px] overflow-hidden bg-[var(--color-white)]">
+<section id="alphabet-desktop-listing-root" class="relative mt-[70px] min-h-[1120px] overflow-hidden bg-[var(--color-white)] pt-[70px]">
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute left-[168px] top-[92px] w-[34px] opacity-90" draggable="false">
     <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute left-[86px] top-[72px] w-[18px] opacity-80" draggable="false">
@@ -13,10 +13,31 @@
   </div>
 
   <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
-    {{ selected_category.title }}
+    {% trans "Алфавитный навигатор" %}
   </h1>
-  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
-    <div id="catalog-controls" class="flex items-center justify-between" style="scroll-margin-top: 24px;">
+
+  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[70px] min-[1600px]:px-[72px]">
+    <div style="display: flex; flex-direction: column; row-gap: 60px;">
+      {% for row in alphabet_desktop_letter_rows %}
+        <div style="display: flex; align-items: center; justify-content: center; column-gap: 32px;">
+          {% for letter in row %}
+            <a
+              href="{% querystring letter=letter.value page=None %}"
+              hx-get="{% querystring letter=letter.value page=None %}"
+              hx-target="#alphabet-desktop-listing-root"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="{% if letter.selected %}text-[var(--color-turquoise)]{% else %}text-[var(--color-black)]{% endif %}"
+              style="font-size: 32px; font-weight: 700; line-height: 32px;"
+            >
+              {{ letter.value }}
+            </a>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div id="alphabet-desktop-controls" class="mt-[70px] flex items-center justify-between" style="scroll-margin-top: 24px;">
       <details class="group relative" data-catalog-dropdown>
         <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
           <div class="inline-flex h-[50px] w-[130px] cursor-pointer select-none items-center justify-center gap-[10px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[18px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:border-[var(--color-purple)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
@@ -29,7 +50,7 @@
           </div>
         </summary>
 
-        {% include "pages/catalog/desktop/filter_dropdown.html" %}
+        {% include "pages/alphabet_navigator/desktop/filter_dropdown.html" %}
       </details>
 
       <details class="group relative" data-catalog-dropdown data-sort-dropdown>
@@ -46,11 +67,11 @@
         <div class="absolute right-0 top-[62px] z-20 h-[310px] w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
           <div class="flex h-full flex-col">
             <div class="flex flex-1 flex-col gap-[15px] overflow-hidden px-[20px] pt-[20px]">
-              {% for option in catalog_sort_options %}
+              {% for option in alphabet_sort_options %}
                 <a
                   href="{% querystring sort=option.value page=None %}"
                   hx-get="{% querystring sort=option.value page=None %}"
-                  hx-target="#catalog-results"
+                  hx-target="#alphabet-desktop-listing-root"
                   hx-swap="outerHTML"
                   hx-push-url="true"
                   data-sort-option
@@ -69,7 +90,7 @@
               <a
                 href="{% querystring sort=None page=None %}"
                 hx-get="{% querystring sort=None page=None %}"
-                hx-target="#catalog-results"
+                hx-target="#alphabet-desktop-listing-root"
                 hx-swap="outerHTML"
                 hx-push-url="true"
                 data-sort-reset
@@ -83,6 +104,6 @@
       </details>
     </div>
 
-    {% include "pages/catalog/desktop/results_panel.html" %}
+    {% include "pages/alphabet_navigator/desktop/results_panel.html" %}
   </div>
 </section>

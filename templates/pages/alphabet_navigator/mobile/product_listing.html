@@ -1,48 +1,65 @@
 {% load static i18n %}
 
-<section id="catalog-mobile-listing-root" class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
+<section id="alphabet-mobile-listing-root" class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[50px] pt-[50px]">
   <div class="mx-auto max-w-[356px]" data-catalog-mobile-listing>
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-      {{ selected_category.title }}
+      {% trans "Алфавитный навигатор" %}
     </h1>
 
-    <div id="catalog-mobile-controls" class="mt-[18px]" style="scroll-margin-top: 24px;">
-      <div class="flex items-center justify-between gap-[10px]">
+    <div class="mt-[30px] space-y-[35px]">
+      {% for row in alphabet_mobile_letter_rows %}
+        <div class="flex items-center justify-center gap-[16px]">
+          {% for letter in row %}
+            <a
+              href="{% querystring letter=letter.value page=None %}"
+              hx-get="{% querystring letter=letter.value page=None %}"
+              hx-target="#alphabet-mobile-listing-root"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="text-[18px] font-bold leading-[18px] {% if letter.selected %}text-[var(--color-turquoise)]{% else %}text-[var(--color-black)]{% endif %}"
+            >
+              {{ letter.value }}
+            </a>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <div id="alphabet-mobile-controls" class="mt-[45px] flex items-center justify-between gap-[10px]" style="scroll-margin-top: 24px;">
+      <button
+        type="button"
+        data-dialog-open="alphabetMobileFilterDialog"
+        class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.06)] bg-[var(--color-white)]"
+        aria-label="{% trans 'Фильтры навигатора' %}"
+      >
+        <img src="{% static 'images/icons/filter-icon.svg' %}" alt="" class="h-[28px] w-[36px]" aria-hidden="true" draggable="false">
+      </button>
+
+      <div class="flex items-center gap-[14px]">
         <button
           type="button"
-          data-dialog-open="catalogMobileFilterDialog"
-          class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.06)] bg-[var(--color-white)]"
-          aria-label="{% trans 'Фильтры каталога' %}"
+          data-catalog-mobile-view="list"
+          aria-pressed="false"
+          class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-40"
+          aria-label="{% trans 'Вид списком' %}"
         >
-          <img src="{% static 'images/icons/filter-icon.svg' %}" alt="" class="h-[28px] w-[36px]" aria-hidden="true" draggable="false">
+          <img src="{% static 'images/icons/list-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
         </button>
-
-        <div class="flex items-center gap-[14px]">
-          <button
-            type="button"
-            data-catalog-mobile-view="list"
-            aria-pressed="false"
-            class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-40"
-            aria-label="{% trans 'Вид списком' %}"
-          >
-            <img src="{% static 'images/icons/list-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
-          </button>
-          <button
-            type="button"
-            data-catalog-mobile-view="grid"
-            aria-pressed="false"
-            class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
-            aria-label="{% trans 'Вид плиткой' %}"
-          >
-            <img src="{% static 'images/icons/grid-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
-          </button>
-        </div>
+        <button
+          type="button"
+          data-catalog-mobile-view="grid"
+          aria-pressed="false"
+          class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
+          aria-label="{% trans 'Вид плиткой' %}"
+        >
+          <img src="{% static 'images/icons/grid-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
+        </button>
       </div>
     </div>
 
-    {% include "pages/catalog/mobile/results_panel.html" %}
+    {% include "pages/alphabet_navigator/mobile/results_panel.html" %}
 
-    {{ catalog_mobile_products|json_script:"catalog-mobile-products-data" }}
+    {{ alphabet_mobile_products|json_script:"catalog-mobile-products-data" }}
 
     <template data-catalog-mobile-grid-template>
       <article class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
@@ -65,46 +82,17 @@
             </div>
 
             <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
-              <button
-                type="button"
-                class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
-                aria-label="{% trans 'Добавить в избранное' %}"
-                data-catalog-favorite-toggle
-                data-favorited="false"
-              >
-                <img
-                  src="{% static 'images/icons/favorite-inactive.svg' %}"
-                  alt=""
-                  class="h-[20px] w-[20px]"
-                  aria-hidden="true"
-                  data-favorite-icon
-                  data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
-                  data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
-                >
+              <button type="button" class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в избранное' %}" data-catalog-favorite-toggle data-favorited="false">
+                <img src="{% static 'images/icons/favorite-inactive.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true" data-favorite-icon data-icon-active="{% static 'images/icons/favorite-active.svg' %}" data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}">
               </button>
-              <button
-                type="button"
-                class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
-                aria-label="{% trans 'Быстрый просмотр товара' %}"
-                data-catalog-preview-open
-                data-preview-title=""
-                data-preview-category=""
-                data-preview-price=""
-                data-preview-rating=""
-                data-preview-image=""
-                data-preview-url=""
-              >
+              <button type="button" class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Быстрый просмотр товара' %}" data-catalog-preview-open data-preview-title="" data-preview-category="" data-preview-price="" data-preview-rating="" data-preview-image="" data-preview-url="">
                 <img src="{% static 'images/icons/preview.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true">
               </button>
             </div>
 
             <div class="absolute inset-x-0 bottom-0 h-[74px] px-[10px] pb-[9px] text-[var(--color-white)]">
               <div class="pt-[10px]">
-                <h2
-                  class="min-h-[24px] text-[10px] font-bold leading-[12px]"
-                  style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
-                  data-product-title
-                ></h2>
+                <h2 class="min-h-[24px] text-[10px] font-bold leading-[12px]" style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;" data-product-title></h2>
                 <p class="mt-[2px] text-[9px] leading-[11px] text-[rgba(255,255,255,0.84)]" data-product-kind></p>
               </div>
               <div class="absolute inset-x-[10px] bottom-[9px] flex items-center justify-between">
@@ -115,23 +103,8 @@
         </a>
 
         <div class="absolute bottom-[6px] right-[8px] z-20">
-          <button
-            type="button"
-            class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200"
-            aria-label="{% trans 'Добавить в корзину' %}"
-            data-catalog-cart-toggle
-            data-product-id=""
-            data-in-cart="false"
-          >
-            <img
-              src="{% static 'images/icons/cart-empty.svg' %}"
-              alt=""
-              class="h-[26px] w-[26px]"
-              aria-hidden="true"
-              data-cart-icon
-              data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
-              data-icon-full="{% static 'images/icons/cart-full.svg' %}"
-            >
+          <button type="button" class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-product-id="" data-in-cart="false">
+            <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
           </button>
         </div>
       </article>
@@ -140,22 +113,12 @@
     <template data-catalog-mobile-list-template>
       <article class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]">
         <a href="#" class="block h-[77px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
-          <img
-            data-product-image
-            src="{% static 'images/example-product-image-1.png' %}"
-            alt=""
-            class="h-full w-full object-cover"
-            draggable="false"
-          >
+          <img data-product-image src="{% static 'images/example-product-image-1.png' %}" alt="" class="h-full w-full object-cover" draggable="false">
         </a>
 
         <div class="min-w-0 flex-1 pl-[45px] pr-[61px]">
           <a href="#" data-product-link class="block">
-            <h2
-              class="min-h-[28px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]"
-              style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
-              data-product-title
-            ></h2>
+            <h2 class="min-h-[28px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]" style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;" data-product-title></h2>
           </a>
           <p class="mt-[6px] leading-[13px] text-[var(--color-black-80)]">
             <span class="text-[10px] font-semibold">{% trans "Категория:" %}</span>
@@ -164,39 +127,23 @@
           <p class="mt-[12px] text-[14px] font-black leading-[14px] text-[var(--color-black)]" data-product-price></p>
         </div>
 
-        <button
-          type="button"
-          class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[34px] w-[34px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200"
-          aria-label="{% trans 'Добавить в корзину' %}"
-          data-catalog-cart-toggle
-          data-cart-border-toggle
-          data-product-id=""
-          data-in-cart="false"
-        >
-          <img
-            src="{% static 'images/icons/cart-empty.svg' %}"
-            alt=""
-            class="h-[34px] w-[34px]"
-            aria-hidden="true"
-            data-cart-icon
-            data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
-            data-icon-full="{% static 'images/icons/cart-full.svg' %}"
-          >
+        <button type="button" class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[34px] w-[34px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-cart-border-toggle data-product-id="" data-in-cart="false">
+          <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[34px] w-[34px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
         </button>
       </article>
     </template>
   </div>
 
   <dialog
-    id="catalogMobileFilterDialog"
+    id="alphabetMobileFilterDialog"
     class="m-auto w-[calc(100%-24px)] max-w-[356px] rounded-[18px] border-none bg-transparent p-0 text-[var(--color-black)] backdrop:bg-black/30"
   >
     <div tabindex="-1" data-catalog-mobile-filter-surface class="rounded-[18px] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.12)]">
       <form
         method="get"
-        action="{% url 'catalog' %}"
-        hx-get="{% url 'catalog' %}"
-        hx-target="#catalog-mobile-listing-root"
+        action="{% url 'alphabet-navigator' %}"
+        hx-get="{% url 'alphabet-navigator' %}"
+        hx-target="#alphabet-mobile-listing-root"
         hx-swap="outerHTML"
         hx-push-url="true"
         hx-trigger="submit"
@@ -204,8 +151,8 @@
         data-catalog-filter-form
         data-catalog-mobile-filter-form
       >
-        <input type="hidden" name="category" value="{{ selected_category.slug }}">
-        <input type="hidden" name="sort" value="{{ catalog_sort_value }}" {% if not catalog_sort_value %}disabled{% endif %} data-catalog-sort-input>
+        <input type="hidden" name="letter" value="{{ alphabet_selected_letter }}">
+        <input type="hidden" name="sort" value="{{ alphabet_sort_value }}" {% if not alphabet_sort_value %}disabled{% endif %} data-catalog-sort-input>
 
         <details class="filter-group group py-[16px]" open>
           <summary class="flex cursor-pointer list-none select-none items-center justify-between gap-[16px] outline-none">
@@ -219,13 +166,13 @@
             <input
               type="text"
               name="price_from"
-              value="{{ catalog_selected_price_from|default:catalog_price_bounds_display.min|default:'' }}"
+              value="{{ alphabet_selected_price_from|default:alphabet_price_bounds_display.min|default:'' }}"
               placeholder="{% trans 'от' %}"
               inputmode="decimal"
               pattern="[0-9]+([,][0-9]+)?"
-              data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
-              data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
-              data-default-value="{{ catalog_price_bounds_display.min|default:'' }}"
+              data-min-price="{{ alphabet_price_bounds_display.min|default:'' }}"
+              data-max-price="{{ alphabet_price_bounds_display.max|default:'' }}"
+              data-default-value="{{ alphabet_price_bounds_display.min|default:'' }}"
               data-float-input="comma"
               class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
               style="font-size: 16px;"
@@ -233,13 +180,13 @@
             <input
               type="text"
               name="price_to"
-              value="{{ catalog_selected_price_to|default:catalog_price_bounds_display.max|default:'' }}"
+              value="{{ alphabet_selected_price_to|default:alphabet_price_bounds_display.max|default:'' }}"
               placeholder="{% trans 'до' %}"
               inputmode="decimal"
               pattern="[0-9]+([,][0-9]+)?"
-              data-min-price="{{ catalog_price_bounds_display.min|default:'' }}"
-              data-max-price="{{ catalog_price_bounds_display.max|default:'' }}"
-              data-default-value="{{ catalog_price_bounds_display.max|default:'' }}"
+              data-min-price="{{ alphabet_price_bounds_display.min|default:'' }}"
+              data-max-price="{{ alphabet_price_bounds_display.max|default:'' }}"
+              data-default-value="{{ alphabet_price_bounds_display.max|default:'' }}"
               data-float-input="comma"
               class="account-input account-input-thin h-[30px] w-[84px] rounded-[5px] border-[1px] border-[var(--color-grey)] px-[10px]"
               style="font-size: 16px;"
@@ -256,7 +203,7 @@
             </span>
           </summary>
           <div class="space-y-[14px] pt-[18px]">
-            {% for option in catalog_sort_options %}
+            {% for option in alphabet_sort_options %}
               <button
                 type="button"
                 data-sort-option
@@ -272,8 +219,8 @@
           </div>
         </details>
 
-        {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=catalog_filters.ages show_counts=False disable_default_open=True %}
-        {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=catalog_filters.subtypes show_counts=False disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=alphabet_filters.ages show_counts=False disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=alphabet_filters.subtypes show_counts=False disable_default_open=True %}
         {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options="" show_counts=False always_render=True disable_default_open=True %}
         {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True disable_default_open=True %}
 

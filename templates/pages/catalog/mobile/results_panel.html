@@ -9,7 +9,7 @@
     {% endif %}
   </p>
 
-  <div class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
+  <div id="catalog-mobile-products-grid" class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
     {% for product in catalog_mobile_products %}
       <article class="h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
         <div class="relative">
@@ -113,6 +113,6 @@
   </p>
 
   <div class="mt-[22px]">
-    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_mobile_page_obj pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" %}
+    {% include "pages/catalog/mobile/pagination.html" with page_obj=catalog_mobile_page_obj pagination_hx_target="#catalog-mobile-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" pagination_scroll_anchor="catalog-mobile-controls" %}
   </div>
 </div>

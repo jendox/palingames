@@ -3,12 +3,13 @@
 
 {% if page_obj and page_obj.paginator.num_pages > 1 %}
   {% with variant=pagination_variant|default:"default" %}
-    {% with hx_target=pagination_hx_target|default:"" hx_swap=pagination_hx_swap|default:"" hx_push_url=pagination_hx_push_url|default:"" %}
+    {% with hx_target=pagination_hx_target|default:"" hx_swap=pagination_hx_swap|default:"" hx_push_url=pagination_hx_push_url|default:"" scroll_anchor=pagination_scroll_anchor|default:"" %}
     {% if variant == "catalog" %}
       <nav class="flex items-center justify-center" aria-label="Pagination">
         {% if page_obj.has_previous %}
           <a
-            href="{% querystring page=page_obj.previous_page_number %}"
+            href="{% querystring page=page_obj.previous_page_number %}{% if scroll_anchor %}#{{ scroll_anchor }}{% endif %}"
+            {% if scroll_anchor %}data-pagination-scroll-anchor="{{ scroll_anchor }}"{% endif %}
             {% if hx_target %}hx-get="{% querystring page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}
             class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
           >
@@ -32,7 +33,8 @@
               </span>
             {% else %}
               <a
-                href="{% querystring page=page_number %}"
+                href="{% querystring page=page_number %}{% if scroll_anchor %}#{{ scroll_anchor }}{% endif %}"
+                {% if scroll_anchor %}data-pagination-scroll-anchor="{{ scroll_anchor }}"{% endif %}
                 {% if hx_target %}hx-get="{% querystring page=page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}
                 class="inline-flex size-[40px] items-center justify-center rounded-[30px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[10px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
               >
@@ -44,7 +46,8 @@
 
         {% if page_obj.has_next %}
           <a
-            href="{% querystring page=page_obj.next_page_number %}"
+            href="{% querystring page=page_obj.next_page_number %}{% if scroll_anchor %}#{{ scroll_anchor }}{% endif %}"
+            {% if scroll_anchor %}data-pagination-scroll-anchor="{{ scroll_anchor }}"{% endif %}
             {% if hx_target %}hx-get="{% querystring page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}
             class="inline-flex h-[40px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[18px] py-[10px] text-[14px] font-semibold leading-none text-[var(--color-black)]"
           >
@@ -63,7 +66,7 @@
     {% else %}
       <nav class="mt-8 flex items-center justify-center gap-2 text-sm">
         {% if page_obj.has_previous %}
-          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.previous_page_number %}" {% if hx_target %}hx-get="{% querystring page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}>Назад</a>
+          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.previous_page_number %}{% if scroll_anchor %}#{{ scroll_anchor }}{% endif %}" {% if scroll_anchor %}data-pagination-scroll-anchor="{{ scroll_anchor }}"{% endif %} {% if hx_target %}hx-get="{% querystring page=page_obj.previous_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}>Назад</a>
         {% else %}
           <span class="rounded-lg border bg-gray-100 px-3 py-2 text-gray-500">Назад</span>
         {% endif %}
@@ -73,7 +76,7 @@
         </span>
 
         {% if page_obj.has_next %}
-          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.next_page_number %}" {% if hx_target %}hx-get="{% querystring page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}>Вперёд</a>
+          <a class="rounded-lg border bg-white px-3 py-2 hover:bg-gray-50" href="{% querystring page=page_obj.next_page_number %}{% if scroll_anchor %}#{{ scroll_anchor }}{% endif %}" {% if scroll_anchor %}data-pagination-scroll-anchor="{{ scroll_anchor }}"{% endif %} {% if hx_target %}hx-get="{% querystring page=page_obj.next_page_number %}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap|default:'outerHTML' }}" {% if hx_push_url %}hx-push-url="{{ hx_push_url }}"{% endif %}{% endif %}>Вперёд</a>
         {% else %}
           <span class="rounded-lg border bg-gray-100 px-3 py-2 text-gray-500">Вперёд</span>
         {% endif %}

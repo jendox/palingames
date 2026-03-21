@@ -1,0 +1,27 @@
+{% load i18n %}
+
+<div id="alphabet-desktop-results">
+  <div class="mt-[30px] flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
+    {% if alphabet_page_obj and alphabet_products_count %}
+      {{ alphabet_page_obj.start_index }}-{{ alphabet_page_obj.end_index }} {% trans "из" %} {{ alphabet_products_count }}
+    {% else %}
+      0-0 {% trans "из" %} 0
+    {% endif %}
+  </div>
+
+  <div id="alphabet-products-grid" class="mt-[30px]">
+    <div class="grid grid-cols-1 justify-items-center gap-x-[24px] gap-y-[46px] min-[1180px]:grid-cols-2 min-[1500px]:grid-cols-3">
+      {% for product in alphabet_products %}
+        {% include "pages/catalog/desktop/product_card.html" with product=product %}
+      {% empty %}
+        <div class="rounded-[24px] bg-[var(--color-lilac)] px-[28px] py-[32px] text-[18px] leading-[24px] text-[var(--color-black)] min-[1180px]:col-span-2 min-[1500px]:col-span-3">
+          {% trans "По выбранной букве пока ничего не найдено." %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mt-[42px]">
+    {% include "base/_pagination.html" with page_obj=alphabet_page_obj pagination_variant="catalog" pagination_hx_target="#alphabet-desktop-listing-root" pagination_hx_swap="outerHTML" pagination_hx_push_url="true" pagination_scroll_anchor="alphabet-desktop-controls" %}
+  </div>
+</div>

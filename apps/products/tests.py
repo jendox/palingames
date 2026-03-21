@@ -126,3 +126,56 @@ class CatalogViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "1-9 из 18")
+
+
+class AlphabetNavigatorViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
+        cls.subtype = SubType.objects.create(title="Карточки", category=cls.category)
+        cls.age = AgeGroupTag.objects.create(value=AgeGroup.AGE_2_3)
+
+        cls._make_product("Альфа", "alpha-nav", Decimal("30.00"))
+        cls._make_product("Арфа", "harp-nav", Decimal("20.00"))
+        cls._make_product("Бета", "beta-nav", Decimal("10.00"))
+
+    @classmethod
+    def _make_product(cls, title, slug, price):
+        product = Product.objects.create(title=title, slug=slug, price=price)
+        product.categories.add(cls.category)
+        product.subtypes.add(cls.subtype)
+        product.age_groups.add(cls.age)
+        return product
+
+    def test_alphabet_navigator_defaults_to_letter_a(self):
+        response = self.client.get(reverse("alphabet-navigator"))
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["alphabet_products"]]
+
+        self.assertCountEqual(titles, ["Альфа", "Арфа"])
+        self.assertNotIn("Бета", titles)
+        self.assertEqual(response.context["alphabet_selected_letter"], "А")
+
+    def test_alphabet_navigator_filters_by_requested_letter(self):
+        response = self.client.get(reverse("alphabet-navigator"), {"letter": "Б"})
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["alphabet_products"]]
+
+        self.assertEqual(titles, ["Бета"])
+
+    def test_alphabet_navigator_mobile_htmx_returns_mobile_partial(self):
+        response = self.client.get(
+            reverse("alphabet-navigator"),
+            {"letter": "А", "sort": "price_desc"},
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="alphabet-mobile-listing-root",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn('id="alphabet-mobile-listing-root"', content)
+        self.assertIn("Алфавитный навигатор", content)
+        self.assertIn("сортировка", content.lower())

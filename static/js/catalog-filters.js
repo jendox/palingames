@@ -684,12 +684,65 @@ function initCatalogUi(root = document) {
   initCatalogPreviewDialog();
 }
 
+let pendingPaginationScrollAnchor = null;
+
+function scrollToAnchor(anchorId) {
+  if (!anchorId) {
+    return;
+  }
+
+  const target = document.getElementById(anchorId);
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.addEventListener("click", (event) => {
+  const link = event.target instanceof Element ? event.target.closest("[data-pagination-scroll-anchor]") : null;
+  if (!(link instanceof HTMLElement)) {
+    return;
+  }
+
+  pendingPaginationScrollAnchor = link.dataset.paginationScrollAnchor || null;
+});
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => initCatalogUi(document));
 } else {
   initCatalogUi(document);
 }
 
+document.documentElement.style.scrollBehavior = "smooth";
+
+function scrollToLocationHash() {
+  if (window.location.hash) {
+    window.setTimeout(() => {
+      scrollToAnchor(window.location.hash.slice(1));
+    }, 0);
+  }
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", scrollToLocationHash, { once: true });
+} else {
+  scrollToLocationHash();
+}
+
 document.body.addEventListener("htmx:load", () => {
   initCatalogUi(document);
+});
+
+document.body.addEventListener("htmx:afterSwap", () => {
+  if (!pendingPaginationScrollAnchor) {
+    return;
+  }
+
+  const anchorId = pendingPaginationScrollAnchor;
+  pendingPaginationScrollAnchor = null;
+
+  window.requestAnimationFrame(() => {
+    scrollToAnchor(anchorId);
+  });
 });
