@@ -224,7 +224,7 @@ class CatalogView(TemplateView):
             selected_themes,
         )
 
-        paginator = Paginator(sorted_queryset, 9)
+        paginator = Paginator(sorted_queryset, 8)
         page_obj = paginator.get_page(page_number)
         cart_product_ids = set(get_cart_product_ids(self.request))
 

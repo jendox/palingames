@@ -1,41 +1,299 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[36px]">
-  <div class="mx-auto max-w-[380px]">
-    <a href="{% url 'catalog' %}" class="inline-flex items-center gap-[8px] text-[13px] font-bold uppercase text-[var(--color-black-80)]">
-      <img src="{% static 'images/icons/arrow-left.svg' %}" alt="" class="h-[14px] w-[9px] rotate-180" aria-hidden="true">
-      {% trans "Все категории" %}
-    </a>
-
-    <h1 class="mt-[18px] font-airfool text-[30px] leading-[30px] text-[var(--color-black)]">
+<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
+  <div class="mx-auto max-w-[356px]" data-catalog-mobile-listing>
+    <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
       {{ selected_category.title }}
     </h1>
-    <p class="mt-[10px] text-[14px] text-[var(--color-black-80)]">
-      {% blocktrans with count=catalog_products_count %}Найдено товаров: {{ count }}{% endblocktrans %}
-    </p>
 
-    <div class="mt-[22px] rounded-[18px] bg-[var(--color-mint)] p-[16px]">
-      <div class="text-[14px] font-bold uppercase text-[var(--color-turquoise)]">{% trans "Фильтры и сортировка" %}</div>
-      <p class="mt-[8px] text-[13px] leading-[18px] text-[var(--color-black-80)]">
-        {% trans "Мобильную версию фильтра и сортировки оставил как предварительную заготовку. Основная проработка сейчас сделана для desktop." %}
+    <div class="mt-[18px]">
+      <div class="flex items-center justify-between gap-[10px]">
+        <button
+          type="button"
+          data-catalog-mobile-filter
+          class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.06)] bg-[var(--color-white)]"
+          aria-label="{% trans 'Фильтры каталога' %}"
+        >
+          <img src="{% static 'images/icons/filter-icon.svg' %}" alt="" class="h-[28px] w-[36px]" aria-hidden="true" draggable="false">
+        </button>
+
+        <div class="flex items-center gap-[14px]">
+          <button
+            type="button"
+            data-catalog-mobile-view="list"
+            aria-pressed="false"
+            class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-40"
+            aria-label="{% trans 'Вид списком' %}"
+          >
+            <img src="{% static 'images/icons/list-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
+          </button>
+          <button
+            type="button"
+            data-catalog-mobile-view="grid"
+            aria-pressed="false"
+            class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
+            aria-label="{% trans 'Вид плиткой' %}"
+          >
+            <img src="{% static 'images/icons/grid-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
+          </button>
+        </div>
+      </div>
+
+      <p class="mt-[10px] text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
+        {% if catalog_page_obj %}
+          {{ catalog_page_obj.start_index }}-{{ catalog_page_obj.end_index }} {% trans "из" %} {{ catalog_products_count }}
+        {% else %}
+          0-0 {% trans "из" %} 0
+        {% endif %}
       </p>
     </div>
 
-    <div class="mt-[20px] space-y-[14px]">
+    <div class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
       {% for product in catalog_products %}
-        <a href="{{ product.url }}" class="flex gap-[14px] rounded-[18px] bg-[var(--color-white)] p-[10px] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
-          <img src="{{ product.image_url }}" alt="{{ product.title }}" class="h-[108px] w-[108px] rounded-[14px] object-cover" draggable="false">
-          <div class="min-w-0 flex-1 py-[4px]">
-            <div class="text-[16px] font-bold leading-[19px] text-[var(--color-black)]">{{ product.title }}</div>
-            <div class="mt-[8px] text-[11px] uppercase text-[var(--color-black-80)]">{{ product.kind }}</div>
-            <div class="mt-[18px] text-[22px] font-airfool leading-none text-[var(--color-black)]">{{ product.price }}</div>
+        <article class="h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+          <div class="relative">
+            <a href="{{ product.url }}" class="block">
+              <img
+                src="{{ product.image_url }}"
+                alt="{{ product.title }}"
+                class="h-[213px] w-[170px] object-cover"
+                draggable="false"
+              >
+              <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>
+
+              <div class="absolute left-[8px] top-[8px]">
+                <div class="inline-flex items-center gap-[5px] rounded-[6px] bg-[rgba(31,31,31,0.3)] px-[7px] py-[4px] backdrop-blur-[4px]">
+                  <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="h-[12px] w-[12px]" aria-hidden="true">
+                  <span class="text-[10px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
+                </div>
+              </div>
+
+              <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
+                <button
+                  type="button"
+                  class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+                  aria-label="{% trans 'Добавить в избранное' %}"
+                  data-catalog-favorite-toggle
+                  data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}"
+                >
+                  <img
+                    src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
+                    alt=""
+                    class="h-[20px] w-[20px]"
+                    aria-hidden="true"
+                    data-favorite-icon
+                    data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+                    data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+                  aria-label="{% trans 'Быстрый просмотр товара' %}"
+                  data-catalog-preview-open
+                  data-preview-title="{{ product.title }}"
+                  data-preview-category="{{ product.category }}"
+                  data-preview-price="{{ product.price }}"
+                  data-preview-rating="{{ product.rating }}"
+                  data-preview-image="{{ product.image_url }}"
+                  data-preview-url="{{ product.url }}"
+                >
+                  <img src="{% static 'images/icons/preview.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true">
+                </button>
+              </div>
+
+              <div class="absolute inset-x-0 bottom-0 h-[74px] px-[10px] pb-[9px] text-[var(--color-white)]">
+                <div class="pt-[10px]">
+                  <div
+                    class="min-h-[24px] text-[10px] font-bold leading-[12px]"
+                    style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
+                  >
+                    {{ product.title }}
+                  </div>
+                  <div class="mt-[2px] text-[9px] leading-[11px] text-[rgba(255,255,255,0.84)]">
+                    {{ product.category }}
+                  </div>
+                </div>
+                <div class="absolute inset-x-[10px] bottom-[9px] flex items-center justify-between">
+                  <div class="text-[12px] font-black leading-none">
+                    {{ product.price }}
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <div class="absolute bottom-[6px] right-[8px] z-20">
+              <button
+                type="button"
+                class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200 {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
+                aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}"
+                data-catalog-cart-toggle
+                data-product-id="{{ product.id }}"
+                data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"
+              >
+                <img
+                  src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}"
+                  alt=""
+                  class="h-[26px] w-[26px]"
+                  aria-hidden="true"
+                  data-cart-icon
+                  data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
+                  data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+                >
+              </button>
+            </div>
           </div>
-        </a>
-      {% empty %}
-        <div class="rounded-[18px] bg-[var(--color-lilac)] px-[18px] py-[20px] text-[14px] leading-[20px] text-[var(--color-black)]">
-          {% trans "По выбранным фильтрам пока ничего не найдено." %}
-        </div>
+        </article>
       {% endfor %}
     </div>
+
+    <p class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-catalog-mobile-empty {% if catalog_products %}hidden{% endif %}>
+      {% trans "По выбранным фильтрам пока ничего не найдено." %}
+    </p>
+
+    <nav
+      class="mt-[22px]"
+      aria-label="{% trans 'Пагинация каталога' %}"
+      data-catalog-mobile-pagination
+      data-pagination-variant="mobile"
+      data-page-current="{{ catalog_page_obj.number|default:1 }}"
+      data-page-total="{{ catalog_page_obj.paginator.num_pages|default:1 }}"
+    ></nav>
+
+    {{ catalog_products|json_script:"catalog-mobile-products-data" }}
+
+    <template data-catalog-mobile-grid-template>
+      <article class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+        <a href="#" class="block" data-product-link>
+          <div class="relative">
+            <img
+              data-product-image
+              src="{% static 'images/example-product-image-1.png' %}"
+              alt=""
+              class="h-[213px] w-[170px] object-cover"
+              draggable="false"
+            >
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>
+
+            <div class="absolute left-[8px] top-[8px]">
+              <div class="inline-flex items-center gap-[5px] rounded-[6px] bg-[rgba(31,31,31,0.3)] px-[7px] py-[4px] backdrop-blur-[4px]">
+                <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="h-[12px] w-[12px]" aria-hidden="true">
+                <span class="text-[10px] font-black leading-none text-[var(--color-white)]" data-product-rating></span>
+              </div>
+            </div>
+
+            <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
+              <button
+                type="button"
+                class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+                aria-label="{% trans 'Добавить в избранное' %}"
+                data-catalog-favorite-toggle
+                data-favorited="false"
+              >
+                <img
+                  src="{% static 'images/icons/favorite-inactive.svg' %}"
+                  alt=""
+                  class="h-[20px] w-[20px]"
+                  aria-hidden="true"
+                  data-favorite-icon
+                  data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+                  data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+                >
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+                aria-label="{% trans 'Быстрый просмотр товара' %}"
+                data-catalog-preview-open
+                data-preview-title=""
+                data-preview-category=""
+                data-preview-price=""
+                data-preview-rating=""
+                data-preview-image=""
+                data-preview-url=""
+              >
+                <img src="{% static 'images/icons/preview.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true">
+              </button>
+            </div>
+
+            <div class="absolute inset-x-0 bottom-0 h-[74px] px-[10px] pb-[9px] text-[var(--color-white)]">
+              <div class="pt-[10px]">
+                <h2
+                  class="min-h-[24px] text-[10px] font-bold leading-[12px]"
+                  style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
+                  data-product-title
+                ></h2>
+                <p class="mt-[2px] text-[9px] leading-[11px] text-[rgba(255,255,255,0.84)]" data-product-kind></p>
+              </div>
+              <div class="absolute inset-x-[10px] bottom-[9px] flex items-center justify-between">
+                <p class="text-[12px] font-black leading-none text-[var(--color-white)]" data-product-price></p>
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <div class="absolute bottom-[6px] right-[8px] z-20">
+          <button
+            type="button"
+            class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200"
+            aria-label="{% trans 'Добавить в корзину' %}"
+            data-catalog-cart-toggle
+            data-product-id=""
+            data-in-cart="false"
+          >
+            <img
+              src="{% static 'images/icons/cart-empty.svg' %}"
+              alt=""
+              class="h-[26px] w-[26px]"
+              aria-hidden="true"
+              data-cart-icon
+              data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
+              data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+            >
+          </button>
+        </div>
+      </article>
+    </template>
+
+    <template data-catalog-mobile-list-template>
+      <article class="flex items-center gap-[14px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[10px] py-[8px]">
+        <a href="#" class="block h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
+          <img
+            data-product-image
+            src="{% static 'images/example-product-image-1.png' %}"
+            alt=""
+            class="h-full w-full object-cover"
+            draggable="false"
+          >
+        </a>
+
+        <div class="min-w-0 flex-1">
+          <a href="#" data-product-link class="block">
+            <h2 class="min-h-[28px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]" data-product-title></h2>
+          </a>
+          <p class="mt-[6px] text-[8px] uppercase leading-[10px] tracking-[0.02em] text-[var(--color-black-80)]" data-product-kind></p>
+          <p class="mt-[14px] text-[12px] font-black leading-[12px] text-[var(--color-black)]" data-product-price></p>
+        </div>
+
+        <button
+          type="button"
+          class="catalog-card-cart-button inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px] transition-transform duration-200"
+          aria-label="{% trans 'Добавить в корзину' %}"
+          data-catalog-cart-toggle
+          data-product-id=""
+          data-in-cart="false"
+        >
+          <img
+            src="{% static 'images/icons/cart-empty.svg' %}"
+            alt=""
+            class="h-[24px] w-[24px]"
+            aria-hidden="true"
+            data-cart-icon
+            data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
+            data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+          >
+        </button>
+      </article>
+    </template>
   </div>
 </section>
