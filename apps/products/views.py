@@ -552,8 +552,11 @@ class AlphabetNavigatorView(CatalogView):
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request") == "true":
-            if self.request.headers.get("HX-Target") == "alphabet-mobile-listing-root":
+            hx_target = self.request.headers.get("HX-Target")
+            if hx_target == "alphabet-mobile-listing-root":
                 return [self.htmx_mobile_template_name]
+            if hx_target == "alphabet-desktop-listing-root":
+                return ["pages/alphabet_navigator/desktop/product_listing.html"]
             return [self.htmx_results_template_name]
         return [self.template_name]
 

@@ -243,3 +243,17 @@ class AlphabetNavigatorViewTests(TestCase):
 
         self.assertIn('id="alphabet-desktop-results"', content)
         self.assertNotIn('id="alphabet-desktop-listing-root"', content)
+
+    def test_alphabet_navigator_desktop_letter_switch_returns_full_listing_partial(self):
+        response = self.client.get(
+            reverse("alphabet-navigator"),
+            {"letter": "Б"},
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="alphabet-desktop-listing-root",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        self.assertIn('id="alphabet-desktop-listing-root"', content)
+        self.assertIn("Алфавитный навигатор", content)
