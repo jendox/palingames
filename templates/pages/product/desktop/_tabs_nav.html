@@ -16,7 +16,7 @@
     hx-swap="outerHTML"
     hx-push-url="true"
     class="whitespace-nowrap text-left {% if product_active_tab == 'reviews' %}text-[var(--color-orange)]{% endif %}"
-  >{% trans "Отзывы" %}</a>
+  >{% blocktrans with count=product_reviews_count %}Отзывы ({{ count }}){% endblocktrans %}</a>
   <a
     href="{% url 'product-detail' slug=product.slug %}?tab=payment"
     hx-get="{% url 'product-detail' slug=product.slug %}?tab=payment"
