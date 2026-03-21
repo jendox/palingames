@@ -1,0 +1,53 @@
+{% load static i18n %}
+
+<div
+  class="relative w-full overflow-hidden rounded-[20px] bg-cover bg-center bg-no-repeat px-[20px] pb-[20px] pt-[20px]"
+  style="background-image: url('{% static 'images/registration-bg-mobile.svg' %}');"
+>
+  <div class="relative z-10 rounded-[20px] bg-[rgba(255,255,255,0.6)] px-[24px] pb-[30px] pt-[30px] backdrop-blur-[3px]">
+    <section>
+      <div class="flex items-start justify-center gap-[6px]">
+        <img src="{% static 'images/header/menu_main.svg' %}" alt="" class="mt-[1px] h-[23px] w-[23px]" aria-hidden="true" draggable="false">
+        <h2 class="text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
+          {% trans "Зарегистрируйтесь" %}
+        </h2>
+      </div>
+
+      <p class="mt-[20px] text-[14px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
+        {% trans "Вы получите" %}
+        <span class="font-bold text-[var(--color-pink)]">{% trans "неограниченный доступ" %}</span>
+        {% trans "к файлам в личном кабинете, без ограничений по времени и количеству скачиваний." %}
+      </p>
+
+      <button
+        type="button"
+        data-dialog-switch="signupDialog"
+        data-post-login-redirect="{% url 'checkout' %}"
+        class="mt-[20px] flex h-[40px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-[var(--color-pink)] px-[20px] text-[14px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-pink-hover)]"
+      >
+        {% trans "Регистрация" %}
+      </button>
+    </section>
+
+    <section class="mt-[30px]">
+      <div class="flex items-start justify-center gap-[6px]">
+        <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="mt-[1px] h-[23px] w-[23px]" aria-hidden="true" draggable="false">
+        <h2 class="text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
+          {% trans "Гостевой заказ" %}
+        </h2>
+      </div>
+
+      <p class="mt-[18px] text-[14px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
+        {% trans "В этом случае ссылка на скачивание будет отправлена на Ваш Email и будет действительна" %}
+        <span class="font-bold text-[var(--color-orange)]">{% trans "только один раз." %}</span>
+      </p>
+
+      <a
+        href="{% url 'checkout' %}"
+        class="mt-[22px] flex h-[40px] w-full items-center justify-center rounded-[10px] bg-[#FF9E8D] px-[20px] text-[14px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[#ff8e7a]"
+      >
+        {% trans "Гостевой заказ" %}
+      </a>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,54 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[50px] pt-[50px]">
+  <div class="mx-auto max-w-[380px]">
+    <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
+      {% trans "Оформление заказа" %}
+    </h1>
+
+    <div class="mt-[35px] flex items-center justify-center gap-[10px]">
+      <img
+        src="{% static 'images/icons/' %}{% if checkout_step == 1 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+        alt=""
+        class="h-[38px] w-[38px]"
+        aria-hidden="true"
+      >
+      <img src="{% static 'images/icons/airplane-step.svg' %}" alt="" class="h-[12px] w-[58px]" aria-hidden="true">
+      <img
+        src="{% static 'images/icons/' %}{% if checkout_step == 2 %}puzzle-step-active.svg{% else %}puzzle-step-inactive.svg{% endif %}"
+        alt=""
+        class="h-[38px] w-[38px]"
+        aria-hidden="true"
+      >
+    </div>
+
+    <div class="mt-[40px] rounded-[12px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
+      <p class="text-[16px] font-bold text-[var(--color-black)]">{% trans "Контактные данные" %}</p>
+      <input
+        type="email"
+        value="{{ checkout_email }}"
+        placeholder="email@example.com"
+        class="account-input mt-[18px] h-[40px] rounded-[8px] border-[var(--color-grey)] px-[12px] text-[14px]"
+        {% if checkout_step == 1 %}autofocus{% endif %}
+      >
+    </div>
+
+    <div class="mt-[30px] rounded-[12px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
+      <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
+      <div class="mt-[20px] flex items-end justify-between gap-[14px] text-[12px] leading-[130%] text-[var(--color-black-80)]">
+        <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+        <span class="font-normal text-[var(--color-black)]">{{ cart_total }}</span>
+      </div>
+      <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
+        <div class="flex items-end justify-between gap-[14px]">
+          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
+          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{{ cart_total }}</span>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="mt-[40px] flex h-[40px] w-full items-center justify-center rounded-[10px] bg-[var(--color-green)] px-[30px] text-[16px] font-bold leading-none text-[var(--color-white)]">
+      {% trans "Перейти к оплате" %}
+    </button>
+  </div>
+</section>
