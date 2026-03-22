@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.products.apps.ProductsConfig",
     "apps.cart.apps.CartConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.payments.apps.PaymentsConfig",
 ]
 
 MIDDLEWARE = [
@@ -160,6 +161,11 @@ CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 CELERY_TASK_EAGER_PROPAGATES = env.bool("CELERY_TASK_EAGER_PROPAGATES", default=True)
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
+EXPRESS_PAY_TOKEN = env.str("EXPRESS_PAY_TOKEN", default="test-token")
+EXPRESS_PAY_SECRET_WORD = env.str("EXPRESS_PAY_SECRET_WORD", default="secret")
+EXPRESS_PAY_USE_SIGNATURE = env.bool("EXPRESS_PAY_USE_SIGNATURE", default=True)
+EXPRESS_PAY_IS_TEST = env.bool("EXPRESS_PAY_IS_TEST", default=True)
 
 # Static files (CSS, JavaScript, Images)
 

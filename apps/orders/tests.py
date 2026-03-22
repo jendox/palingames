@@ -7,6 +7,7 @@ from django.urls import reverse
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
 from apps.orders.models import Order, OrderItem
+from apps.payments.models import Invoice
 from apps.products.models import Category, Product
 
 
@@ -58,9 +59,14 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(order.email, "guest@example.com")
         self.assertEqual(order.checkout_type, Order.CheckoutType.GUEST)
         self.assertEqual(order.source, Order.Source.PALINGAMES)
-        self.assertEqual(order.status, Order.OrderStatus.PENDING)
+        self.assertEqual(order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
         self.assertEqual(order.payment_account_no[:2], Order.Source.PALINGAMES)
         self.assertEqual(OrderItem.objects.filter(order=order).count(), 1)
+        invoice = Invoice.objects.get(order=order)
+        self.assertRegex(invoice.provider_invoice_no or "", r"^\d{8}$")
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(invoice.invoice_url, f"https://example.com/pay/{invoice.provider_invoice_no}")
+        self.assertEqual(invoice.amount, order.total_amount)
         self.assertIn(f"created={order.public_id}", response["Location"])
 
     def test_authenticated_checkout_post_creates_order_for_user(self):

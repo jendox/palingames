@@ -1,10 +1,9 @@
 import logging
 
 from apps.core.logging import log_event
+from apps.payments.tasks import create_invoice_task
 
-from .tasks import create_invoice_task
-
-logger = logging.getLogger("apps.orders")
+logger = logging.getLogger("apps.payments")
 
 
 def enqueue_invoice_creation(order_id: int) -> None:

@@ -6,9 +6,9 @@ from django.views.generic import TemplateView
 
 from apps.cart.services import get_cart_page_context
 from apps.core.logging import log_event
+from apps.payments.jobs import enqueue_invoice_creation
 
 from .forms import CheckoutSubmitForm
-from .jobs import enqueue_invoice_creation
 from .models import Order
 from .services import create_order_from_cart
 

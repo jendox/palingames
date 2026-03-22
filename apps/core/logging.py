@@ -111,7 +111,7 @@ class JsonFormatter(logging.Formatter):
 
         if event:
             payload["event"] = event
-        if not event or message != event:
+        if message and (not event or message != event):
             payload["message"] = message
 
         request_id = getattr(record, "request_id", None)

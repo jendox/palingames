@@ -2,11 +2,20 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from enum import IntEnum
 from typing import Any
 
 from pydantic import Field, field_validator
 
 from libs.payments.models import PaymentModel
+
+
+class ExpressPayCommandType(IntEnum):
+    NEW_PAYMENT = 1
+    PAYMENT_CANCELED = 2
+    INVOICE_STATUS_CHANGED = 3
+    ERIP_SETTLEMENT = 4
+    EPOS_SETTLEMENT = 5
 
 
 class ExpressPayConfig(PaymentModel):
@@ -77,6 +86,69 @@ class ExpressPayWebhookNotification(PaymentModel):
     @field_validator("amount", mode="before")
     @classmethod
     def parse_amount(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(",", ".")
+        return value
+
+
+class ExpressPaySettlementNotificationBase(PaymentModel):
+    cmd_type: int = Field(alias="CmdType")
+    service_id: int | None = Field(default=None, alias="ServiceId")
+    payment_no: int | None = Field(default=None, alias="PaymentNo")
+    amount: Decimal | None = Field(default=None, alias="Amount", max_digits=19, decimal_places=2)
+    currency: int | None = Field(default=None, alias="Currency")
+    created_at: datetime | None = Field(default=None, alias="PaymentDateTime")
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def parse_settlement_created_at(cls, value: Any) -> datetime | None:
+        if value in {None, ""}:
+            return None
+        return datetime.strptime(str(value), "%Y%m%d%H%M%S")
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def parse_settlement_amount(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(",", ".")
+        return value
+
+
+class ExpressPayERIPSettlementNotification(ExpressPaySettlementNotificationBase):
+    account_number: str = Field(alias="AccountNumber")
+    invoice_number: int | None = Field(default=None, alias="InvoiceNumber")
+    money_amount: Decimal | None = Field(default=None, alias="MoneyAmmount", max_digits=19, decimal_places=2)
+    transferred_money_amount: Decimal | None = Field(
+        default=None,
+        alias="TransferredMoneyAmount",
+        max_digits=19,
+        decimal_places=2,
+    )
+
+    @field_validator("money_amount", "transferred_money_amount", mode="before")
+    @classmethod
+    def parse_erip_amounts(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(",", ".")
+        return value
+
+
+class ExpressPayEPOSSettlementNotification(ExpressPaySettlementNotificationBase):
+    account_number: str = Field(alias="AccountNumber")
+    transaction_id: str | None = Field(default=None, alias="TransactionId")
+    date_result_utc: datetime | None = Field(default=None, alias="DateResultUtc")
+    transfer_amount: Decimal | None = Field(default=None, alias="TransferAmount", max_digits=19, decimal_places=2)
+
+    @field_validator("date_result_utc", mode="before")
+    @classmethod
+    def parse_date_result_utc(cls, value: Any) -> datetime | None:
+        if value in {None, ""}:
+            return None
+        return datetime.strptime(str(value), "%Y-%m-%dT%H:%M:%S")
+
+    @field_validator("transfer_amount", mode="before")
+    @classmethod
+    def parse_transfer_amount(cls, value: Any) -> Any:
         if isinstance(value, str):
             return value.replace(",", ".")
         return value
