@@ -5,6 +5,7 @@ import hmac
 import unittest
 from decimal import Decimal
 
+import httpx
 from pydantic import ValidationError
 
 from libs.express_pay.client import ExpressPayClient
@@ -106,6 +107,42 @@ class ExpressPayClientTests(unittest.TestCase):
                 amount=Decimal("0"),
                 info="Invalid",
             )
+
+    def test_create_invoice_uses_httpx_client_and_parses_response(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["method"] = request.method
+            captured["url"] = str(request.url)
+            captured["body"] = request.content.decode("utf-8")
+            return httpx.Response(
+                200,
+                json={
+                    "InvoiceNo": 12345678,
+                    "InvoiceUrl": "https://pay.example/invoice/12345678",
+                },
+            )
+
+        client = ExpressPayClient(
+            ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url="https://sandbox-api.express-pay.by/v1"),
+        )
+
+        result = client.create_invoice(
+            CreateInvoiceRequest(
+                account_no="PG220326JGRVL4F8",
+                amount=Decimal("25.00"),
+                currency=933,
+                info="Order payment",
+                expiration="202603231200",
+            ),
+        )
+
+        self.assertEqual(captured["method"], "POST")
+        self.assertIn("/invoices?token=test-token", captured["url"])
+        self.assertIn("AccountNo=PG220326JGRVL4F8", captured["body"])
+        self.assertIn("Amount=25%2C00", captured["body"])
+        self.assertEqual(result.invoice_no, 12345678)
 
 
 if __name__ == "__main__":

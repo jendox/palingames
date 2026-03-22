@@ -163,9 +163,11 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 EXPRESS_PAY_TOKEN = env.str("EXPRESS_PAY_TOKEN", default="test-token")
-EXPRESS_PAY_SECRET_WORD = env.str("EXPRESS_PAY_SECRET_WORD", default="secret")
+EXPRESS_PAY_REQUEST_SECRET_WORD = env.str("EXPRESS_PAY_REQUEST_SECRET_WORD", default="secret")
+EXPRESS_PAY_WEBHOOK_SECRET_WORD = env.str("EXPRESS_PAY_WEBHOOK_SECRET_WORD", default="secret")
 EXPRESS_PAY_USE_SIGNATURE = env.bool("EXPRESS_PAY_USE_SIGNATURE", default=True)
 EXPRESS_PAY_IS_TEST = env.bool("EXPRESS_PAY_IS_TEST", default=True)
+EXPRESS_PAY_INVOICE_LIFETIME_HOURS = env.int("EXPRESS_PAY_INVOICE_LIFETIME_HOURS", default=24)
 
 # Static files (CSS, JavaScript, Images)
 

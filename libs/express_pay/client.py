@@ -6,8 +6,8 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+
+import httpx
 
 from libs.payments.models import (
     CancelInvoiceRequest,
@@ -35,8 +35,13 @@ from .models import (
 
 
 class ExpressPayClient(PaymentProvider):
-    def __init__(self, config: ExpressPayConfig):
+    def __init__(self, config: ExpressPayConfig, client: httpx.Client | None = None):
         self.config = config
+        self._client = client or httpx.Client(
+            base_url=self.base_url,
+            timeout=self.config.timeout_seconds,
+            headers={"Accept": "application/json"},
+        )
 
     @property
     def base_url(self) -> str:
@@ -170,32 +175,24 @@ class ExpressPayClient(PaymentProvider):
         return ExpressPayWebhookNotification.model_validate(payload)
 
     def _request(self, method: str, path: str, params: dict[str, Any]) -> dict[str, Any]:
-        query = urlencode({"token": self.config.token})
-        url = f"{self.base_url}{path}?{query}"
+        request_params = {"token": self.config.token}
+        request_kwargs: dict[str, Any] = {"params": request_params}
 
-        if method == "GET":
-            url = f"{url}&{urlencode(params)}"
-            request = Request(url=url, method="GET")
-        elif method == "DELETE":
-            url = f"{url}&{urlencode(params)}"
-            request = Request(url=url, method="DELETE")
+        if method in {"GET", "DELETE"}:
+            request_kwargs["params"] = {**request_params, **params}
         else:
-            data = urlencode(params).encode("utf-8")
-            request = Request(
-                url=url,
-                data=data,
-                method=method,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
+            request_kwargs["data"] = params
 
-        with urlopen(request, timeout=self.config.timeout_seconds) as response:
-            raw = response.read().decode("utf-8")
-
-        parsed = json.loads(raw)
+        response = self._client.request(method, path, **request_kwargs)
+        response.raise_for_status()
+        parsed = response.json()
         if "Error" in parsed:
             error = ExpressPayErrorEnvelope.model_validate(parsed).error
             raise ExpressPayAPIError(error.code, error.message, msg_code=error.msg_code)
         return parsed
+
+    def close(self) -> None:
+        self._client.close()
 
     def _compute_signature(self, payload: dict[str, Any], *, mapping: list[str]) -> str:
         normalized = {str(key).lower(): "" if value is None else str(value) for key, value in payload.items()}

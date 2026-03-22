@@ -10,7 +10,7 @@ from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 
 
-@override_settings(EXPRESS_PAY_USE_SIGNATURE=True)
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
 class ExpressPayNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -32,7 +32,9 @@ class ExpressPayNotificationViewTests(TestCase):
             currency=933,
         )
         cls.notification_url = reverse("express-pay-notification")
-        cls.client_helper = ExpressPayClient(
+
+    def setUp(self):
+        self.client_helper = ExpressPayClient(
             ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
         )
 
@@ -113,8 +115,59 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
 
+    def test_notification_ignores_non_status_change_cmd_type(self):
+        payload = {
+            "CmdType": 1,
+            "AccountNo": self.order.payment_account_no,
+            "InvoiceNo": 12345678,
+            "PaymentNo": 555001,
+            "Amount": "25,00",
+            "Currency": "933",
+            "Created": "20260322153000",
+        }
+        data = json.dumps(payload, separators=(",", ":"))
 
-@override_settings(EXPRESS_PAY_USE_SIGNATURE=True)
+        response = self.client.post(
+            self.notification_url,
+            data={
+                "Data": data,
+                "Signature": self.client_helper._compute_raw_signature(data),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertEqual(PaymentEvent.objects.count(), 0)
+
+    def test_notification_ignores_unknown_cmd_type(self):
+        payload = {
+            "CmdType": 11,
+            "AccountNo": self.order.payment_account_no,
+            "InvoiceNo": 12345678,
+            "PaymentNo": 555001,
+            "Amount": "25,00",
+            "Currency": "933",
+            "Created": "20260322153000",
+        }
+        data = json.dumps(payload, separators=(",", ":"))
+
+        response = self.client.post(
+            self.notification_url,
+            data={
+                "Data": data,
+                "Signature": self.client_helper._compute_raw_signature(data),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
 class ExpressPaySettlementNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -136,7 +189,9 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
             currency=933,
         )
         cls.settlement_url = reverse("express-pay-settlement-notification")
-        cls.client_helper = ExpressPayClient(
+
+    def setUp(self):
+        self.client_helper = ExpressPayClient(
             ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
         )
 

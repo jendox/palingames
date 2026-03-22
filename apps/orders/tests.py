@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -8,7 +9,9 @@ from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice
+from apps.payments.tasks import create_invoice_task
 from apps.products.models import Category, Product
+from libs.payments.models import CreateInvoiceResult
 
 
 @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
@@ -19,6 +22,18 @@ class CheckoutPageViewTests(TestCase):
         cls.product = Product.objects.create(title="Альфа", slug="alpha-checkout", price=Decimal("25.00"))
         cls.product.categories.add(cls.category)
         cls.user = get_user_model().objects.create_user(email="test@example.com", password="test-pass-123")
+
+    def setUp(self):
+        self.express_pay_client_patcher = patch("apps.payments.tasks.get_express_pay_request_client")
+        self.mock_get_express_pay_request_client = self.express_pay_client_patcher.start()
+        self.addCleanup(self.express_pay_client_patcher.stop)
+
+        mock_client = Mock()
+        mock_client.create_invoice.return_value = CreateInvoiceResult(
+            invoice_no=12345678,
+            invoice_url="https://example.com/pay/12345678",
+        )
+        self.mock_get_express_pay_request_client.return_value = mock_client
 
     def test_checkout_redirects_to_cart_when_empty(self):
         response = self.client.get(reverse("checkout"))
@@ -63,10 +78,11 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(order.payment_account_no[:2], Order.Source.PALINGAMES)
         self.assertEqual(OrderItem.objects.filter(order=order).count(), 1)
         invoice = Invoice.objects.get(order=order)
-        self.assertRegex(invoice.provider_invoice_no or "", r"^\d{8}$")
+        self.assertEqual(invoice.provider_invoice_no, "12345678")
         self.assertEqual(invoice.status, Invoice.InvoiceStatus.PENDING)
-        self.assertEqual(invoice.invoice_url, f"https://example.com/pay/{invoice.provider_invoice_no}")
+        self.assertEqual(invoice.invoice_url, "https://example.com/pay/12345678")
         self.assertEqual(invoice.amount, order.total_amount)
+        self.assertIsNotNone(invoice.expires_at)
         self.assertIn(f"created={order.public_id}", response["Location"])
 
     def test_authenticated_checkout_post_creates_order_for_user(self):
@@ -91,6 +107,31 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "Введите корректный Email.", status_code=400)
         self.assertFalse(Order.objects.exists())
+
+    def test_create_invoice_task_is_idempotent_for_existing_pending_invoice(self):
+        order = Order.objects.create(
+            email="guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no="76543210",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/76543210",
+            amount=order.total_amount,
+            currency=order.currency,
+        )
+
+        create_invoice_task(order.id)
+
+        self.assertEqual(Invoice.objects.count(), 1)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.provider_invoice_no, "76543210")
+        self.mock_get_express_pay_request_client.return_value.create_invoice.assert_not_called()
 
 
 class OrderModelTests(TestCase):
