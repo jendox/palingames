@@ -217,6 +217,49 @@ make down-develop
 make down-v
 ```
 
+## Логирование
+
+В проекте настроено структурное логирование в JSON-формате.
+
+Основные свойства:
+
+- все логи пишутся в stdout в виде JSON-объектов;
+- события именуются по событийной модели, например: `app.started`, `request.started`, `order.creation.success`, `order.creation.failed`, `invoice.creation.enqueued`;
+- для каждого HTTP-запроса создается или принимается входящий `request_id` из заголовка `X-Request-ID`;
+- `request_id` добавляется в лог-контекст и возвращается клиенту в заголовке `X-Request-ID`;
+- при постановке Celery-задач `request_id` прокидывается через task headers, чтобы связать request- и async-цепочку;
+- в логах автоматически редактируются чувствительные поля, включая `token`, `password`, `email`, `authorization`, `cookie`, `signature`, `sms_phone` и другие похожие ключи.
+
+Пример структуры лога:
+
+```json
+{
+  "timestamp": "2026-03-22T11:51:16.280066+00:00",
+  "level": "INFO",
+  "logger": "apps.orders",
+  "event": "order.creation.success",
+  "message": "order.creation.success",
+  "request_id": "7e7f6f2e1dc54d93b9c3fd4b3956a2b4",
+  "context": {
+    "order_id": 42,
+    "checkout_type": "GUEST",
+    "items_count": 1,
+    "total_amount": "25.00",
+    "currency": 933
+  }
+}
+```
+
+Уровень логирования настраивается через переменную окружения:
+
+- `DJANGO_LOG_LEVEL=INFO`
+
+Ключевые точки инфраструктуры:
+
+- [apps/core/logging.py](/home/jendox/PycharmProjects/palingames/apps/core/logging.py) — formatter, redaction, context helpers;
+- [apps/core/middleware.py](/home/jendox/PycharmProjects/palingames/apps/core/middleware.py) — request context и `request_id`;
+- [apps/core/celery_logging.py](/home/jendox/PycharmProjects/palingames/apps/core/celery_logging.py) — перенос лог-контекста в Celery.
+
 ## Тесты
 
 Базовые тесты в проекте уже есть, в том числе на:

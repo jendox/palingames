@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django_tailwind_cli",
     "django_celery_beat",
     # my apps
+    "apps.core.apps.CoreConfig",
     "apps.users.apps.UsersConfig",
     "apps.pages.apps.PagesConfig",
     "apps.products.apps.ProductsConfig",
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.RequestContextLoggingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -223,3 +225,29 @@ TAILWIND_CLI_DIST_CSS = "css/tailwind.css"
 TAILWIND_CLI_USE_MINIFY = False  # в dev удобнее
 TAILWIND_CLI_VERSION = "4.1.18"
 TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "logging_context": {
+            "()": "apps.core.logging.LoggingContextFilter",
+        },
+    },
+    "formatters": {
+        "json": {
+            "()": "apps.core.logging.JsonFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["logging_context"],
+            "formatter": "json",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": env.str("DJANGO_LOG_LEVEL", default="INFO"),
+    },
+}

@@ -1,13 +1,18 @@
+import logging
+
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import TemplateView
 
 from apps.cart.services import get_cart_page_context
+from apps.core.logging import log_event
 
 from .forms import CheckoutSubmitForm
 from .jobs import enqueue_invoice_creation
 from .models import Order
 from .services import create_order_from_cart
+
+logger = logging.getLogger("apps.checkout")
 
 
 class CheckoutPageView(TemplateView):
@@ -16,6 +21,7 @@ class CheckoutPageView(TemplateView):
     def dispatch(self, request, *args, **kwargs):
         cart_context = get_cart_page_context(request)
         if not cart_context["cart_items"]:
+            log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
         self.cart_context = cart_context
         return super().dispatch(request, *args, **kwargs)
@@ -45,10 +51,24 @@ class CheckoutPageView(TemplateView):
     def post(self, request, *args, **kwargs):
         form = CheckoutSubmitForm(request.POST)
         if not form.is_valid():
+            log_event(
+                logger,
+                logging.WARNING,
+                "checkout.validation.failed",
+                error_fields=sorted(form.errors.keys()),
+            )
             context = self.get_context_data(checkout_form=form)
             return self.render_to_response(context, status=400)
 
         order = create_order_from_cart(request=request, email=form.cleaned_data["email"])
         enqueue_invoice_creation(order.id)
+        log_event(
+            logger,
+            logging.INFO,
+            "checkout.order_submitted",
+            order_id=order.id,
+            order_public_id=order.public_id,
+            checkout_type=order.checkout_type,
+        )
         checkout_url = f"{reverse('checkout')}?created={order.public_id}"
         return redirect(checkout_url)
