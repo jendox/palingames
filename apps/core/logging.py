@@ -96,8 +96,6 @@ class LoggingContextFilter(logging.Filter):
         context = redact_value(get_logging_context())
         record.request_id = context.get("request_id")
         record.logging_context = context
-        if not hasattr(record, "event"):
-            record.event = record.getMessage()
         return True
 
 
@@ -107,9 +105,14 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "event": getattr(record, "event", record.getMessage()),
-            "message": record.getMessage(),
         }
+        event = getattr(record, "event", None)
+        message = record.getMessage()
+
+        if event:
+            payload["event"] = event
+        if not event or message != event:
+            payload["message"] = message
 
         request_id = getattr(record, "request_id", None)
         if request_id:
@@ -138,7 +141,7 @@ def log_event(
 ) -> None:
     logger.log(
         level,
-        message or event,
+        message or "",
         exc_info=exc_info,
         extra={
             "event": event,

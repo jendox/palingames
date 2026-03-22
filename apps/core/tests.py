@@ -45,6 +45,26 @@ class StructuredLoggingTests(TestCase):
         self.assertEqual(payload["context"]["order_id"], 42)
         self.assertEqual(payload["context"]["email"], "***")
         self.assertEqual(payload["context"]["token"], "***")
+        self.assertNotIn("message", payload)
+
+    def test_json_formatter_keeps_message_for_non_event_logs(self):
+        logger = logging.getLogger("tests.logging")
+        record = logger.makeRecord(
+            logger.name,
+            logging.INFO,
+            __file__,
+            0,
+            "Connected to redis://localhost:6379/0",
+            args=(),
+            exc_info=None,
+            extra=None,
+        )
+        LoggingContextFilter().filter(record)
+
+        payload = json.loads(JsonFormatter().format(record))
+
+        self.assertEqual(payload["message"], "Connected to redis://localhost:6379/0")
+        self.assertNotIn("event", payload)
 
     def test_build_task_logging_headers_uses_request_id_from_context(self):
         set_logging_context(request_id="req-456")

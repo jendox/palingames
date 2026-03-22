@@ -3,6 +3,7 @@ import logging
 from celery import shared_task
 
 from apps.core.logging import log_event
+
 from .models import Order
 
 logger = logging.getLogger(__name__)
