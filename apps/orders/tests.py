@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
+from apps.orders.models import Order
 from apps.products.models import Category, Product
 
 
@@ -43,3 +44,19 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["checkout_step"], 2)
         self.assertEqual(response.context["checkout_email"], self.user.email)
+
+
+class OrderModelTests(TestCase):
+    def test_order_generates_payment_account_no_after_first_save(self):
+        order = Order.objects.create(
+            email="guest@example.com",
+            checkout_type=Order.CheckoutType.GUEST,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+
+        self.assertIsNotNone(order.payment_account_no)
+        self.assertEqual(len(order.payment_account_no), 16)
+        self.assertTrue(order.payment_account_no.startswith("01"))
+        self.assertEqual(order.payment_account_no[2:8], order.created_at.strftime("%d%m%y"))

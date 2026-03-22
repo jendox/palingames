@@ -6,6 +6,7 @@ from django.db import transaction
 from django.templatetags.static import static
 
 from apps.products.models import Product
+from apps.products.pricing import format_price
 
 from .models import Cart, CartItem
 
@@ -107,8 +108,8 @@ def merge_guest_cart_to_user(request, user) -> None:
     _set_guest_cart_ids(request, [])
 
 
-def _format_price(value: Decimal) -> str:
-    return f"{value:.2f}".replace(".", ",") + " BYN"
+def _format_price(value: Decimal, currency: int | None) -> str:
+    return format_price(value, currency)
 
 
 def _build_cart_item(product: Product, selected_category_by_id: dict[int, str]) -> dict:
@@ -120,7 +121,7 @@ def _build_cart_item(product: Product, selected_category_by_id: dict[int, str]) 
         "product_id": product.id,
         "title": product.title,
         "kind": category_label,
-        "price": _format_price(product.price),
+        "price": _format_price(product.price, product.currency),
         "image_url": first_image.image.url if first_image else static("images/example-product-image-1.png"),
     }
 
@@ -130,7 +131,7 @@ def get_cart_page_context(request) -> dict:
     if not product_ids:
         return {
             "cart_items": [],
-            "cart_total": _format_price(Decimal("0.00")),
+            "cart_total": _format_price(Decimal("0.00"), None),
             "cart_count": 0,
             "cart_product_ids": [],
         }
@@ -148,10 +149,11 @@ def get_cart_page_context(request) -> dict:
         selected_category_by_id[product.id] = first_category.title if first_category else ""
     cart_items = [_build_cart_item(product, selected_category_by_id) for product in ordered_products]
     total = sum((product.price for product in ordered_products), Decimal("0.00"))
+    cart_currency = ordered_products[0].currency if ordered_products else None
 
     return {
         "cart_items": cart_items,
-        "cart_total": _format_price(total),
+        "cart_total": _format_price(total, cart_currency),
         "cart_count": len(ordered_products),
         "cart_product_ids": [product.id for product in ordered_products],
     }

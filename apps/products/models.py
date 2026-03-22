@@ -11,6 +11,13 @@ from apps.core.models import TimeStampedModel
 from config import settings
 
 
+class Currency(models.IntegerChoices):
+    BYN = 933, _("BYN")
+    USD = 840, _("USD")
+    EUR = 978, _("EUR")
+    RUB = 643, _("RUB")
+
+
 class Category(TimeStampedModel):
     title = models.CharField("Название", unique=True, max_length=100)
     slug = models.SlugField("Слаг", unique=True)
@@ -91,6 +98,7 @@ class Product(TimeStampedModel):
     content = models.TextField(_("Контент"), blank=True)
     description = models.TextField(_("Описание"), blank=True)
     price = models.DecimalField(_("Цена"), max_digits=10, decimal_places=2)
+    currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
 
     categories = models.ManyToManyField(Category, related_name="products", verbose_name="Категории")
     subtypes = models.ManyToManyField(SubType, blank=True, related_name="products", verbose_name="Подтипы")

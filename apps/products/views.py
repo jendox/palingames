@@ -8,6 +8,7 @@ from django.views.generic import DetailView, TemplateView
 from apps.cart.services import get_cart_product_ids
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
+from .pricing import format_price
 
 
 class CatalogView(TemplateView):
@@ -71,7 +72,7 @@ class CatalogView(TemplateView):
             "id": product.id,
             "title": product.title,
             "url": product.get_absolute_url(),
-            "price": f"{product.price:.2f}".replace(".", ",") + " BYN",
+            "price": format_price(product.price, product.currency),
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(selected_category or product.categories.first()),
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
@@ -634,7 +635,7 @@ class ProductDetailView(DetailView):
             for review in reviews
         ]
         context["product_kind"] = primary_kind.title if primary_kind else ""
-        context["product_price"] = f"{product.price:.2f}".replace(".", ",") + " BYN"
+        context["product_price"] = format_price(product.price, product.currency)
         context["product_is_in_cart"] = product.id in cart_product_ids
         context["product_reviews_count"] = len(reviews)
         context["product_average_rating"] = product.average_rating

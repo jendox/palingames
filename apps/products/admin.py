@@ -96,6 +96,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "price",
+        "currency",
         "categories_list",
         "images_count",
         "published_reviews_count",
@@ -131,6 +132,7 @@ class ProductAdmin(admin.ModelAdmin):
                     "title",
                     "slug",
                     "price",
+                    "currency",
                     "categories",
                     "subtypes",
                     "age_groups",
