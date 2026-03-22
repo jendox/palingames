@@ -14,7 +14,7 @@ from apps.products.models import Category, Product
 from libs.payments.models import CreateInvoiceResult
 
 
-@override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, EXPRESS_PAY_IS_TEST=False)
 class CheckoutPageViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
