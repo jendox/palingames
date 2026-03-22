@@ -10,13 +10,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const emailInput = activeScope.querySelector("[data-checkout-email]");
   const emailError = activeScope.querySelector("[data-checkout-email-error]");
   const submitButton = activeScope.querySelector("[data-checkout-submit]");
+  const checkoutForm = submitButton?.closest("form");
   const stepOneIcon = activeScope.querySelector('[data-checkout-step-icon="1"]');
   const stepTwoIcon = activeScope.querySelector('[data-checkout-step-icon="2"]');
   const stepOneDigit = activeScope.querySelector('[data-checkout-step-digit="1"]');
   const stepTwoDigit = activeScope.querySelector('[data-checkout-step-digit="2"]');
   const createdDialog = document.getElementById("checkoutOrderCreatedDialog");
 
-  if (!emailInput || !emailError || !submitButton || !stepOneIcon || !stepTwoIcon || !stepOneDigit || !stepTwoDigit || !createdDialog) {
+  if (
+    !emailInput
+    || !emailError
+    || !submitButton
+    || !checkoutForm
+    || !stepOneIcon
+    || !stepTwoIcon
+    || !stepOneDigit
+    || !stepTwoDigit
+    || !createdDialog
+  ) {
     return;
   }
 
@@ -52,19 +63,92 @@ document.addEventListener("DOMContentLoaded", () => {
   emailInput.addEventListener("blur", syncEmailState);
 
   submitButton.addEventListener("click", () => {
-    if (syncEmailState()) {
-      if (!createdDialog.open) {
-        createdDialog.showModal();
-      }
+    if (!syncEmailState()) {
+      emailInput.focus();
+    }
+  });
 
-      requestAnimationFrame(() => {
-        createdDialog.classList.remove("opacity-0", "scale-95");
-        createdDialog.classList.add("opacity-100", "scale-100");
-      });
+  checkoutForm.addEventListener("submit", (event) => {
+    if (syncEmailState()) {
+      submitButton.disabled = true;
       return;
     }
 
+    event.preventDefault();
     emailInput.focus();
+  });
+
+  if (createdDialog.dataset.checkoutOrderCreated === "true") {
+    const closeDelayMs = Number(createdDialog.dataset.checkoutCloseDelayMs || "0");
+    createdDialog.dataset.checkoutCanClose = "false";
+    createdDialog.showModal();
+    requestAnimationFrame(() => {
+      createdDialog.classList.remove("opacity-0", "scale-95");
+      createdDialog.classList.add("opacity-100", "scale-100");
+    });
+    window.setTimeout(() => {
+      createdDialog.dataset.checkoutCanClose = "true";
+    }, closeDelayMs);
+  }
+
+  const closeCreatedDialog = () => {
+    if (createdDialog.open) {
+      createdDialog.dataset.checkoutClosedByUser = "true";
+      createdDialog.close("user");
+    }
+  };
+
+  createdDialog.addEventListener(
+    "click",
+    (event) => {
+      if (createdDialog.dataset.checkoutCanClose !== "true") {
+        event.stopPropagation();
+        event.preventDefault();
+        return;
+      }
+
+      const closeButton = event.target.closest("[data-checkout-dialog-close]");
+      if (closeButton) {
+        event.preventDefault();
+        closeCreatedDialog();
+        return;
+      }
+
+      if (event.target === createdDialog) {
+        event.preventDefault();
+        closeCreatedDialog();
+      }
+    },
+    true,
+  );
+
+  createdDialog.addEventListener(
+    "cancel",
+    (event) => {
+      if (createdDialog.dataset.checkoutCanClose !== "true") {
+        event.preventDefault();
+        return;
+      }
+
+      event.preventDefault();
+      closeCreatedDialog();
+    },
+    true,
+  );
+
+  createdDialog.addEventListener("close", () => {
+    if (
+      createdDialog.dataset.checkoutOrderCreated !== "true"
+      || createdDialog.dataset.checkoutClosedByUser !== "true"
+    ) {
+      return;
+    }
+
+    delete createdDialog.dataset.checkoutClosedByUser;
+    const redirectUrl = createdDialog.dataset.checkoutRedirectUrl;
+    if (redirectUrl) {
+      window.location.assign(redirectUrl);
+    }
   });
 
   syncEmailState();

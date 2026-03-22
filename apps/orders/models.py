@@ -1,4 +1,4 @@
-import enum
+import secrets
 import uuid
 
 from django.db import models
@@ -14,24 +14,7 @@ class Provider(models.TextChoices):
     EXPRESS_PAY = "EXPRESS_PAY", _("Express Pay")
 
 
-class OrderSource(enum.StrEnum):
-    SITE = "01"
-
-
-def _to_base36(value: int) -> str:
-    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    if value < 0:
-        msg = "Base36 value must be non-negative."
-        raise ValueError(msg)
-    if value == 0:
-        return "0"
-
-    encoded: list[str] = []
-    current = value
-    while current:
-        current, remainder = divmod(current, 36)
-        encoded.append(alphabet[remainder])
-    return "".join(reversed(encoded))
+ACCOUNT_NO_RANDOM_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class Order(TimeStampedModel):
@@ -47,6 +30,11 @@ class Order(TimeStampedModel):
         AUTHENTICATED = "AUTHENTICATED", _("Авторизованный")
         GUEST = "GUEST", _("Гостевой")
 
+    class Source(models.TextChoices):
+        PALINGAMES = "PG", _("Сайт PaliGames")
+        TELEGRAM = "TG", _("Telegram")
+        INSTAGRAM = "IG", _("Instagram")
+
     public_id = models.UUIDField(_("Публичный идентификатор"), default=uuid.uuid4, unique=True, editable=False)
     payment_account_no = models.CharField(
         _("Номер лицевого счёта для оплаты"),
@@ -57,6 +45,7 @@ class Order(TimeStampedModel):
         editable=False,
     )
     status = models.CharField(_("Статус"), max_length=20, choices=OrderStatus.choices, default=OrderStatus.CREATED)
+    source = models.CharField(_("Источник заказа"), max_length=2, choices=Source.choices, default=Source.PALINGAMES)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -80,10 +69,21 @@ class Order(TimeStampedModel):
         verbose_name = _("Заказ")
         verbose_name_plural = _("Заказы")
 
+    @classmethod
+    def generate_payment_account_no(cls, source: str, order_date=None) -> str:
+        order_date = order_date or timezone.now()
+        local_order_date = order_date.astimezone(timezone.get_current_timezone())
+        for _attempt in range(10):
+            token = "".join(secrets.choice(ACCOUNT_NO_RANDOM_ALPHABET) for _index in range(8))
+            payment_account_no = f"{source}{local_order_date:%d%m%y}{token}"
+            if not cls.objects.filter(payment_account_no=payment_account_no).exists():
+                return payment_account_no
+
+        msg = "Unable to generate a unique payment account number."
+        raise RuntimeError(msg)
+
     def build_payment_account_no(self) -> str:
-        order_date = (self.created_at or timezone.now()).astimezone(timezone.get_current_timezone())
-        encoded_id = _to_base36(self.id).rjust(8, "0")
-        return f"{OrderSource.SITE.value}{order_date:%d%m%y}{encoded_id}"
+        return self.generate_payment_account_no(self.source, self.created_at or timezone.now())
 
     def save(self, *args, **kwargs):
         needs_payment_account_no = self.pk is None and not self.payment_account_no

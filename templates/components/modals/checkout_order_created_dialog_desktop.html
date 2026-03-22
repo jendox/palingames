@@ -10,7 +10,7 @@
 
   <button
     type="button"
-    data-dialog-close
+    data-checkout-dialog-close
     class="absolute right-[28px] top-[18px] z-20 inline-flex h-[28px] w-[28px] cursor-pointer items-center justify-center"
     aria-label="{% trans 'Закрыть' %}"
   >
@@ -28,7 +28,7 @@
       </p>
 
       <p class="mt-[10px] text-[18px] leading-[24px] text-[var(--color-black)]">
-        {% trans "Номер заказа" %} <span class="font-bold">№ 12345</span>
+        {% trans "Номер заказа" %} <span class="font-bold">№ {{ checkout_created_order.payment_account_no|default:"PG220326A7K9M2QF" }}</span>
       </p>
 
       <p class="mt-[28px] text-[18px] leading-[24px] text-[var(--color-black)]">

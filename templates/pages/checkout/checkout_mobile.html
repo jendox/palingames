@@ -21,6 +21,8 @@
       {% trans "Оформление заказа" %}
     </h1>
 
+    <form method="post" novalidate>
+      {% csrf_token %}
     <div class="mt-[40px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] pb-[20px] pt-[20px]">
       <p class="text-[12px] font-bold leading-[12px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
 
@@ -88,6 +90,7 @@
 
       <input
         id="checkout-email-mobile"
+        name="{{ checkout_form.email.html_name }}"
         type="email"
         value="{{ checkout_email }}"
         placeholder="xxxxxxx@gmail.com"
@@ -97,8 +100,8 @@
         required
         {% if checkout_step == 1 %}autofocus{% endif %}
       >
-      <p class="mt-[8px] hidden text-[10px] leading-[12px] text-[#D45A5A]" data-checkout-email-error>
-        {% trans "Введите корректный Email." %}
+      <p class="mt-[8px] text-[10px] leading-[12px] text-[#D45A5A] {% if not checkout_form.errors %}hidden{% endif %}" data-checkout-email-error>
+        {{ checkout_form.email.errors.0|default:_("Введите корректный Email.") }}
       </p>
 
       <div class="flex h-[62px] w-full items-center justify-start">
@@ -158,11 +161,12 @@
     </p>
 
     <button
-      type="button"
+      type="submit"
       class="mt-[15px] flex h-[40px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-[var(--color-green)] px-[20px] text-[16px] font-bold leading-none text-[var(--color-white)]"
       data-checkout-submit
     >
       {% trans "Оформить заказ" %}
     </button>
+    </form>
   </div>
 </section>

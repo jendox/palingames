@@ -20,7 +20,8 @@
       {% trans "Оформление заказа" %}
     </h1>
 
-    <div class="mx-auto mt-[70px] grid max-w-[1440px] grid-cols-[minmax(0,1fr)_minmax(460px,595px)] items-start gap-[72px]">
+    <form method="post" class="mx-auto mt-[70px] grid max-w-[1440px] grid-cols-[minmax(0,1fr)_minmax(460px,595px)] items-start gap-[72px]" novalidate>
+      {% csrf_token %}
       <section class="pt-[4px]">
         <div class="max-w-[535px]">
           <div class="grid grid-cols-[126px_minmax(0,1fr)] items-start gap-x-[25px]">
@@ -48,6 +49,7 @@
               </p>
               <input
                 id="checkout-email"
+                name="{{ checkout_form.email.html_name }}"
                 type="email"
                 value="{{ checkout_email }}"
                 placeholder="username@gmail.com"
@@ -57,8 +59,8 @@
                 required
                 {% if checkout_step == 1 %}autofocus{% endif %}
               >
-              <p class="mt-[10px] hidden text-[12px] leading-[14px] text-[#D45A5A]" data-checkout-email-error>
-                {% trans "Введите корректный Email." %}
+              <p class="mt-[10px] text-[12px] leading-[14px] text-[#D45A5A] {% if not checkout_form.errors %}hidden{% endif %}" data-checkout-email-error>
+                {{ checkout_form.email.errors.0|default:_("Введите корректный Email.") }}
               </p>
             </div>
           </div>
@@ -161,10 +163,10 @@
           {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный E-mail" %}
         </p>
 
-        <button type="button" class="mx-auto mt-[20px] flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-green-hover)]" data-checkout-submit>
+        <button type="submit" class="mx-auto mt-[20px] flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-green-hover)]" data-checkout-submit>
           {% trans "Оформить заказ" %}
         </button>
       </aside>
-    </div>
+    </form>
   </div>
 </section>
