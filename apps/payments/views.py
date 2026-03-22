@@ -44,13 +44,43 @@ def _success_response() -> HttpResponse:
     return HttpResponse("SUCCESS", content_type="text/plain", status=HTTPStatus.OK)
 
 
+def _normalize_raw_payload_data(data) -> str:
+    if isinstance(data, str):
+        return data
+
+    if data is None:
+        return "{}"
+
+    return json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+
+
 def _get_raw_webhook_payload(request: HttpRequest) -> tuple[str, str | None]:
     if request.POST:
-        return request.POST.get("Data", ""), request.POST.get("Signature")
+        signature = request.POST.get("Signature")
+        data = request.POST.get("Data")
+        if data is not None:
+            return data, signature
+
+        direct_payload = {key: value for key, value in request.POST.items() if key != "Signature"}
+        return _normalize_raw_payload_data(direct_payload), signature
 
     body = request.body.decode("utf-8") if request.body else "{}"
     payload = json.loads(body)
-    return str(payload.get("Data", "")), payload.get("Signature")
+    if isinstance(payload, dict):
+        signature = payload.get("Signature")
+        if "Data" in payload:
+            return _normalize_raw_payload_data(payload.get("Data")), signature
+
+        direct_payload = {key: value for key, value in payload.items() if key != "Signature"}
+        return _normalize_raw_payload_data(direct_payload), signature
+
+    return _normalize_raw_payload_data(payload), None
+
+
+def _get_parsed_webhook_payload(request: HttpRequest) -> tuple[dict, str | None]:
+    data, signature = _get_raw_webhook_payload(request)
+    payload = json.loads(data)
+    return payload, signature
 
 
 def _parse_express_pay_payload(request: HttpRequest, model_class):
@@ -113,6 +143,27 @@ def _map_invoice_status(provider_status: int | None) -> str | None:
         return mapping.get(InvoiceStatus(provider_status))
     except ValueError:
         return None
+
+
+def _normalize_currency_code(value, fallback: int) -> int:
+    if value in {None, ""}:
+        return fallback
+
+    if isinstance(value, int):
+        return value
+
+    normalized = str(value).strip().upper()
+    currency_mapping = {
+        "BYN": 933,
+        "EUR": 978,
+        "USD": 840,
+        "RUB": 643,
+    }
+    if normalized in currency_mapping:
+        return currency_mapping[normalized]
+    if normalized.isdigit():
+        return int(normalized)
+    return fallback
 
 
 def _normalize_notification_datetime(value):
@@ -315,8 +366,7 @@ class ExpressPaySettlementNotificationView(View):
         )
 
         try:
-            payload_data, _ = _get_raw_webhook_payload(request)
-            raw_payload = json.loads(payload_data)
+            raw_payload, _ = _get_parsed_webhook_payload(request)
             cmd_type = int(raw_payload.get("CmdType"))
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             log_event(
@@ -423,7 +473,7 @@ class ExpressPaySettlementNotificationView(View):
                 "provider_status_code": None,
                 "invoice_status": Invoice.InvoiceStatus.PAID,
                 "amount": notification.amount,
-                "currency": notification.currency or invoice.currency,
+                "currency": _normalize_currency_code(notification.currency, invoice.currency),
                 "payload": {
                     "CmdType": notification.cmd_type,
                     "ServiceId": notification.service_id,
@@ -446,6 +496,7 @@ class ExpressPaySettlementNotificationView(View):
             invoice.status = Invoice.InvoiceStatus.PAID
             if notification.amount is not None:
                 invoice.amount = notification.amount
+            invoice.currency = _normalize_currency_code(notification.currency, invoice.currency)
             invoice.last_status_check_at = timezone.now()
             invoice.raw_last_status_response = payment_event.payload
             invoice.paid_at = event_at or timezone.now()
@@ -454,6 +505,7 @@ class ExpressPaySettlementNotificationView(View):
                 update_fields=[
                     "status",
                     "amount",
+                    "currency",
                     "paid_at",
                     "cancelled_at",
                     "last_status_check_at",

@@ -10,6 +10,7 @@ from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 
 
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True)
 class ExpressPayNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -90,7 +91,30 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.content.decode(), "FAILED | Invoice not found")
 
+    def test_notification_accepts_direct_json_payload_without_data_wrapper(self):
+        payload = {
+            "CmdType": 3,
+            "Status": 3,
+            "AccountNo": self.order.payment_account_no,
+            "InvoiceNo": 12345678,
+            "PaymentNo": 555001,
+            "Amount": "25,00",
+            "Currency": "933",
+            "Created": "20260322153000",
+        }
 
+        with override_settings(EXPRESS_PAY_USE_SIGNATURE=False):
+            response = self.client.post(
+                self.notification_url,
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True)
 class ExpressPaySettlementNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -148,6 +172,19 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         self.assertEqual(self.order.status, Order.OrderStatus.PAID)
         self.assertEqual(PaymentEvent.objects.filter(invoice=self.invoice, is_processed=True).count(), 1)
 
+    def test_settlement_notification_normalizes_provider_account_prefix(self):
+        prefixed_account_number = f"36586-1-{self.order.payment_account_no}"
+
+        response = self.client.post(
+            self.settlement_url,
+            data=self._build_epos_payload(account_number=prefixed_account_number),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+
     def test_settlement_notification_accepts_request_without_signature_when_disabled(self):
         payload = self._build_epos_payload()
         payload.pop("Signature")
@@ -196,6 +233,66 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
                 "Signature": self.client_helper._compute_raw_signature(data),
             },
         )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+
+    def test_settlement_notification_accepts_json_wrapper_with_object_data(self):
+        payload = {
+            "Data": {
+                "CmdType": 5,
+                "ServiceId": 12345,
+                "AccountNumber": self.order.payment_account_no,
+                "PaymentNo": 770011,
+                "Amount": "25,00",
+                "TransferAmount": "24,50",
+                "Currency": 933,
+                "TransactionId": "txn-100500",
+                "DateResultUtc": "2026-03-22T15:30:00",
+                "PaymentDateTime": "20260322153000",
+            },
+        }
+
+        with override_settings(EXPRESS_PAY_USE_SIGNATURE=False):
+            response = self.client.post(
+                self.settlement_url,
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+
+    def test_settlement_notification_accepts_official_example_payload_shape(self):
+        payload = {
+            "CmdType": 5,
+            "ServiceId": 1111,
+            "Currency": "BYN",
+            "Amount": "25,00",
+            "TransferAmount": "24,50",
+            "BankComission": "0",
+            "EripComission": "0",
+            "AggregatorComission": "0",
+            "Rate": "1",
+            "TransactionId": 3349077861,
+            "EripTransactionId": 1654138,
+            "DateResultUtc": "20210304132422",
+            "DateVerifiedUtc": "20210305033250",
+            "BankCode": 749,
+            "AuthType": "MS",
+            "MemOrderDate": "20210305100501",
+            "MemOrderNum": 6616,
+            "AccountNumber": self.order.payment_account_no,
+            "PaymentNo": 770011,
+            "PaymentDateTime": "20260322153000",
+        }
+
+        with override_settings(EXPRESS_PAY_USE_SIGNATURE=False):
+            response = self.client.post(
+                self.settlement_url,
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
