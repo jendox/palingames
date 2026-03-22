@@ -19,4 +19,8 @@ dependencies = [
     "pre-commit>=4.5.1",
     "psycopg2-binary>=2.9.11",
     "ruff>=0.14.13",
+    "celery>=5.6.2",
+    "django-celery-beat>=2.9.0",
+    "redis>=7.3.0",
+    "celery-types>=0.26.0",
 ]

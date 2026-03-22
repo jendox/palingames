@@ -41,6 +41,7 @@
 - Ruff для линтинга
 - `uv` для управления зависимостями и запуском команд
 - `docker-compose` для локального PostgreSQL и SMTP
+- Celery + Redis + `django-celery-beat` для фоновых и периодических задач
 
 ## Архитектура проекта
 
@@ -116,6 +117,7 @@ make up-develop
 Это поднимет:
 
 - PostgreSQL на порту `5433`;
+- Redis на порту `6379`;
 - `smtp4dev` для просмотра писем.
 
 ### 4. Настроить переменные окружения
@@ -128,6 +130,9 @@ make up-develop
 - `DJANGO_DEBUG`
 - `DJANGO_ALLOWED_HOSTS`
 - `DATABASE_URL`
+- `REDIS_URL`
+- `CELERY_BROKER_URL`
+- `CELERY_RESULT_BACKEND`
 
 ### 5. Применить миграции
 
@@ -160,6 +165,24 @@ uv run python manage.py runserver
 ```bash
 make tailwind
 ```
+
+### 10. Запустить Celery worker
+
+В отдельном терминале:
+
+```bash
+uv run celery -A config worker -l info
+```
+
+### 11. Запустить Celery Beat
+
+В отдельном терминале:
+
+```bash
+uv run celery -A config beat -l info
+```
+
+`django-celery-beat` уже подключен в проект. После миграций можно управлять периодическими задачами через Django Admin.
 
 ## Полезные команды
 
@@ -201,6 +224,7 @@ make down-v
 - каталог и его `htmx`-части;
 - alphabet navigator;
 - cart guest/auth flows.
+- orders/checkout flow;
 
 Запуск:
 
