@@ -6,6 +6,9 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
 
+from apps.orders.models import Order
+from apps.products.pricing import format_price
+
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
 
 
@@ -79,7 +82,90 @@ class AccountPageView(TemplateView):
         context["password_form"] = password_form
         context["password_form_saved"] = password_form_saved
         context["password_form_expanded"] = password_form.is_bound or password_form_saved
+        context["account_orders"] = self._get_orders_context()
         return context
+
+    def _get_orders_context(self) -> list[dict]:
+        orders = (
+            Order.objects.filter(user=self.request.user)
+            .select_related("invoice")
+            .prefetch_related("items")
+            .order_by("-created_at", "-id")
+        )
+
+        status_meta = {
+            Order.OrderStatus.CREATED: {
+                "label": "Создан",
+                "classes": "bg-[rgba(242,171,39,0.14)] text-[var(--color-orange)]",
+                "action_label": None,
+                "action_url": None,
+            },
+            Order.OrderStatus.PENDING: {
+                "label": "В обработке",
+                "classes": "bg-[rgba(242,171,39,0.14)] text-[var(--color-orange)]",
+                "action_label": None,
+                "action_url": None,
+            },
+            Order.OrderStatus.WAITING_FOR_PAYMENT: {
+                "label": "Ожидает оплату",
+                "classes": "bg-[rgba(101,197,194,0.16)] text-[var(--color-turquoise)]",
+                "action_label": "Оплатить",
+                "action_url": None,
+            },
+            Order.OrderStatus.PAID: {
+                "label": "Оплачен",
+                "classes": "bg-[rgba(128,193,30,0.16)] text-[var(--color-green)]",
+                "action_label": "Оплачен",
+                "action_url": None,
+            },
+            Order.OrderStatus.CANCELED: {
+                "label": "Отменён",
+                "classes": "bg-[rgba(212,90,90,0.12)] text-[#D45A5A]",
+                "action_label": None,
+                "action_url": None,
+            },
+            Order.OrderStatus.FAILED: {
+                "label": "Ошибка",
+                "classes": "bg-[rgba(212,90,90,0.12)] text-[#D45A5A]",
+                "action_label": None,
+                "action_url": None,
+            },
+        }
+
+        result = []
+        for order in orders:
+            invoice = getattr(order, "invoice", None)
+            meta = status_meta[order.status].copy()
+            if invoice and order.status == Order.OrderStatus.WAITING_FOR_PAYMENT:
+                meta["action_url"] = invoice.invoice_url
+
+            items = [
+                {
+                    "title": item.title_snapshot,
+                    "category": item.category_snapshot,
+                    "price": format_price(item.line_total_amount, order.currency),
+                    "image_url": item.product_image_snapshot,
+                }
+                for item in order.items.all()
+            ]
+
+            result.append(
+                {
+                    "number": order.payment_account_no,
+                    "date": order.created_at.strftime("%d.%m.%Y"),
+                    "total": format_price(order.total_amount, order.currency),
+                    "items_count": order.items_count,
+                    "status": meta["label"],
+                    "status_classes": meta["classes"],
+                    "action_label": meta["action_label"],
+                    "action_url": meta["action_url"],
+                    "is_paid": order.status == Order.OrderStatus.PAID,
+                    "invoice_status": invoice.status if invoice else None,
+                    "items": items,
+                },
+            )
+
+        return result
 
     def _personal_data_update(self, request) -> HttpResponse:
         form = AccountPersonalDataForm(request.POST, instance=request.user)

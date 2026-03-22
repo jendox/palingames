@@ -1,6 +1,89 @@
-{% load i18n %}
+{% load i18n static %}
 
-<h2 class="text-[36px] font-bold leading-[47px]">{% trans "Заказы" %}</h2>
-<p class="mt-[20px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
-  {% trans "Раздел в разработке." %}
-</p>
+<section class="max-w-[920px]">
+  <h2 class="text-[36px] font-bold leading-[47px]">{% trans "Заказы" %}</h2>
+
+  {% if account_orders %}
+    <div class="mt-[40px] space-y-[20px]">
+      {% for order in account_orders %}
+        <details name="account-orders" class="group overflow-hidden rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)]" {% if forloop.first %}open{% endif %}>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-[24px] px-[40px] pb-[20px] pt-[20px] [&::-webkit-details-marker]:hidden">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-[16px]">
+                <p class="text-[18px] font-bold leading-[23px] text-[var(--color-black)]">
+                  {% trans "Заказ №" %} {{ order.number }}
+                </p>
+                <span class="inline-flex h-[23px] items-center rounded-[10px] px-[10px] text-[12px] font-bold leading-none {{ order.status_classes }}">
+                  {{ order.status }}
+                </span>
+              </div>
+              <div class="mt-[10px] flex flex-wrap items-center gap-x-[22px] gap-y-[8px] text-[14px] font-normal leading-[18px] text-[var(--color-black-80)]">
+                <span>{% trans "от" %} {{ order.date }}</span>
+                <span>{% blocktrans with count=order.items_count %}Товаров: {{ count }}{% endblocktrans %}</span>
+              </div>
+            </div>
+
+            <span class="shrink-0 text-[16px] font-bold leading-[20px] text-[var(--color-black)] underline underline-offset-[3px]">
+              {% trans "подробнее" %}
+            </span>
+          </summary>
+
+          <div class="border-t border-[rgba(0,0,0,0.06)] px-[40px] pb-[28px] pt-[26px]">
+            <div class="grid gap-[50px]">
+              {% for item in order.items %}
+                <div class="grid grid-cols-[minmax(240px,334px)_minmax(0,1fr)_auto] items-center gap-[40px]">
+                  <img
+                    src="{{ item.image_url }}"
+                    alt="{{ item.title }}"
+                    class="h-[184px] w-full max-w-[334px] rounded-[12px] object-cover"
+                    draggable="false"
+                  >
+
+                  <div class="flex min-h-[184px] min-w-0 flex-col justify-center">
+                    <p class="min-h-[48px] text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
+                      {{ item.title }}
+                    </p>
+                    <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+                      <span class="font-semibold">{% trans "Категория:" %}</span>
+                      <span>{{ item.category }}</span>
+                    </p>
+                    <p class="mt-[30px] text-[20px] font-black leading-none text-[var(--color-black)]">
+                      {{ item.price }}
+                    </p>
+                  </div>
+
+                  {% if order.is_paid %}
+                    <div class="shrink-0 self-center">
+                      <button type="button" class="btn-purple flex h-[50px] min-w-[150px] items-center justify-center rounded-[10px] px-[20px] text-[14px] font-bold">
+                        {% trans "Скачать" %}
+                      </button>
+                    </div>
+                  {% else %}
+                    <div></div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+
+            {% if order.action_url %}
+              <div class="mt-[24px] flex justify-end">
+                <a href="{{ order.action_url }}" target="_blank" rel="noopener noreferrer" class="btn-purple flex h-[50px] min-w-[180px] items-center justify-center rounded-[10px] px-[24px] text-[14px] font-bold">
+                  {{ order.action_label }}
+                </a>
+              </div>
+            {% endif %}
+          </div>
+        </details>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="mt-[50px] rounded-[20px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] px-[32px] py-[30px]">
+      <p class="text-[18px] font-bold leading-[24px] text-[var(--color-black)]">
+        {% trans "У вас пока нет заказов." %}
+      </p>
+      <p class="mt-[12px] max-w-[540px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
+        {% trans "После оформления и оплаты заказа он появится здесь вместе с текущим статусом." %}
+      </p>
+    </div>
+  {% endif %}
+</section>
