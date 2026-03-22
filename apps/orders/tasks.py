@@ -3,7 +3,6 @@ import logging
 from celery import shared_task
 
 from apps.core.logging import log_event
-
 from .models import Order
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,6 @@ def create_invoice_task(self, order_id: int) -> None:
             logger,
             logging.INFO,
             "invoice.creation.started",
-            order_id=order.id,
             order_public_id=order.public_id,
             order_status=order.status,
         )
@@ -26,7 +24,7 @@ def create_invoice_task(self, order_id: int) -> None:
             logger,
             logging.INFO,
             "invoice.creation.deferred",
-            order_id=order.id,
+            order_public_id=order.public_id,
             order_status=Order.OrderStatus.PENDING,
             reason="provider_integration_not_implemented",
         )

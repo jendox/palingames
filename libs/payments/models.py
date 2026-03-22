@@ -46,7 +46,7 @@ class CreateInvoiceRequest(PaymentModel):
 
 
 class CreateInvoiceResult(PaymentModel):
-    provider_invoice_no: int = Field(alias="invoice_no")
+    invoice_no: int = Field(gt=0)
     invoice_url: HttpUrl | None = None
 
 
