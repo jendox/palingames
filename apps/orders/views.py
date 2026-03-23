@@ -1,5 +1,6 @@
 import logging
 
+from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import TemplateView
@@ -60,7 +61,11 @@ class CheckoutPageView(TemplateView):
             context = self.get_context_data(checkout_form=form)
             return self.render_to_response(context, status=400)
 
-        order = create_order_from_cart(request=request, email=form.cleaned_data["email"])
+        try:
+            order = create_order_from_cart(request=request, email=form.cleaned_data["email"])
+        except ValueError:
+            messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
+            return redirect("cart")
         enqueue_invoice_creation(order.id)
         log_event(
             logger,

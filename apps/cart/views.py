@@ -41,12 +41,13 @@ def cart_toggle_view(request):
     if not Product.objects.filter(id=product_id).exists():
         raise Http404("Product not found")
 
-    in_cart = toggle_cart_product(request, product_id)
+    result = toggle_cart_product(request, product_id)
     cart_ids = get_cart_product_ids(request)
     return JsonResponse(
         {
             "ok": True,
-            "in_cart": in_cart,
+            "in_cart": result["in_cart"],
+            "already_purchased": result["already_purchased"],
             "cart_count": len(cart_ids),
         },
     )

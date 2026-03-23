@@ -120,6 +120,8 @@
             class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200"
             aria-label="{% trans 'Добавить в корзину' %}"
             data-catalog-cart-toggle
+            data-catalog-download-url=""
+            data-is-purchased="false"
             data-product-id=""
             data-in-cart="false"
           >
@@ -131,6 +133,7 @@
               data-cart-icon
               data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
               data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+              data-icon-download="{% static 'images/icons/download.svg' %}"
             >
           </button>
         </div>
@@ -170,6 +173,8 @@
           aria-label="{% trans 'Добавить в корзину' %}"
           data-catalog-cart-toggle
           data-cart-border-toggle
+          data-catalog-download-url=""
+          data-is-purchased="false"
           data-product-id=""
           data-in-cart="false"
         >
@@ -181,6 +186,7 @@
             data-cart-icon
             data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
             data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+            data-icon-download="{% static 'images/icons/download.svg' %}"
           >
         </button>
       </article>

@@ -1,9 +1,12 @@
 
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.access.models import UserProductAccess
+from apps.orders.models import Order
 from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, SubType
 
 
@@ -110,6 +113,29 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context["catalog_products"]), 9)
         self.assertEqual(len(response.context["catalog_mobile_products"]), 8)
+
+    def test_catalog_marks_purchased_products_for_authenticated_user(self):
+        user = get_user_model().objects.create_user(email="catalog-access@example.com", password="test-pass-123")
+        order = Order.objects.create(
+            user=user,
+            email=user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("30.00"),
+            total_amount=Decimal("30.00"),
+            items_count=1,
+        )
+        UserProductAccess.objects.create(user=user, product=self.alpha, order=order)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+
+        self.assertEqual(response.status_code, 200)
+        products_by_title = {product["title"]: product for product in response.context["catalog_products"]}
+        self.assertTrue(products_by_title["Альфа"]["is_purchased"])
+        self.assertFalse(products_by_title["Альфа"]["is_in_cart"])
+        self.assertEqual(products_by_title["Альфа"]["download_url"], "/account/?tab=orders")
 
     def test_desktop_results_panel_shows_current_page_range(self):
         for index in range(15):

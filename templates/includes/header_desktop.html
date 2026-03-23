@@ -120,7 +120,7 @@
           >
             {% if user.is_authenticated %}
               <div class="text-center text-[16px] font-bold leading-5">
-                {% trans "Рады видеть Вас," %}<br>{{ user.email|default:user.display_name }}
+                {% trans "Рады видеть Вас," %}<br>{{ user.display_name }}
               </div>
 
               <div class="mt-[49px] flex flex-col gap-[17px] text-[16px] font-bold text-[var(--color-black)]">
@@ -140,7 +140,7 @@
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Личный кабинет" %}
                 </a>
-                <a href="#" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
+                <a href="{% url 'alphabet-navigator' %}" class="inline-flex min-h-[26px] items-center gap-[10px] pl-[43px] hover:underline">
                   <img src="{% static 'images/header/li_puzzle.svg' %}" alt="" class="h-[26px] w-[26px]">
                   {% trans "Алфавитный навигатор" %}
                 </a>

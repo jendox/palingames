@@ -103,8 +103,8 @@
         </a>
 
         <div class="absolute bottom-[6px] right-[8px] z-20">
-          <button type="button" class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-product-id="" data-in-cart="false">
-            <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
+          <button type="button" class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-catalog-download-url="" data-is-purchased="false" data-product-id="" data-in-cart="false">
+            <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}" data-icon-download="{% static 'images/icons/download.svg' %}">
           </button>
         </div>
       </article>
@@ -127,8 +127,8 @@
           <p class="mt-[12px] text-[14px] font-black leading-[14px] text-[var(--color-black)]" data-product-price></p>
         </div>
 
-        <button type="button" class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[34px] w-[34px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-cart-border-toggle data-product-id="" data-in-cart="false">
-          <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[34px] w-[34px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
+        <button type="button" class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[34px] w-[34px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-cart-border-toggle data-catalog-download-url="" data-is-purchased="false" data-product-id="" data-in-cart="false">
+          <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[34px] w-[34px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}" data-icon-download="{% static 'images/icons/download.svg' %}">
         </button>
       </article>
     </template>

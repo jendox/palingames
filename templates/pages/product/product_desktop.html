@@ -150,11 +150,13 @@
             data-product-cart-toggle
             data-product-id="{{ product.id }}"
             data-in-cart="{% if product_is_in_cart %}true{% else %}false{% endif %}"
+            data-is-purchased="{% if product_is_purchased %}true{% else %}false{% endif %}"
+            data-product-download-url="{{ product_download_url }}"
             data-product-added-dialog="productAddedDialog"
-            aria-label="{% trans 'Купить' %}"
+            aria-label="{% if product_is_purchased %}{% trans 'Скачать' %}{% else %}{% trans 'Купить' %}{% endif %}"
           >
             <span data-product-cart-label>
-              {% trans "Купить" %}
+              {% if product_is_purchased %}{% trans "Скачать" %}{% else %}{% trans "Купить" %}{% endif %}
             </span>
           </button>
         </div>

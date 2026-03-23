@@ -6,6 +6,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.templatetags.static import static
 
+from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
 from apps.products.models import Product
@@ -68,6 +69,15 @@ def create_order_from_cart(*, request, email: str) -> Order:
         if not products:
             msg = "Cannot create an order from an empty cart."
             raise ValueError(msg)
+
+        if request.user.is_authenticated:
+            purchased_ids = get_user_product_access_ids(
+                request.user,
+                product_ids=[product.id for product in products],
+            )
+            if purchased_ids:
+                msg = "Cannot create an order for already purchased products."
+                raise ValueError(msg)
 
         total_amount = sum((product.price for product in products), Decimal("0.00"))
         order = Order.objects.create(

@@ -276,19 +276,27 @@ function setFavoriteState(button, isFavorited) {
 }
 
 function setCartState(button, isInCart) {
+  const isPurchased = button.dataset.isPurchased === "true";
   button.dataset.inCart = isInCart ? "true" : "false";
   button.classList.toggle("catalog-card-cart-button-active", isInCart);
   if (button.hasAttribute("data-cart-border-toggle")) {
-    button.classList.toggle("border", !isInCart);
+    button.classList.toggle("border", !isInCart && !isPurchased);
   }
-  button.setAttribute("aria-label", isInCart ? "Удалить из корзины" : "Добавить в корзину");
+  button.setAttribute(
+    "aria-label",
+    isPurchased ? "Скачать" : (isInCart ? "Удалить из корзины" : "Добавить в корзину"),
+  );
 
   const icon = button.querySelector("[data-cart-icon]");
   if (!(icon instanceof HTMLImageElement)) {
     return;
   }
 
-  icon.src = isInCart ? icon.dataset.iconFull : icon.dataset.iconEmpty;
+  if (isPurchased) {
+    icon.src = icon.dataset.iconDownload;
+  } else {
+    icon.src = isInCart ? icon.dataset.iconFull : icon.dataset.iconEmpty;
+  }
 
   const productId = Number.parseInt(button.dataset.productId || "", 10);
   if (Number.isInteger(productId) && productId > 0) {
@@ -497,6 +505,9 @@ function fillCatalogMobileProduct(node, product) {
   if (cartButton instanceof HTMLElement) {
     cartButton.dataset.productId = String(product.id || "");
     cartButton.dataset.inCart = product.is_in_cart ? "true" : "false";
+    cartButton.dataset.isPurchased = product.is_purchased ? "true" : "false";
+    cartButton.dataset.catalogDownloadUrl = product.download_url || "";
+    setCartState(cartButton, Boolean(product.is_in_cart));
   }
 }
 
@@ -651,11 +662,23 @@ function initCatalogProductCards(root = document) {
         return;
       }
 
+      if (button.dataset.isPurchased === "true") {
+        const downloadUrl = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
+        window.location.href = downloadUrl;
+        return;
+      }
+
       button.dataset.cartPending = "true";
       button.setAttribute("aria-busy", "true");
 
       try {
         const payload = await toggleCartOnServer(productId);
+        if (payload.already_purchased) {
+          button.dataset.isPurchased = "true";
+          setCartState(button, false);
+          window.location.href = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
+          return;
+        }
         setCartState(button, Boolean(payload.in_cart));
       } catch (error) {
         console.error(error);

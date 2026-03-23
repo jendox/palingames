@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.templatetags.static import static
 
+from apps.access.services import get_user_product_access_ids, has_user_product_access
 from apps.products.models import Product
 from apps.products.pricing import format_price
 
@@ -53,25 +54,43 @@ def get_cart_product_ids(request) -> list[int]:
 
 
 @transaction.atomic
-def toggle_cart_product(request, product_id: int) -> bool:
+def toggle_cart_product(request, product_id: int) -> dict:
     if request.user.is_authenticated:
+        if has_user_product_access(request.user, product_id):
+            return {
+                "in_cart": False,
+                "already_purchased": True,
+            }
+
         cart = _get_or_create_user_cart(request.user)
         item_qs = CartItem.objects.filter(cart=cart, product_id=product_id)
         if item_qs.exists():
             item_qs.delete()
-            return False
+            return {
+                "in_cart": False,
+                "already_purchased": False,
+            }
         CartItem.objects.create(cart=cart, product_id=product_id)
-        return True
+        return {
+            "in_cart": True,
+            "already_purchased": False,
+        }
 
     guest_ids = _get_guest_cart_ids(request)
     if product_id in guest_ids:
         guest_ids = [item_id for item_id in guest_ids if item_id != product_id]
         _set_guest_cart_ids(request, guest_ids)
-        return False
+        return {
+            "in_cart": False,
+            "already_purchased": False,
+        }
 
     guest_ids.append(product_id)
     _set_guest_cart_ids(request, guest_ids)
-    return True
+    return {
+        "in_cart": True,
+        "already_purchased": False,
+    }
 
 
 @transaction.atomic
@@ -100,8 +119,11 @@ def merge_guest_cart_to_user(request, user) -> None:
 
     cart = _get_or_create_user_cart(user)
     existing_ids = set(CartItem.objects.filter(cart=cart).values_list("product_id", flat=True))
+    purchased_ids = get_user_product_access_ids(user, product_ids=guest_ids)
 
-    missing_ids = [product_id for product_id in guest_ids if product_id not in existing_ids]
+    missing_ids = [
+        product_id for product_id in guest_ids if product_id not in existing_ids and product_id not in purchased_ids
+    ]
     if missing_ids:
         CartItem.objects.bulk_create([CartItem(cart=cart, product_id=product_id) for product_id in missing_ids])
 

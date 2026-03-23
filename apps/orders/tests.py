@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
 from apps.orders.models import Order, OrderItem
@@ -96,6 +97,27 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(order.user, self.user)
         self.assertEqual(order.checkout_type, Order.CheckoutType.AUTHENTICATED)
         self.assertEqual(order.source, Order.Source.PALINGAMES)
+
+    def test_authenticated_checkout_blocks_already_purchased_products(self):
+        self.client.force_login(self.user)
+        cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=cart, product=self.product)
+        paid_order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        UserProductAccess.objects.create(user=self.user, product=self.product, order=paid_order)
+
+        response = self.client.post(reverse("checkout"), {"email": self.user.email})
+
+        self.assertRedirects(response, reverse("cart"))
+        self.assertEqual(Order.objects.exclude(pk=paid_order.pk).count(), 0)
 
     def test_checkout_post_with_invalid_email_returns_error(self):
         session = self.client.session

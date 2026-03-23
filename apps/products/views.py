@@ -3,8 +3,10 @@ from enum import StrEnum
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
 from django.templatetags.static import static
+from django.urls import reverse
 from django.views.generic import DetailView, TemplateView
 
+from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
@@ -64,10 +66,12 @@ class CatalogView(TemplateView):
                 return title[: -len(source)] + target
         return title
 
-    def _build_product_card(self, product, selected_category=None, cart_product_ids=None):
+    def _build_product_card(self, product, selected_category=None, cart_product_ids=None, purchased_product_ids=None):
         primary_kind = product.subtypes.first() or product.categories.first()
         primary_image = next(iter(product.images.all()), None)
         cart_ids = cart_product_ids or set()
+        purchased_ids = purchased_product_ids or set()
+        is_purchased = product.id in purchased_ids
         return {
             "id": product.id,
             "title": product.title,
@@ -77,7 +81,9 @@ class CatalogView(TemplateView):
             "category": self._format_category_label(selected_category or product.categories.first()),
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
             "is_favorited": False,
-            "is_in_cart": product.id in cart_ids,
+            "is_in_cart": product.id in cart_ids and not is_purchased,
+            "is_purchased": is_purchased,
+            "download_url": f"{reverse('account')}?tab=orders" if is_purchased else "",
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
@@ -279,6 +285,10 @@ class CatalogView(TemplateView):
         )
 
         cart_product_ids = set(get_cart_product_ids(self.request))
+        purchased_product_ids = get_user_product_access_ids(
+            self.request.user,
+            product_ids=list(sorted_queryset.values_list("id", flat=True)),
+        )
 
         desktop_paginator = Paginator(sorted_queryset, 9)
         desktop_page_obj = desktop_paginator.get_page(page_number)
@@ -292,6 +302,7 @@ class CatalogView(TemplateView):
                     product,
                     selected_category=selected_category,
                     cart_product_ids=cart_product_ids,
+                    purchased_product_ids=purchased_product_ids,
                 )
                 for product in desktop_page_obj.object_list
             ],
@@ -311,6 +322,7 @@ class CatalogView(TemplateView):
                     product,
                     selected_category=selected_category,
                     cart_product_ids=cart_product_ids,
+                    purchased_product_ids=purchased_product_ids,
                 )
                 for product in mobile_page_obj.object_list
             ],
@@ -499,6 +511,10 @@ class AlphabetNavigatorView(CatalogView):
         filtered_queryset = self._apply_filters(base_queryset)
         sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
         cart_product_ids = set(get_cart_product_ids(self.request))
+        purchased_product_ids = get_user_product_access_ids(
+            self.request.user,
+            product_ids=list(sorted_queryset.values_list("id", flat=True)),
+        )
 
         selected_subtypes = self._selected_values("subtype")
         selected_ages = self._selected_values("age")
@@ -525,13 +541,21 @@ class AlphabetNavigatorView(CatalogView):
             "alphabet_mobile_letter_rows": self._build_alphabet_mobile_letter_rows_context(selected_letter),
             "alphabet_selected_letter": selected_letter,
             "alphabet_products": [
-                self._build_product_card(product, cart_product_ids=cart_product_ids)
+                self._build_product_card(
+                    product,
+                    cart_product_ids=cart_product_ids,
+                    purchased_product_ids=purchased_product_ids,
+                )
                 for product in desktop_page_obj.object_list
             ],
             "alphabet_products_count": desktop_paginator.count,
             "alphabet_page_obj": desktop_page_obj,
             "alphabet_mobile_products": [
-                self._build_product_card(product, cart_product_ids=cart_product_ids)
+                self._build_product_card(
+                    product,
+                    cart_product_ids=cart_product_ids,
+                    purchased_product_ids=purchased_product_ids,
+                )
                 for product in mobile_page_obj.object_list
             ],
             "alphabet_mobile_products_count": mobile_paginator.count,
@@ -621,6 +645,8 @@ class ProductDetailView(DetailView):
         reviews = getattr(product, "published_reviews_list", [])
         primary_kind = product.subtypes.first() or product.categories.first()
         cart_product_ids = set(get_cart_product_ids(self.request))
+        purchased_product_ids = get_user_product_access_ids(self.request.user, product_ids=[product.id])
+        product_is_purchased = product.id in purchased_product_ids
 
         context["product_active_tab"] = active_tab
         context["product_active_tab_template"] = self.tab_templates[active_tab]
@@ -636,7 +662,9 @@ class ProductDetailView(DetailView):
         ]
         context["product_kind"] = primary_kind.title if primary_kind else ""
         context["product_price"] = format_price(product.price, product.currency)
-        context["product_is_in_cart"] = product.id in cart_product_ids
+        context["product_is_in_cart"] = product.id in cart_product_ids and not product_is_purchased
+        context["product_is_purchased"] = product_is_purchased
+        context["product_download_url"] = f"{reverse('account')}?tab=orders" if product_is_purchased else ""
         context["product_reviews_count"] = len(reviews)
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()

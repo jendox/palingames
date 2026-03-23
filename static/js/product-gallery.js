@@ -382,6 +382,11 @@ function initProductCartButtons() {
     setProductCartState(button, button.dataset.inCart === "true");
 
     button.addEventListener("click", async () => {
+      if (button.dataset.isPurchased === "true") {
+        window.location.href = button.dataset.productDownloadUrl || "/account/?tab=orders";
+        return;
+      }
+
       if (button.dataset.inCart === "true") {
         openProductAddedDialog(button);
         return;
@@ -401,6 +406,17 @@ function initProductCartButtons() {
 
       try {
         const payload = await toggleCartOnServer(productId);
+        if (payload.already_purchased) {
+          button.dataset.isPurchased = "true";
+          setProductCartState(button, false);
+          const label = button.querySelector("[data-product-cart-label]");
+          if (label instanceof HTMLElement) {
+            label.textContent = "Скачать";
+          }
+          button.setAttribute("aria-label", "Скачать");
+          window.location.href = button.dataset.productDownloadUrl || "/account/?tab=orders";
+          return;
+        }
         const isInCart = Boolean(payload.in_cart);
         setProductCartState(button, isInCart);
         if (isInCart) {

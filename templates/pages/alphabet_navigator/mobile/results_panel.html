@@ -51,9 +51,15 @@
           </a>
 
           <div class="absolute bottom-[6px] right-[8px] z-20">
-            <button type="button" class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200 {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}" aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}" data-catalog-cart-toggle data-product-id="{{ product.id }}" data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}">
-              <img src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
-            </button>
+            {% if product.is_purchased %}
+              <a href="{{ product.download_url }}" class="inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Скачать' %}" title="{% trans 'Скачать' %}">
+                <img src="{% static 'images/icons/download.svg' %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true">
+              </a>
+            {% else %}
+              <button type="button" class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200 {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}" aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}" data-catalog-cart-toggle data-product-id="{{ product.id }}" data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}">
+                <img src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}" alt="" class="h-[26px] w-[26px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}">
+              </button>
+            {% endif %}
           </div>
         </div>
       </article>
