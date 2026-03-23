@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.orders.models import Order
 from apps.payments.models import Invoice
+from apps.payments.services import mark_order_paid
 from libs.express_pay import ExpressPayClient, ExpressPaySignatureError
 from libs.express_pay.models import ExpressPayConfig
 from libs.payments import WebhookSignatureVerification
@@ -173,12 +174,13 @@ def normalize_notification_datetime(value):
 
 def apply_order_status_from_invoice_status(invoice: Invoice, normalized_status: str | None, event_at) -> None:
     if normalized_status == Invoice.InvoiceStatus.PAID:
-        invoice.paid_at = event_at or timezone.now()
-        invoice.cancelled_at = None
-        invoice.order.status = Order.OrderStatus.PAID
-        invoice.order.paid_at = invoice.paid_at
-        invoice.order.cancelled_at = None
-        invoice.order.failure_reason = None
+        mark_order_paid(
+            invoice.order,
+            invoice,
+            paid_at=event_at,
+            source="webhook",
+            persist=False,
+        )
         return
 
     if normalized_status == Invoice.InvoiceStatus.CANCELED:

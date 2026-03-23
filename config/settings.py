@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django_tailwind_cli",
     "django_celery_beat",
     # my apps
+    "apps.access.apps.AccessConfig",
     "apps.core.apps.CoreConfig",
     "apps.users.apps.UsersConfig",
     "apps.pages.apps.PagesConfig",

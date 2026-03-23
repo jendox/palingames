@@ -1,11 +1,14 @@
 import json
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from apps.orders.models import Order
+from apps.access.models import UserProductAccess
+from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
+from apps.products.models import Product
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 
@@ -14,6 +17,7 @@ from libs.express_pay.models import ExpressPayConfig
 class ExpressPayNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        cls.product = Product.objects.create(title="Товар для оплаты", slug="paid-product", price=Decimal("25.00"))
         cls.order = Order.objects.create(
             email="guest@example.com",
             source=Order.Source.PALINGAMES,
@@ -30,6 +34,17 @@ class ExpressPayNotificationViewTests(TestCase):
             invoice_url="https://example.com/pay/12345678",
             amount=Decimal("25.00"),
             currency=933,
+        )
+        OrderItem.objects.create(
+            order=cls.order,
+            product=cls.product,
+            title_snapshot=cls.product.title,
+            category_snapshot="",
+            unit_price_amount=cls.product.price,
+            quantity=1,
+            line_total_amount=cls.product.price,
+            product_slug_snapshot=cls.product.slug,
+            product_image_snapshot="https://example.com/product.png",
         )
         cls.notification_url = reverse("express-pay-notification")
 
@@ -67,6 +82,50 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
         self.assertEqual(self.order.status, Order.OrderStatus.PAID)
         self.assertTrue(PaymentEvent.objects.filter(invoice=self.invoice, is_processed=True).exists())
+        self.assertFalse(UserProductAccess.objects.exists())
+
+    def test_notification_creates_access_for_authenticated_user(self):
+        user = get_user_model().objects.create_user(email="paid@example.com", password="test-pass-123")
+        order = Order.objects.create(
+            user=user,
+            email=user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no="88887777",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/88887777",
+            amount=Decimal("25.00"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        response = self.client.post(
+            self.notification_url,
+            data=self._build_request_payload(
+                invoice_no=int(invoice.provider_invoice_no),
+                account_no=order.payment_account_no,
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(UserProductAccess.objects.filter(user=user, product=self.product, order=order).exists())
 
     def test_notification_is_idempotent_for_same_notification(self):
         payload = self._build_request_payload()
@@ -171,6 +230,11 @@ class ExpressPayNotificationViewTests(TestCase):
 class ExpressPaySettlementNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        cls.product = Product.objects.create(
+            title="Товар для settlement",
+            slug="settlement-product",
+            price=Decimal("25.00"),
+        )
         cls.order = Order.objects.create(
             email="guest@example.com",
             source=Order.Source.PALINGAMES,
@@ -187,6 +251,17 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
             invoice_url="https://example.com/pay/22334455",
             amount=Decimal("25.00"),
             currency=933,
+        )
+        OrderItem.objects.create(
+            order=cls.order,
+            product=cls.product,
+            title_snapshot=cls.product.title,
+            category_snapshot="",
+            unit_price_amount=cls.product.price,
+            quantity=1,
+            line_total_amount=cls.product.price,
+            product_slug_snapshot=cls.product.slug,
+            product_image_snapshot="https://example.com/product.png",
         )
         cls.settlement_url = reverse("express-pay-settlement-notification")
 
@@ -226,6 +301,47 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
         self.assertEqual(self.order.status, Order.OrderStatus.PAID)
         self.assertEqual(PaymentEvent.objects.filter(invoice=self.invoice, is_processed=True).count(), 1)
+        self.assertFalse(UserProductAccess.objects.exists())
+
+    def test_settlement_notification_creates_access_for_authenticated_user(self):
+        user = get_user_model().objects.create_user(email="settlement@example.com", password="test-pass-123")
+        order = Order.objects.create(
+            user=user,
+            email=user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        Invoice.objects.create(
+            order=order,
+            provider_invoice_no="33445566",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/33445566",
+            amount=Decimal("25.00"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        response = self.client.post(
+            self.settlement_url,
+            data=self._build_epos_payload(account_number=order.payment_account_no),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(UserProductAccess.objects.filter(user=user, product=self.product, order=order).exists())
 
     def test_settlement_notification_normalizes_provider_account_prefix(self):
         prefixed_account_number = f"36586-1-{self.order.payment_account_no}"

@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from apps.core.logging import log_event
 from apps.orders.models import Order
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
+from apps.payments.services import mark_order_paid
 from libs.express_pay import ExpressPaySignatureError
 from libs.express_pay.models import (
     ExpressPayCommandType,
@@ -333,14 +334,18 @@ class ExpressPaySettlementNotificationView(View):
         )
 
         if created:
-            invoice.status = Invoice.InvoiceStatus.PAID
             if notification.amount is not None:
                 invoice.amount = notification.amount
             invoice.currency = normalize_currency_code(notification.currency, invoice.currency)
             invoice.last_status_check_at = timezone.now()
             invoice.raw_last_status_response = payment_event.payload
-            invoice.paid_at = event_at or timezone.now()
-            invoice.cancelled_at = None
+            mark_order_paid(
+                order,
+                invoice,
+                paid_at=event_at,
+                source="settlement",
+                persist=False,
+            )
             invoice.save(
                 update_fields=[
                     "status",
@@ -353,11 +358,6 @@ class ExpressPaySettlementNotificationView(View):
                     "updated_at",
                 ],
             )
-
-            order.status = Order.OrderStatus.PAID
-            order.paid_at = invoice.paid_at
-            order.cancelled_at = None
-            order.failure_reason = None
             order.save(
                 update_fields=[
                     "status",
