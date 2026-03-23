@@ -6,7 +6,7 @@
   {% if account_orders %}
     <div class="mt-[40px] space-y-[20px]">
       {% for order in account_orders %}
-        <details name="account-orders" class="group overflow-hidden rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)]" {% if forloop.first %}open{% endif %}>
+        <details name="account-orders" class="group/order-card overflow-hidden rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)]" {% if forloop.first %}open{% endif %}>
           <summary class="flex cursor-pointer list-none items-center justify-between gap-[24px] px-[40px] pb-[20px] pt-[20px] [&::-webkit-details-marker]:hidden">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-[16px]">
@@ -24,7 +24,8 @@
             </div>
 
             <span class="shrink-0 text-[16px] font-bold leading-[20px] text-[var(--color-black)] underline underline-offset-[3px]">
-              {% trans "подробнее" %}
+              <span class="group-open/order-card:hidden">{% trans "подробнее" %}</span>
+              <span class="hidden group-open/order-card:inline">{% trans "свернуть" %}</span>
             </span>
           </summary>
 
