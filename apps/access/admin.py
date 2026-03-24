@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import UserProductAccess
+from .models import GuestAccess, UserProductAccess
 
 
 @admin.register(UserProductAccess)
@@ -48,6 +48,70 @@ class UserProductAccessAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "granted_at",
+                    "created_at",
+                    "updated_at",
+                ),
+            },
+        ),
+    )
+
+
+@admin.register(GuestAccess)
+class GuestAccessAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "email",
+        "product",
+        "order",
+        "expires_at",
+        "used_at",
+        "revoked_at",
+        "created_at",
+    )
+    list_filter = (
+        "expires_at",
+        "used_at",
+        "revoked_at",
+        "created_at",
+    )
+    search_fields = (
+        "email",
+        "product__title",
+        "product__slug",
+        "order__payment_account_no",
+        "order__email",
+    )
+    autocomplete_fields = ("product", "order")
+    readonly_fields = ("token_hash", "created_at", "updated_at")
+    ordering = ("-created_at", "-id")
+    save_on_top = True
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "order",
+                    "product",
+                    "email",
+                    "token_hash",
+                ),
+            },
+        ),
+        (
+            _("Статус"),
+            {
+                "fields": (
+                    "expires_at",
+                    "used_at",
+                    "revoked_at",
+                ),
+            },
+        ),
+        (
+            _("Даты"),
+            {
+                "fields": (
                     "created_at",
                     "updated_at",
                 ),

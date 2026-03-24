@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
@@ -41,3 +42,53 @@ class UserProductAccess(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.user} → {self.product}"
+
+
+class GuestAccess(TimeStampedModel):
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        related_name="guest_accesses",
+        verbose_name=_("Заказ"),
+    )
+    product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.CASCADE,
+        related_name="guest_accesses",
+        verbose_name=_("Товар"),
+    )
+    token_hash = models.CharField(_("Хеш токена"), max_length=64, unique=True)
+    expires_at = models.DateTimeField(_("Истекает"), db_index=True)
+    used_at = models.DateTimeField(_("Использован"), null=True, blank=True)
+    revoked_at = models.DateTimeField(_("Отозван"), null=True, blank=True)
+    email = models.EmailField(_("Email"), db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = _("Гостевой доступ к товару")
+        verbose_name_plural = _("Гостевые доступы к товарам")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("order", "product"),
+                name="guest_access_order_product_unique",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.email} → {self.product}"
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at <= timezone.now()
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_at is not None
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
+
+    @property
+    def is_active(self) -> bool:
+        return not self.is_expired and not self.is_used and not self.is_revoked
