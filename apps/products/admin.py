@@ -1,8 +1,12 @@
 import admin_thumbnails
 from django.contrib import admin
+from django.db import transaction
 from django.db.models import Count, Q
+from django.urls import reverse
+from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from .forms import ProductFileAdminForm
 from .models import (
     AgeGroupTag,
     Category,
@@ -14,6 +18,7 @@ from .models import (
     SubType,
     Theme,
 )
+from .services.s3 import delete_product_file, upload_product_file
 
 
 @admin.register(Category)
@@ -83,14 +88,6 @@ class ProductImageInline(admin.TabularInline):
     ordering = ("order", "id")
 
 
-class ProductFileInline(admin.TabularInline):
-    model = ProductFile
-    extra = 1
-    fields = ("file_key", "created_at", "updated_at")
-    readonly_fields = ("created_at", "updated_at")
-    ordering = ("id",)
-
-
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
@@ -115,12 +112,13 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug", "description", "content")
     prepopulated_fields = {"slug": ("title",)}
     filter_horizontal = ("categories", "subtypes", "age_groups", "development_areas", "themes")
-    inlines = (ProductImageInline, ProductFileInline)
+    inlines = (ProductImageInline,)
     readonly_fields = (
         "created_at",
         "updated_at",
         "average_rating_display",
         "published_reviews_count",
+        "files_summary",
     )
     save_on_top = True
 
@@ -142,6 +140,12 @@ class ProductAdmin(admin.ModelAdmin):
             },
         ),
         (_("Контент"), {"fields": ("description", "content")}),
+        (
+            _("Файлы"),
+            {
+                "fields": ("files_summary",),
+            },
+        ),
         (
             _("Статистика"),
             {"fields": ("average_rating_display", "published_reviews_count", "created_at", "updated_at")},
@@ -179,6 +183,36 @@ class ProductAdmin(admin.ModelAdmin):
     def average_rating_display(self, obj):
         return obj.average_rating or "—"
 
+    @admin.display(description=_("Файлы"))
+    def files_summary(self, obj):
+        files = list(obj.files.order_by("-is_active", "-created_at"))
+        add_url = f"{reverse('admin:products_productfile_add')}?product={obj.pk}"
+
+        if not files:
+            return format_html(
+                'Файлы не добавлены. <a href="{}">Добавить файл</a>',
+                add_url,
+            )
+
+        rows = format_html_join(
+            "",
+            '<li>{}{}{} <a href="{}">Открыть</a></li>',
+            (
+                (
+                    product_file.original_filename or product_file.file_key,
+                    format_html(" ({})", product_file.mime_type) if product_file.mime_type else "",
+                    format_html(" [active]") if product_file.is_active else "",
+                    reverse("admin:products_productfile_change", args=[product_file.pk]),
+                )
+                for product_file in files
+            ),
+        )
+        return format_html(
+            '<ul style="margin:0 0 8px 0; padding-left:18px;">{}</ul><a href="{}">Добавить файл</a>',
+            rows,
+            add_url,
+        )
+
 
 @admin_thumbnails.thumbnail("image", _("Превью"))
 @admin.register(ProductImage)
@@ -193,12 +227,78 @@ class ProductImageAdmin(admin.ModelAdmin):
 
 @admin.register(ProductFile)
 class ProductFileAdmin(admin.ModelAdmin):
-    list_display = ("file_key", "product", "created_at")
-    list_filter = ("created_at",)
-    search_fields = ("file_key", "product__title", "product__slug")
+    form = ProductFileAdminForm
+    list_display = ("original_filename", "product", "mime_type", "size_bytes", "is_active", "created_at")
+    list_filter = ("is_active", "mime_type", "created_at")
+    search_fields = ("file_key", "original_filename", "product__title", "product__slug")
     autocomplete_fields = ("product",)
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = (
+        "file_key",
+        "original_filename",
+        "mime_type",
+        "size_bytes",
+        "checksum_sha256",
+        "created_at",
+        "updated_at",
+    )
     ordering = ("product", "id")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("product", "upload", "is_active"),
+            },
+        ),
+        (
+            _("Файл в storage"),
+            {
+                "fields": (
+                    "file_key",
+                    "original_filename",
+                    "mime_type",
+                    "size_bytes",
+                    "checksum_sha256",
+                ),
+            },
+        ),
+        (
+            _("Даты"),
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
+    )
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        product_id = request.GET.get("product")
+        if product_id:
+            initial["product"] = product_id
+        return initial
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        uploaded_file = form.cleaned_data.get("upload")
+        previous_file_key = None
+
+        if change:
+            previous_file_key = type(obj).objects.only("file_key").get(pk=obj.pk).file_key
+
+        if uploaded_file:
+            uploaded_metadata = upload_product_file(
+                product_slug=obj.product.slug,
+                uploaded_file=uploaded_file,
+            )
+            obj.file_key = uploaded_metadata["file_key"]
+            obj.original_filename = uploaded_metadata["original_filename"]
+            obj.mime_type = uploaded_metadata["mime_type"]
+            obj.size_bytes = uploaded_metadata["size_bytes"]
+            obj.checksum_sha256 = uploaded_metadata["checksum_sha256"]
+
+        super().save_model(request, obj, form, change)
+
+        if uploaded_file and previous_file_key and previous_file_key != obj.file_key:
+            delete_product_file(file_key=previous_file_key)
 
 
 @admin.register(Review)

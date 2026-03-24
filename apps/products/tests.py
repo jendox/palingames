@@ -1,13 +1,16 @@
-
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
 from apps.orders.models import Order
-from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, SubType
+from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, SubType
+from apps.products.services.s3 import generate_presigned_download_url, upload_product_file
 
 
 class CatalogViewTests(TestCase):
@@ -283,3 +286,52 @@ class AlphabetNavigatorViewTests(TestCase):
 
         self.assertIn('id="alphabet-desktop-listing-root"', content)
         self.assertIn("Алфавитный навигатор", content)
+
+
+class ProductFileModelTests(TestCase):
+    def test_product_allows_only_one_active_file(self):
+        product = Product.objects.create(title="Архив", slug="archive", price=Decimal("10.00"))
+        ProductFile.objects.create(product=product, file_key="products/archive/one.zip", is_active=True)
+
+        with self.assertRaises(IntegrityError):
+            ProductFile.objects.create(product=product, file_key="products/archive/two.zip", is_active=True)
+
+    def test_product_can_have_inactive_files(self):
+        product = Product.objects.create(title="Архив 2", slug="archive-2", price=Decimal("10.00"))
+        ProductFile.objects.create(product=product, file_key="products/archive-2/one.zip", is_active=True)
+        ProductFile.objects.create(product=product, file_key="products/archive-2/old.zip", is_active=False)
+
+        self.assertEqual(ProductFile.objects.filter(product=product).count(), 2)
+
+
+class ProductS3ServiceTests(TestCase):
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_upload_product_file_returns_expected_metadata(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = Mock()
+        uploaded_file = SimpleUploadedFile(
+            "game.zip",
+            b"archive-content",
+            content_type="application/zip",
+        )
+
+        result = upload_product_file(product_slug="alpha", uploaded_file=uploaded_file)
+
+        self.assertTrue(result["file_key"].startswith("alpha/"))
+        self.assertTrue(result["file_key"].endswith(".zip"))
+        self.assertEqual(result["original_filename"], "game.zip")
+        self.assertEqual(result["mime_type"], "application/zip")
+        self.assertEqual(result["size_bytes"], len(b"archive-content"))
+        self.assertEqual(len(result["checksum_sha256"]), 64)
+        mock_get_s3_client.return_value.upload_fileobj.assert_called_once()
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_generate_presigned_download_url_uses_bucket_and_filename(self, mock_get_s3_client):
+        mock_get_s3_client.return_value.generate_presigned_url.return_value = "https://example.com/download"
+
+        result = generate_presigned_download_url(
+            file_key="products/alpha/test.zip",
+            original_filename="game.zip",
+        )
+
+        self.assertEqual(result, "https://example.com/download")
+        mock_get_s3_client.return_value.generate_presigned_url.assert_called_once()

@@ -170,6 +170,15 @@ EXPRESS_PAY_USE_SIGNATURE = env.bool("EXPRESS_PAY_USE_SIGNATURE", default=True)
 EXPRESS_PAY_IS_TEST = env.bool("EXPRESS_PAY_IS_TEST", default=True)
 EXPRESS_PAY_INVOICE_LIFETIME_HOURS = env.int("EXPRESS_PAY_INVOICE_LIFETIME_HOURS", default=24)
 
+S3_ENDPOINT_URL = env.str("S3_ENDPOINT_URL", default="http://127.0.0.1:9000")
+S3_ACCESS_KEY_ID = env.str("S3_ACCESS_KEY_ID", default="minioadmin")
+S3_SECRET_ACCESS_KEY = env.str("S3_SECRET_ACCESS_KEY", default="minioadmin")
+S3_REGION_NAME = env.str("S3_REGION_NAME", default="us-east-1")
+S3_BUCKET_NAME = env.str("S3_BUCKET_NAME", default="products")
+S3_ADDRESSING_STYLE = env.str("S3_ADDRESSING_STYLE", default="path")
+S3_PRESIGNED_EXPIRE_SECONDS = env.int("S3_PRESIGNED_EXPIRE_SECONDS", default=900)
+S3_USE_SSL = env.bool("S3_USE_SSL", default=False)
+
 # Static files (CSS, JavaScript, Images)
 
 STATIC_URL = "/static/"

@@ -1,7 +1,7 @@
 import markdown
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
@@ -164,12 +164,27 @@ class ProductImage(TimeStampedModel):
 
 
 class ProductFile(TimeStampedModel):
-    file_key = models.CharField(_("Ключ файла"), max_length=255, unique=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="files")
+    file_key = models.CharField(_("Ключ файла"), max_length=512, unique=True)
+    original_filename = models.CharField(_("Имя файла"), max_length=255, blank=True)
+    mime_type = models.CharField(_("MIME тип"), max_length=100, blank=True)
+    size_bytes = models.PositiveBigIntegerField(_("Размер"), null=True, blank=True)
+    checksum_sha256 = models.CharField(max_length=64, null=True, blank=True)
+    is_active = models.BooleanField(_("Активен"), default=True)
 
     class Meta:
         verbose_name = _("Файл")
         verbose_name_plural = _("Файлы")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product",),
+                condition=Q(is_active=True),
+                name="product_file_unique_active_per_product",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.original_filename or self.file_key
 
 
 class Review(TimeStampedModel):
