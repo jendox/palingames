@@ -1,16 +1,24 @@
+import logging
 from enum import StrEnum
 
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
+from django.http import Http404, HttpResponseRedirect
 from django.templatetags.static import static
 from django.urls import reverse
+from django.views import View
 from django.views.generic import DetailView, TemplateView
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
+from apps.core.logging import log_event
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 from .pricing import format_price
+from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
+
+logger = logging.getLogger("apps.products")
 
 
 class CatalogView(TemplateView):
@@ -83,7 +91,7 @@ class CatalogView(TemplateView):
             "is_favorited": False,
             "is_in_cart": product.id in cart_ids and not is_purchased,
             "is_purchased": is_purchased,
-            "download_url": f"{reverse('account')}?tab=orders" if is_purchased else "",
+            "download_url": reverse("product-download", kwargs={"product_id": product.id}) if is_purchased else "",
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
@@ -664,9 +672,72 @@ class ProductDetailView(DetailView):
         context["product_price"] = format_price(product.price, product.currency)
         context["product_is_in_cart"] = product.id in cart_product_ids and not product_is_purchased
         context["product_is_purchased"] = product_is_purchased
-        context["product_download_url"] = f"{reverse('account')}?tab=orders" if product_is_purchased else ""
+        context["product_download_url"] = (
+            reverse("product-download", kwargs={"product_id": product.id}) if product_is_purchased else ""
+        )
         context["product_reviews_count"] = len(reviews)
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()
         context["product_content_html"] = product.content_as_html()
         return context
+
+
+class ProductDownloadView(LoginRequiredMixin, View):
+    http_method_names = ["get"]
+    login_url = "/?dialog=login"
+
+    def get(self, request, product_id: int, *args, **kwargs):
+        if not get_user_product_access_ids(request.user, product_ids=[product_id]):
+            log_event(
+                logger,
+                logging.WARNING,
+                "product.download.denied",
+                user_id=request.user.id,
+                product_id=product_id,
+                reason="access_not_found",
+            )
+            raise Http404("Product download not found")
+
+        product = Product.objects.filter(id=product_id).prefetch_related("files").first()
+        if product is None:
+            raise Http404("Product download not found")
+
+        product_file = next((item for item in product.files.all() if item.is_active), None)
+        if product_file is None:
+            log_event(
+                logger,
+                logging.WARNING,
+                "product.download.unavailable",
+                user_id=request.user.id,
+                product_id=product_id,
+                reason="active_file_not_found",
+            )
+            raise Http404("Product download not found")
+
+        try:
+            download_url = generate_presigned_download_url(
+                file_key=product_file.file_key,
+                original_filename=product_file.original_filename or f"{product.slug}.zip",
+            )
+        except ProductFileDownloadUrlError as exc:
+            log_event(
+                logger,
+                logging.ERROR,
+                "product.download.failed",
+                exc_info=exc,
+                user_id=request.user.id,
+                product_id=product_id,
+                file_key=product_file.file_key,
+                error_type=type(exc).__name__,
+            )
+            raise Http404("Product download not found") from exc
+
+        log_event(
+            logger,
+            logging.INFO,
+            "product.download.redirected",
+            user_id=request.user.id,
+            product_id=product_id,
+            file_key=product_file.file_key,
+        )
+        return HttpResponseRedirect(download_url)

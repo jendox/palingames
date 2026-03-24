@@ -74,10 +74,10 @@
                         {{ item.price }}
                       </p>
                     </div>
-                    {% if order.is_paid %}
-                      <button type="button" class="btn-purple mt-[12px] flex h-[40px] w-full items-center justify-center rounded-[10px] text-[14px] font-bold">
+                    {% if item.download_url %}
+                      <a href="{{ item.download_url }}" class="btn-purple mt-[12px] flex h-[40px] w-full items-center justify-center rounded-[10px] text-[14px] font-bold">
                         {% trans "Скачать" %}
-                      </button>
+                      </a>
                     {% endif %}
                   </div>
                 {% endfor %}

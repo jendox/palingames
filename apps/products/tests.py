@@ -145,7 +145,10 @@ class CatalogViewTests(TestCase):
         products_by_title = {product["title"]: product for product in response.context["catalog_products"]}
         self.assertTrue(products_by_title["Альфа"]["is_purchased"])
         self.assertFalse(products_by_title["Альфа"]["is_in_cart"])
-        self.assertEqual(products_by_title["Альфа"]["download_url"], "/account/?tab=orders")
+        self.assertEqual(
+            products_by_title["Альфа"]["download_url"],
+            reverse("product-download", kwargs={"product_id": self.alpha.id}),
+        )
 
     def test_desktop_results_panel_shows_current_page_range(self):
         for index in range(15):
@@ -371,3 +374,95 @@ class ProductS3ServiceTests(TestCase):
                 file_key="alpha/test.zip",
                 original_filename="game.zip",
             )
+
+
+class ProductDownloadViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(email="download@example.com", password="test-pass-123")
+        cls.product = Product.objects.create(title="Скачивание", slug="download-product", price=Decimal("25.00"))
+        cls.active_file = ProductFile.objects.create(
+            product=cls.product,
+            file_key="download-product/archive.zip",
+            original_filename="archive.zip",
+            mime_type="application/zip",
+            is_active=True,
+        )
+        cls.order = Order.objects.create(
+            user=cls.user,
+            email=cls.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        UserProductAccess.objects.create(user=cls.user, product=cls.product, order=cls.order)
+
+    @patch("apps.products.views.generate_presigned_download_url")
+    def test_download_redirects_to_presigned_url(self, mock_generate_presigned_download_url):
+        mock_generate_presigned_download_url.return_value = "https://example.com/download"
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://example.com/download")
+        mock_generate_presigned_download_url.assert_called_once_with(
+            file_key=self.active_file.file_key,
+            original_filename=self.active_file.original_filename,
+        )
+
+    def test_download_returns_404_without_access(self):
+        other_user = get_user_model().objects.create_user(email="other@example.com", password="test-pass-123")
+        self.client.force_login(other_user)
+
+        response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_download_returns_404_without_active_file(self):
+        self.active_file.is_active = False
+        self.active_file.save(update_fields=["is_active", "updated_at"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_download_redirects_anonymous_user_to_login(self):
+        response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/?dialog=login", response["Location"])
+
+
+class ProductDetailDownloadContextTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(email="detail@example.com", password="test-pass-123")
+        cls.product = Product.objects.create(title="Деталь", slug="detail-product", price=Decimal("12.00"))
+        order = Order.objects.create(
+            user=cls.user,
+            email=cls.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("12.00"),
+            total_amount=Decimal("12.00"),
+            items_count=1,
+        )
+        UserProductAccess.objects.create(user=cls.user, product=cls.product, order=order)
+
+    def test_product_detail_uses_download_endpoint_for_purchased_product(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["product_is_purchased"])
+        self.assertEqual(
+            response.context["product_download_url"],
+            reverse("product-download", kwargs={"product_id": self.product.id}),
+        )

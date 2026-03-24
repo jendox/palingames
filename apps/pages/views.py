@@ -4,8 +4,10 @@ from urllib.parse import quote
 from django.contrib.auth import update_session_auth_hash
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views.generic import TemplateView
 
+from apps.access.services import get_user_product_access_ids
 from apps.orders.models import Order
 from apps.products.pricing import format_price
 
@@ -86,12 +88,13 @@ class AccountPageView(TemplateView):
         return context
 
     def _get_orders_context(self) -> list[dict]:
-        orders = (
+        orders = list(
             Order.objects.filter(user=self.request.user)
             .select_related("invoice")
             .prefetch_related("items")
-            .order_by("-created_at", "-id")
+            .order_by("-created_at", "-id"),
         )
+        product_ids = [item.product_id for order in orders for item in order.items.all()]
 
         status_meta = {
             Order.OrderStatus.CREATED: {
@@ -131,6 +134,7 @@ class AccountPageView(TemplateView):
                 "action_url": None,
             },
         }
+        purchased_product_ids = get_user_product_access_ids(self.request.user, product_ids=product_ids)
 
         result = []
         for order in orders:
@@ -145,6 +149,11 @@ class AccountPageView(TemplateView):
                     "category": item.category_snapshot,
                     "price": format_price(item.line_total_amount, order.currency),
                     "image_url": item.product_image_snapshot,
+                    "download_url": (
+                        reverse("product-download", kwargs={"product_id": item.product_id})
+                        if item.product_id in purchased_product_ids
+                        else ""
+                    ),
                 }
                 for item in order.items.all()
             ]
