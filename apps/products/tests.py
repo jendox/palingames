@@ -10,7 +10,14 @@ from django.urls import reverse
 from apps.access.models import UserProductAccess
 from apps.orders.models import Order
 from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, SubType
-from apps.products.services.s3 import generate_presigned_download_url, upload_product_file
+from apps.products.services.s3 import (
+    ProductFileDownloadUrlError,
+    ProductFileMetadataError,
+    ProductFileUploadError,
+    generate_presigned_download_url,
+    head_product_file,
+    upload_product_file,
+)
 
 
 class CatalogViewTests(TestCase):
@@ -335,3 +342,32 @@ class ProductS3ServiceTests(TestCase):
 
         self.assertEqual(result, "https://example.com/download")
         mock_get_s3_client.return_value.generate_presigned_url.assert_called_once()
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_upload_product_file_wraps_storage_errors(self, mock_get_s3_client):
+        mock_get_s3_client.return_value.upload_fileobj.side_effect = ValueError("boom")
+        uploaded_file = SimpleUploadedFile(
+            "game.zip",
+            b"archive-content",
+            content_type="application/zip",
+        )
+
+        with self.assertRaises(ProductFileUploadError):
+            upload_product_file(product_slug="alpha", uploaded_file=uploaded_file)
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_head_product_file_wraps_storage_errors(self, mock_get_s3_client):
+        mock_get_s3_client.return_value.head_object.side_effect = ValueError("boom")
+
+        with self.assertRaises(ProductFileMetadataError):
+            head_product_file(file_key="alpha/test.zip")
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_generate_presigned_download_url_wraps_storage_errors(self, mock_get_s3_client):
+        mock_get_s3_client.return_value.generate_presigned_url.side_effect = ValueError("boom")
+
+        with self.assertRaises(ProductFileDownloadUrlError):
+            generate_presigned_download_url(
+                file_key="alpha/test.zip",
+                original_filename="game.zip",
+            )

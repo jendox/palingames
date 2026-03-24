@@ -178,6 +178,10 @@ S3_BUCKET_NAME = env.str("S3_BUCKET_NAME", default="products")
 S3_ADDRESSING_STYLE = env.str("S3_ADDRESSING_STYLE", default="path")
 S3_PRESIGNED_EXPIRE_SECONDS = env.int("S3_PRESIGNED_EXPIRE_SECONDS", default=900)
 S3_USE_SSL = env.bool("S3_USE_SSL", default=False)
+S3_CONNECT_TIMEOUT_SECONDS = env.int("S3_CONNECT_TIMEOUT_SECONDS", default=5)
+S3_READ_TIMEOUT_SECONDS = env.int("S3_READ_TIMEOUT_SECONDS", default=30)
+S3_MAX_POOL_CONNECTIONS = env.int("S3_MAX_POOL_CONNECTIONS", default=10)
+S3_RETRY_MAX_ATTEMPTS = env.int("S3_RETRY_MAX_ATTEMPTS", default=3)
 
 # Static files (CSS, JavaScript, Images)
 

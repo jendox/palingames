@@ -4,6 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import ProductFile
+from .services.s3 import ProductStorageConfigurationError, validate_storage_bucket_access
 
 
 class ProductFileAdminForm(forms.ModelForm):
@@ -22,5 +23,11 @@ class ProductFileAdminForm(forms.ModelForm):
 
         if upload and not upload.name:
             raise ValidationError("Не удалось определить имя файла.")
+
+        if upload:
+            try:
+                validate_storage_bucket_access()
+            except ProductStorageConfigurationError as exc:
+                raise ValidationError("Object storage недоступен или настроен неверно.") from exc
 
         return cleaned_data
