@@ -26,6 +26,32 @@
 
 ## 2. Minimal Metrics Set
 
+### Что уже внедрено в коде
+
+На текущий момент уже экспортируются:
+- `http_requests_total`
+- `http_request_duration_seconds`
+- `orders_created_total`
+- `orders_paid_total`
+- `invoices_created_total`
+- `payment_webhooks_received_total`
+- `payment_webhooks_failed_total`
+- `payment_webhooks_rejected_total`
+- `invoice_status_sync_runs_total`
+- `invoice_status_sync_selected_total`
+- `invoice_status_sync_processed_total`
+- `invoice_status_sync_failed_total`
+- `guest_email_outbox_created_total`
+- `guest_email_sent_total`
+- `guest_email_failed_total`
+- `product_download_redirect_total`
+- `product_download_failed_total`
+- `health_readiness_checks_total`
+- `celery_task_started_total`
+- `celery_task_finished_total`
+
+Остальные метрики ниже либо уже реализованы, либо являются следующим рекомендуемым расширением.
+
 ### A. HTTP / request layer
 
 - `http_requests_total`
@@ -59,8 +85,12 @@
 - `orders_failed_total`
   - labels:
     - `failure_reason`
+  - статус:
+    - рекомендовано добавить позже
 
 - `checkout_validation_failed_total`
+  - статус:
+    - рекомендовано добавить позже
 
 Зачем:
 - видеть, создаются ли заказы;
@@ -76,6 +106,8 @@
 - `invoices_paid_total`
   - labels:
     - `provider`
+  - статус:
+    - рекомендовано добавить позже
 
 - `payment_webhooks_received_total`
   - labels:
@@ -118,6 +150,8 @@
 ### D. Access / email / downloads
 
 - `guest_access_issued_total`
+  - статус:
+    - рекомендовано добавить позже
 
 - `guest_email_outbox_created_total`
 
@@ -156,6 +190,8 @@
 - `celery_task_failed_total`
   - labels:
     - `task_name`
+  - статус:
+    - рекомендовано добавить позже
 
 Зачем:
 - понимать, какие задачи падают;
@@ -170,12 +206,20 @@
     - `status`
 
 - `s3_download_url_generation_failed_total`
+  - статус:
+    - рекомендовано добавить позже
 
 - `s3_upload_failed_total`
+  - статус:
+    - рекомендовано добавить позже
 
 - `redis_errors_total`
+  - статус:
+    - рекомендовано добавить позже
 
 - `database_errors_total`
+  - статус:
+    - рекомендовано добавить позже
 
 Зачем:
 - быстро отделять бизнес-сбой от инфраструктурного;

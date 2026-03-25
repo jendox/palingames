@@ -155,6 +155,8 @@ make up-develop
 - PostgreSQL на `5433`;
 - Redis на `6379`;
 - `smtp4dev` для просмотра писем.
+- Prometheus на `9090`;
+- Grafana на `3000`.
 
 ### 3. Подготовить `.env`
 
@@ -319,6 +321,58 @@ uv sync
 ```
 
 После этого endpoint `/metrics/` начнет отдавать реальные Prometheus-метрики приложения.
+
+### Локальный Prometheus/Grafana
+
+Для dev-окружения monitoring stack уже включён в `docker-compose.develop.yml`.
+
+После запуска:
+
+- Prometheus: `http://127.0.0.1:9090`
+- Grafana: `http://127.0.0.1:3000`
+- Django metrics endpoint: `http://127.0.0.1:8000/metrics/`
+
+Как это работает:
+- Django запускается у тебя на хосте;
+- контейнер Prometheus скрапит `http://host.docker.internal:8000/metrics/`;
+- Grafana получает готовый datasource на локальный Prometheus через provisioning.
+
+Что нужно сделать:
+
+1. Поднять dev stack:
+
+```bash
+make up-develop
+```
+
+2. Запустить Django локально на `127.0.0.1:8000`
+
+```bash
+uv run python manage.py runserver
+```
+
+3. Проверить, что `http://127.0.0.1:8000/metrics/` отвечает
+
+4. Открыть Grafana:
+
+```text
+http://127.0.0.1:3000
+```
+
+Стандартный логин Grafana по умолчанию:
+- `admin`
+- `admin`
+
+При первом входе Grafana попросит сменить пароль.
+
+Имеет ли смысл поднимать это локально:
+- `Да`, если ты отлаживаешь observability, метрики, фоновые задачи, платежный поток или хочешь собрать первый dashboard.
+- `Да`, если нужно быстро убедиться, что `/metrics/` реально экспортирует полезные сигналы.
+- `Не обязательно`, если ты просто верстаешь шаблоны или меняешь неинфраструктурный код и тебе не нужны графики в моменте.
+
+Практически:
+- для обычной feature-разработки Prometheus/Grafana на локалке не обязательны;
+- для платежей, Celery, readiness и operational work это вполне оправдано даже в dev.
 
 Подробный operational-гайд по event taxonomy и alert rules:
 - [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
