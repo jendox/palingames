@@ -154,7 +154,6 @@ class GuestAccessEmailOutboxAdmin(admin.ModelAdmin):
     autocomplete_fields = ("order",)
     actions = ("resend_selected_emails", "retry_failed_selected_emails")
     readonly_fields = (
-        "payload_encrypted",
         "created_at",
         "updated_at",
     )
@@ -177,7 +176,6 @@ class GuestAccessEmailOutboxAdmin(admin.ModelAdmin):
             _("Содержимое"),
             {
                 "fields": (
-                    "payload_encrypted",
                     "last_error",
                 ),
             },

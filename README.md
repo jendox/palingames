@@ -260,7 +260,12 @@ apps.access.tasks.cleanup_guest_access_email_outbox_task
 
 Рекомендуется создать periodic task в Django Admin через `django-celery-beat`:
 - task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`
-- schedule: `daily` или `nightly`
+- `Crontab`:
+  - `Minute`: `20`
+  - `Hour`: `3`
+  - `Day of week`: `*`
+  - `Day of month`: `*`
+  - `Month of year`: `*`
 
 Retention настраивается через:
 - `GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS`
@@ -284,13 +289,30 @@ apps.core.tasks.clear_expired_sessions_task
 
 Рекомендуемая periodic task в `django-celery-beat`:
 - task: `apps.core.tasks.clear_expired_sessions_task`
-- schedule: `daily` или `nightly`
+- `Crontab`:
+  - `Minute`: `40`
+  - `Hour`: `3`
+  - `Day of week`: `*`
+  - `Day of month`: `*`
+  - `Month of year`: `*`
 
 ### Рекомендуемый набор periodic tasks
 
 Минимально стоит завести две задачи:
 - `apps.access.tasks.cleanup_guest_access_email_outbox_task`
 - `apps.core.tasks.clear_expired_sessions_task`
+
+Рекомендуемый набор в админке `django-celery-beat`:
+
+1. `Cleanup guest access email outbox`
+- task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`
+- `03:20` ежедневно
+
+2. `Clear expired Django sessions`
+- task: `apps.core.tasks.clear_expired_sessions_task`
+- `03:40` ежедневно
+
+Обе задачи лучше разводить по времени на 10-30 минут, чтобы housekeeping не стартовал одновременно без необходимости.
 
 ## Полезные команды
 
