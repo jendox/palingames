@@ -9,6 +9,7 @@ from django.templatetags.static import static
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
+from apps.core.metrics import inc_order_created
 from apps.products.models import Product
 
 from .models import Order, OrderItem
@@ -117,5 +118,6 @@ def create_order_from_cart(*, request, email: str) -> Order:
         total_amount=order.total_amount,
         currency=order.currency,
     )
+    inc_order_created(checkout_type=order.checkout_type, source=order.source)
 
     return order

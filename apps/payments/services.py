@@ -9,6 +9,7 @@ from apps.access.services import (
 )
 from apps.access.tasks import send_guest_access_email_outbox_task
 from apps.core.logging import log_event
+from apps.core.metrics import inc_order_paid
 from apps.orders.models import Order
 from libs.payments.models import InvoiceStatus
 
@@ -103,6 +104,7 @@ def mark_order_paid(
         guest_accesses_count=len(guest_access_payloads),
         guest_access_email_outbox_id=guest_access_email_outbox.id if guest_access_email_outbox else None,
     )
+    inc_order_paid(checkout_type=order.checkout_type, source=order.source)
 
 
 def apply_order_status_from_invoice_status(

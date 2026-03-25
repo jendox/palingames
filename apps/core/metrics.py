@@ -34,6 +34,21 @@ HTTP_REQUEST_DURATION_SECONDS = Histogram(
     "HTTP request duration in seconds.",
     ["path", "method"],
 )
+ORDERS_CREATED_TOTAL = Counter(
+    "orders_created_total",
+    "Total created orders.",
+    ["checkout_type", "source"],
+)
+ORDERS_PAID_TOTAL = Counter(
+    "orders_paid_total",
+    "Total paid orders.",
+    ["checkout_type", "source"],
+)
+INVOICES_CREATED_TOTAL = Counter(
+    "invoices_created_total",
+    "Total created invoices.",
+    ["provider"],
+)
 PAYMENT_WEBHOOKS_RECEIVED_TOTAL = Counter(
     "payment_webhooks_received_total",
     "Total payment webhooks received.",
@@ -112,6 +127,18 @@ def metrics_response() -> tuple[bytes, str]:
 def observe_http_request(*, path: str, method: str, status_code: int, duration_seconds: float) -> None:
     HTTP_REQUESTS_TOTAL.labels(path=path, method=method, status_code=str(status_code)).inc()
     HTTP_REQUEST_DURATION_SECONDS.labels(path=path, method=method).observe(duration_seconds)
+
+
+def inc_order_created(*, checkout_type: str, source: str) -> None:
+    ORDERS_CREATED_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
+
+
+def inc_order_paid(*, checkout_type: str, source: str) -> None:
+    ORDERS_PAID_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
+
+
+def inc_invoice_created(*, provider: str) -> None:
+    INVOICES_CREATED_TOTAL.labels(provider=provider).inc()
 
 
 def inc_payment_webhook_received(*, provider: str, cmd_type: int | str) -> None:

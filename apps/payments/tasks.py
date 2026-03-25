@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.logging import log_event
-from apps.core.metrics import record_invoice_status_sync_summary
+from apps.core.metrics import inc_invoice_created, record_invoice_status_sync_summary
 from apps.orders.models import Order
 from apps.payments.models import Invoice
 from apps.payments.services import apply_invoice_status_update
@@ -270,6 +270,7 @@ def create_invoice_task(self, order_id: int) -> None:
             invoice_status=invoice.status,
             order_status=Order.OrderStatus.WAITING_FOR_PAYMENT,
         )
+        inc_invoice_created(provider=invoice.provider)
     except InvoiceCreationSkipped as exc:
         log_event(
             logger,
@@ -350,6 +351,7 @@ def create_test_invoice_task(self, order_id: int) -> None:
             order_status=Order.OrderStatus.WAITING_FOR_PAYMENT,
             mode="test",
         )
+        inc_invoice_created(provider=invoice.provider)
     except InvoiceCreationSkipped as exc:
         log_event(
             logger,
