@@ -1,5 +1,6 @@
 import json
 import logging
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -12,6 +13,7 @@ from apps.core.logging import (
     clear_logging_context,
     set_logging_context,
 )
+from apps.core.sentry import configure_sentry_scope, init_sentry
 from apps.core.tasks import clear_expired_sessions_task
 
 
@@ -78,6 +80,60 @@ class StructuredLoggingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Request-ID"], "req-from-client")
+
+
+class SentryIntegrationTests(TestCase):
+    def tearDown(self):
+        clear_logging_context()
+
+    def test_init_sentry_returns_false_when_dsn_is_not_configured(self):
+        initialized = init_sentry(
+            dsn="",
+            environment="test",
+            release=None,
+            traces_sample_rate=0.0,
+        )
+
+        self.assertFalse(initialized)
+
+    @patch("apps.core.sentry._sentry_available", return_value=True)
+    @patch("apps.core.sentry.sentry_sdk")
+    def test_init_sentry_initializes_sdk_when_available(self, sentry_sdk_mock, _sentry_available_mock):
+        initialized = init_sentry(
+            dsn="https://example@sentry.io/1",
+            environment="production",
+            release="test-release",
+            traces_sample_rate=0.0,
+        )
+
+        self.assertTrue(initialized)
+        sentry_sdk_mock.init.assert_called_once()
+
+    @patch("apps.core.sentry.sentry_sdk")
+    def test_configure_sentry_scope_uses_standard_tags_and_context(self, sentry_sdk_mock):
+        tags = {}
+        contexts = {}
+
+        class FakeScope:
+            def set_tag(self, key, value):
+                tags[key] = value
+
+            def set_context(self, key, value):
+                contexts[key] = value
+
+        @contextmanager
+        def fake_configure_scope():
+            yield FakeScope()
+
+        sentry_sdk_mock.configure_scope = fake_configure_scope
+        set_logging_context(request_id="req-123", path="/checkout/")
+
+        configure_sentry_scope(task_id="task-1", order_id=42, email="user@example.com")
+
+        self.assertEqual(tags["request_id"], "req-123")
+        self.assertEqual(tags["task_id"], "task-1")
+        self.assertEqual(contexts["logging_context"]["order_id"], 42)
+        self.assertEqual(contexts["logging_context"]["email"], "***")
 
 
 class CoreTasksTests(TestCase):

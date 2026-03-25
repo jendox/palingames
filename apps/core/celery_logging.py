@@ -6,6 +6,7 @@ from celery import Task
 from celery.signals import task_postrun, task_prerun
 
 from .logging import bind_task_logging_context, build_task_logging_headers, clear_logging_context, log_event
+from .sentry import configure_sentry_scope
 
 logger = logging.getLogger("apps.celery")
 
@@ -30,11 +31,21 @@ class ContextTask(Task):
 def bind_celery_task_context(task_id=None, task=None, **kwargs):
     headers = getattr(task.request, "headers", None) if task is not None else None
     bind_task_logging_context(task_id=task_id, task_name=getattr(task, "name", None), headers=headers)
+    configure_sentry_scope(
+        task_id=task_id,
+        task_name=getattr(task, "name", None),
+        request_id=headers.get("request_id") if isinstance(headers, dict) else None,
+    )
     log_event(logger, logging.INFO, "task.started")
 
 
 @task_postrun.connect
 def clear_celery_task_context(task_id=None, task=None, state=None, **kwargs):
+    configure_sentry_scope(
+        task_id=task_id,
+        task_name=getattr(task, "name", None),
+        task_state=state,
+    )
     log_event(
         logger,
         logging.INFO,

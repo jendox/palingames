@@ -176,12 +176,22 @@ make up-develop
 - `GUEST_ACCESS_EXPIRE_HOURS`
 - `GUEST_ACCESS_MAX_DOWNLOADS`
 - `APP_DATA_ENCRYPTION_KEY`
+- `SENTRY_DSN`
+- `SENTRY_ENVIRONMENT`
+- `SENTRY_RELEASE`
+- `SENTRY_TRACES_SAMPLE_RATE`
 
 `APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
 
 Для фоновой синхронизации статусов инвойсов с ограничением нагрузки на Express Pay:
 - `PAYMENTS_STATUS_SYNC_BATCH_SIZE` — максимум инвойсов за один запуск задачи;
 - `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS` — минимальный интервал между повторными проверками одного и того же `Invoice`.
+
+Для базовой интеграции с Sentry:
+- `SENTRY_DSN` — DSN проекта в Sentry;
+- `SENTRY_ENVIRONMENT` — обычно `development`, `staging` или `production`;
+- `SENTRY_RELEASE` — идентификатор релиза или git SHA;
+- `SENTRY_TRACES_SAMPLE_RATE` — доля транзакций для performance tracing, например `0.0` или `0.1`.
 
 ### 4. Применить миграции
 
@@ -261,6 +271,43 @@ DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingame
 ```
 
 Если нужен только быстрый smoke-check без гарантии postgres-совместимого поведения, можно использовать временную SQLite-конфигурацию, но это не должно заменять основной прогон тестов на PostgreSQL перед merge или релизом.
+
+## Observability
+
+### Health endpoints
+
+Для базовой operational-проверки доступны:
+
+```text
+/health/live/
+/health/ready/
+```
+
+- `live` отвечает только за то, что Django-процесс жив;
+- `ready` проверяет доступность PostgreSQL, Redis и S3-compatible storage.
+
+### Sentry
+
+Sentry подключается опционально:
+- если `SENTRY_DSN` пустой, приложение работает без Sentry;
+- если `sentry-sdk` еще не установлен локально, приложение не падает, а просто не активирует интеграцию.
+
+В Sentry scope автоматически передаются базовые поля observability-контекста:
+- `request_id`
+- `task_id`
+- `task_name`
+- `task_state`
+- `http_method`
+- `path`
+- `status_code`
+
+Это нужно для того, чтобы в ошибке или trace было проще понять:
+- к какому HTTP-запросу она относится;
+- из какой Celery-задачи пришла;
+- на каком endpoint или шаге пайплайна произошел сбой.
+
+Подробный operational-гайд по event taxonomy и alert rules:
+- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
 
 ## Настройка MinIO для разработки
 

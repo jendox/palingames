@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from .logging import clear_logging_context, generate_request_id, log_event, set_logging_context
+from .sentry import configure_sentry_scope
 
 logger = logging.getLogger("apps.request")
 
@@ -23,6 +24,11 @@ class RequestContextLoggingMiddleware:
             http_method=request.method,
             path=request.path,
         )
+        configure_sentry_scope(
+            request_id=request_id,
+            http_method=request.method,
+            path=request.path,
+        )
         log_event(logger, logging.INFO, "request.started")
 
         try:
@@ -33,6 +39,7 @@ class RequestContextLoggingMiddleware:
             raise
 
         set_logging_context(status_code=response.status_code)
+        configure_sentry_scope(status_code=response.status_code)
         response[self.response_header] = request_id
         log_event(logger, logging.INFO, "request.finished", status_code=response.status_code)
         clear_logging_context()
