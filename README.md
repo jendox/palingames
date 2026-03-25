@@ -309,6 +309,9 @@ Sentry подключается опционально:
 Подробный operational-гайд по event taxonomy и alert rules:
 - [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
 
+Практические runbooks для типовых инцидентов:
+- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
+
 ## Настройка MinIO для разработки
 
 В `.env` можно использовать, например:
