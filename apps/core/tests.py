@@ -86,3 +86,57 @@ class CoreTasksTests(TestCase):
         clear_expired_sessions_task.apply(args=())
 
         call_command_mock.assert_called_once_with("clearsessions")
+
+
+class HealthViewsTests(TestCase):
+    def test_health_live_returns_ok(self):
+        response = self.client.get(reverse("health-live"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"status": "ok"})
+
+    @patch("apps.core.views.build_readiness_report")
+    def test_health_ready_returns_ok_when_all_dependencies_are_available(self, build_readiness_report_mock):
+        build_readiness_report_mock.return_value = {
+            "database": {"status": "ok"},
+            "redis": {"status": "ok"},
+            "s3": {"status": "ok"},
+        }
+
+        response = self.client.get(reverse("health-ready"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "status": "ok",
+                "checks": {
+                    "database": {"status": "ok"},
+                    "redis": {"status": "ok"},
+                    "s3": {"status": "ok"},
+                },
+            },
+        )
+
+    @patch("apps.core.views.build_readiness_report")
+    def test_health_ready_returns_503_when_any_dependency_is_unavailable(self, build_readiness_report_mock):
+        build_readiness_report_mock.return_value = {
+            "database": {"status": "ok"},
+            "redis": {"status": "failed", "error": "ConnectionError"},
+            "s3": {"status": "ok"},
+        }
+
+        response = self.client.get(reverse("health-ready"))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "status": "degraded",
+                "checks": {
+                    "database": {"status": "ok"},
+                    "redis": {"status": "failed", "error": "ConnectionError"},
+                    "s3": {"status": "ok"},
+                },
+            },
+        )
