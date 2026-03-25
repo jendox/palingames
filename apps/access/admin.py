@@ -152,7 +152,7 @@ class GuestAccessEmailOutboxAdmin(admin.ModelAdmin):
         "order__email",
     )
     autocomplete_fields = ("order",)
-    actions = ("resend_selected_emails",)
+    actions = ("resend_selected_emails", "retry_failed_selected_emails")
     readonly_fields = (
         "payload_encrypted",
         "created_at",
@@ -218,6 +218,31 @@ class GuestAccessEmailOutboxAdmin(admin.ModelAdmin):
             self.message_user(
                 request,
                 f"Поставлено в очередь писем: {queued}.",
+                level=messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"Пропущено записей: {skipped}.",
+                level=messages.WARNING,
+            )
+
+    @admin.action(description="Повторить отправку для failed outbox")
+    def retry_failed_selected_emails(self, request, queryset):
+        queued = 0
+        skipped = 0
+
+        for outbox in queryset:
+            if outbox.status != GuestAccessEmailOutbox.GuestAccessEmailStatus.FAILED:
+                skipped += 1
+                continue
+            send_guest_access_email_outbox_task.delay(outbox.id)
+            queued += 1
+
+        if queued:
+            self.message_user(
+                request,
+                f"Повторно поставлено в очередь писем: {queued}.",
                 level=messages.SUCCESS,
             )
         if skipped:

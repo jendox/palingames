@@ -1,5 +1,6 @@
 import json
 import logging
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
@@ -11,6 +12,7 @@ from apps.core.logging import (
     clear_logging_context,
     set_logging_context,
 )
+from apps.core.tasks import clear_expired_sessions_task
 
 
 class StructuredLoggingTests(TestCase):
@@ -76,3 +78,11 @@ class StructuredLoggingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Request-ID"], "req-from-client")
+
+
+class CoreTasksTests(TestCase):
+    @patch("apps.core.tasks.call_command")
+    def test_clear_expired_sessions_task_calls_django_clearsessions(self, call_command_mock):
+        clear_expired_sessions_task.apply(args=())
+
+        call_command_mock.assert_called_once_with("clearsessions")

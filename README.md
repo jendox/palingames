@@ -270,6 +270,28 @@ Retention настраивается через:
 - `SENT`: `30` дней
 - `FAILED`: `90` дней
 
+### Очистка устаревших сессий
+
+Для guest cart и guest checkout имеет смысл также чистить просроченные Django sessions.
+
+Task:
+
+```text
+apps.core.tasks.clear_expired_sessions_task
+```
+
+Это нормальная практика. Альтернатива — системный cron с `manage.py clearsessions`, но раз в проекте уже есть Celery Beat, удобнее держать housekeeping-задачи в одном месте.
+
+Рекомендуемая periodic task в `django-celery-beat`:
+- task: `apps.core.tasks.clear_expired_sessions_task`
+- schedule: `daily` или `nightly`
+
+### Рекомендуемый набор periodic tasks
+
+Минимально стоит завести две задачи:
+- `apps.access.tasks.cleanup_guest_access_email_outbox_task`
+- `apps.core.tasks.clear_expired_sessions_task`
+
 ## Полезные команды
 
 ### Линтинг
