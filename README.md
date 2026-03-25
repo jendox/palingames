@@ -312,6 +312,9 @@ Sentry подключается опционально:
 Практические runbooks для типовых инцидентов:
 - [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
 
+План метрик и дешбордов:
+- [docs/metrics.md](/home/jendox/PycharmProjects/palingames/docs/metrics.md)
+
 ## Настройка MinIO для разработки
 
 В `.env` можно использовать, например:
