@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -9,9 +10,11 @@ from django.urls import reverse
 from apps.access.models import GuestAccess, GuestAccessEmailOutbox, UserProductAccess
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
+from apps.payments.tasks import sync_waiting_invoice_statuses_task
 from apps.products.models import Product
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
+from libs.payments.models import InvoiceStatus, InvoiceStatusResult
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
@@ -489,3 +492,107 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
+
+
+class InvoiceStatusSyncTaskTests(TestCase):
+    def setUp(self):
+        self.product = Product.objects.create(title="Sync product", slug="sync-product", price=Decimal("25.00"))
+        self.user = get_user_model().objects.create_user(email="sync@example.com", password="test-pass-123")
+
+    def _create_waiting_invoice(self, *, account_suffix: str, user=None) -> tuple[Order, Invoice]:
+        order = Order.objects.create(
+            user=user,
+            email=user.email if user else "guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED if user else Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+            payment_account_no=f"PG250326{account_suffix}",
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no=account_suffix,
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url=f"https://example.com/pay/{account_suffix}",
+            amount=Decimal("25.00"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        return order, invoice
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_sync_waiting_invoice_statuses_marks_paid_order_and_grants_access(self, mock_get_client):
+        order, invoice = self._create_waiting_invoice(account_suffix="12345678", user=self.user)
+        mock_client = Mock()
+        mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
+        mock_get_client.return_value = mock_client
+
+        with self.captureOnCommitCallbacks(execute=True):
+            summary = sync_waiting_invoice_statuses_task()
+
+        invoice.refresh_from_db()
+        order.refresh_from_db()
+
+        self.assertEqual(summary["selected"], 1)
+        self.assertEqual(summary["paid"], 1)
+        self.assertEqual(summary["failed"], 0)
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(order.status, Order.OrderStatus.PAID)
+        self.assertIsNotNone(invoice.last_status_check_at)
+        self.assertTrue(UserProductAccess.objects.filter(user=self.user, product=self.product, order=order).exists())
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_sync_waiting_invoice_statuses_marks_expired_invoice(self, mock_get_client):
+        order, invoice = self._create_waiting_invoice(account_suffix="23456789")
+        mock_client = Mock()
+        mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.EXPIRED)
+        mock_get_client.return_value = mock_client
+
+        summary = sync_waiting_invoice_statuses_task()
+
+        invoice.refresh_from_db()
+        order.refresh_from_db()
+
+        self.assertEqual(summary["expired"], 1)
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.EXPIRED)
+        self.assertEqual(order.status, Order.OrderStatus.FAILED)
+        self.assertEqual(order.failure_reason, "invoice_expired")
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_sync_waiting_invoice_statuses_continues_when_one_invoice_fails(self, mock_get_client):
+        first_order, first_invoice = self._create_waiting_invoice(account_suffix="34567890")
+        second_order, second_invoice = self._create_waiting_invoice(account_suffix="45678901", user=self.user)
+        mock_client = Mock()
+        mock_client.get_invoice_status.side_effect = [
+            RuntimeError("provider unavailable"),
+            InvoiceStatusResult(status=InvoiceStatus.PAID),
+        ]
+        mock_get_client.return_value = mock_client
+
+        with self.captureOnCommitCallbacks(execute=True):
+            summary = sync_waiting_invoice_statuses_task()
+
+        first_invoice.refresh_from_db()
+        first_order.refresh_from_db()
+        second_invoice.refresh_from_db()
+        second_order.refresh_from_db()
+
+        self.assertEqual(summary["selected"], 2)
+        self.assertEqual(summary["failed"], 1)
+        self.assertEqual(summary["paid"], 1)
+        self.assertEqual(first_invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(first_order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertEqual(second_invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(second_order.status, Order.OrderStatus.PAID)

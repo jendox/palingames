@@ -165,6 +165,8 @@ make up-develop
 - `REDIS_URL`
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
+- `PAYMENTS_STATUS_SYNC_BATCH_SIZE`
+- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`
 - `S3_ENDPOINT_URL`
 - `S3_ACCESS_KEY_ID`
 - `S3_SECRET_ACCESS_KEY`
@@ -176,6 +178,10 @@ make up-develop
 - `APP_DATA_ENCRYPTION_KEY`
 
 `APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
+
+Для фоновой синхронизации статусов инвойсов с ограничением нагрузки на Express Pay:
+- `PAYMENTS_STATUS_SYNC_BATCH_SIZE` — максимум инвойсов за один запуск задачи;
+- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS` — минимальный интервал между повторными проверками одного и того же `Invoice`.
 
 ### 4. Применить миграции
 
@@ -219,6 +225,43 @@ uv run celery -A config worker -l info
 uv run celery -A config beat -l info
 ```
 
+## Локальный запуск тестов
+
+Для этого проекта основной режим проверки тестов должен быть на PostgreSQL, а не на SQLite.
+
+Почему:
+- production-стек использует PostgreSQL;
+- часть поведения ORM, транзакций и блокировок отличается между SQLite и PostgreSQL;
+- платежный контур и синхронизация инвойсов используют сценарии, где важна именно postgres-совместимая семантика.
+
+Минимальный локальный сценарий:
+
+1. Поднять dev-инфраструктуру
+
+```bash
+make up-develop
+```
+
+2. Убедиться, что `DATABASE_URL` в `.env` указывает на локальный PostgreSQL, например:
+
+```env
+DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingames_dev
+```
+
+3. Запустить тесты:
+
+```bash
+./.venv/bin/python manage.py test
+```
+
+Для проверки только платежного контура:
+
+```bash
+./.venv/bin/python manage.py test apps.payments
+```
+
+Если нужен только быстрый smoke-check без гарантии postgres-совместимого поведения, можно использовать временную SQLite-конфигурацию, но это не должно заменять основной прогон тестов на PostgreSQL перед merge или релизом.
+
 ## Настройка MinIO для разработки
 
 В `.env` можно использовать, например:
@@ -257,6 +300,63 @@ Task очистки:
 ```text
 apps.access.tasks.cleanup_guest_access_email_outbox_task
 ```
+
+### Периодическая синхронизация статусов инвойсов
+
+Task синхронизации:
+
+```text
+apps.payments.tasks.sync_waiting_invoice_statuses_task
+```
+
+Что делает задача:
+- выбирает только `PENDING` инвойсы, связанные с заказами в статусах `CREATED` или `WAITING_FOR_PAYMENT`;
+- не опрашивает один и тот же инвойс чаще, чем разрешено `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`;
+- ограничивает число запросов к Express Pay через `PAYMENTS_STATUS_SYNC_BATCH_SIZE`;
+- обновляет локальные статусы заказа и инвойса тем же доменным кодом, что и webhook-обработка.
+
+### Как добавить periodic tasks в Celery Beat через Django Admin
+
+Предполагается, что `Celery worker` и `Celery beat` уже запущены.
+
+В админке открыть:
+
+```text
+Periodic tasks -> Periodic tasks -> Add periodic task
+```
+
+Рекомендуемые задачи:
+
+1. Очистка просроченных сессий
+
+```text
+Task (registered): apps.core.tasks.clear_expired_sessions_task
+Schedule: crontab, например каждый день ночью
+Enabled: yes
+```
+
+2. Очистка старых записей guest email outbox
+
+```text
+Task (registered): apps.access.tasks.cleanup_guest_access_email_outbox_task
+Schedule: crontab, например каждый день ночью
+Enabled: yes
+```
+
+3. Синхронизация статусов pending-инвойсов
+
+```text
+Task (registered): apps.payments.tasks.sync_waiting_invoice_statuses_task
+Schedule: interval, например каждые 5 минут
+Enabled: yes
+```
+
+Рекомендуемый стартовый профиль для production:
+- `PAYMENTS_STATUS_SYNC_BATCH_SIZE=25`
+- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS=300`
+- interval task: каждые 5 минут
+
+Такой режим даёт верхнюю границу около 25 запросов к Express Pay за один запуск beat-задачи и не позволяет бесконечно перепроверять один и тот же инвойс.
 
 Рекомендуется создать periodic task в Django Admin через `django-celery-beat`:
 - task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`

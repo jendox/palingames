@@ -6,22 +6,40 @@ from functools import lru_cache
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.orders.models import Order
 from apps.payments.models import Invoice
+from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
-from libs.payments.models import CreateInvoiceRequest
+from libs.payments.models import CreateInvoiceRequest, InvoiceStatusRequest
 
 logger = logging.getLogger(__name__)
 TEST_INVOICE_NO_MIN = 10_000_000
 TEST_INVOICE_NO_MAX = 99_999_999
+INVOICE_STATUS_SYNC_DEFAULT_BATCH_SIZE = 50
+INVOICE_STATUS_SYNC_DEFAULT_MIN_INTERVAL_SECONDS = 300
 
 
 def _invoice_lifetime() -> timedelta:
     return timedelta(hours=settings.EXPRESS_PAY_INVOICE_LIFETIME_HOURS)
+
+
+def _invoice_status_sync_batch_size() -> int:
+    configured = getattr(settings, "PAYMENTS_STATUS_SYNC_BATCH_SIZE", INVOICE_STATUS_SYNC_DEFAULT_BATCH_SIZE)
+    return max(int(configured), 1)
+
+
+def _invoice_status_sync_min_interval() -> timedelta:
+    configured = getattr(
+        settings,
+        "PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS",
+        INVOICE_STATUS_SYNC_DEFAULT_MIN_INTERVAL_SECONDS,
+    )
+    return timedelta(seconds=max(int(configured), 0))
 
 
 class InvoiceCreationSkipped(Exception):
@@ -75,6 +93,26 @@ def _build_test_invoice_url(provider_invoice_no: str) -> str:
     return f"https://example.com/pay/{provider_invoice_no}"
 
 
+def _get_invoice_ids_for_status_sync(*, now, limit: int) -> list[int]:
+    min_checked_at = now - _invoice_status_sync_min_interval()
+    return list(
+        Invoice.objects.filter(
+            status=Invoice.InvoiceStatus.PENDING,
+            provider_invoice_no__isnull=False,
+            order__status__in=[
+                Order.OrderStatus.CREATED,
+                Order.OrderStatus.WAITING_FOR_PAYMENT,
+            ],
+        )
+        .exclude(provider_invoice_no="")
+        .filter(
+            Q(last_status_check_at__isnull=True) | Q(last_status_check_at__lte=min_checked_at),
+        )
+        .order_by("last_status_check_at", "created_at", "id")
+        .values_list("id", flat=True)[:limit],
+    )
+
+
 def _get_locked_order_with_invoice(order_id: int) -> Order:
     order = Order.objects.select_for_update().get(pk=order_id)
     order._prefetched_objects_cache = getattr(order, "_prefetched_objects_cache", {})
@@ -85,13 +123,89 @@ def _get_locked_order_with_invoice(order_id: int) -> Order:
 def _get_locked_order_for_invoice_creation(order_id: int) -> Order:
     order = _get_locked_order_with_invoice(order_id)
     invoice = getattr(order, "invoice", None)
-    should_skip = bool(invoice and invoice.provider_invoice_no and invoice.status in {
-        Invoice.InvoiceStatus.PENDING,
-        Invoice.InvoiceStatus.PAID,
-    })
+    should_skip = bool(
+        invoice
+        and invoice.provider_invoice_no
+        and invoice.status in {
+            Invoice.InvoiceStatus.PENDING,
+            Invoice.InvoiceStatus.PAID,
+        },
+    )
     if should_skip:
         raise InvoiceCreationSkipped(order=order, invoice=invoice)
     return order
+
+
+def _is_invoice_sync_candidate(invoice: Invoice) -> bool:
+    return bool(
+        invoice.provider_invoice_no
+        and invoice.status == Invoice.InvoiceStatus.PENDING
+        and invoice.order.status in {
+            Order.OrderStatus.CREATED,
+            Order.OrderStatus.WAITING_FOR_PAYMENT,
+        },
+    )
+
+
+def _sync_single_waiting_invoice(invoice_id: int) -> str:
+    invoice = Invoice.objects.select_related("order").get(pk=invoice_id)
+    if not _is_invoice_sync_candidate(invoice):
+        return "skipped"
+
+    response = get_express_pay_request_client().get_invoice_status(
+        InvoiceStatusRequest(invoice_no=int(invoice.provider_invoice_no)),
+    )
+
+    with transaction.atomic():
+        invoice = Invoice.objects.select_for_update().select_related("order").get(pk=invoice_id)
+        if not _is_invoice_sync_candidate(invoice):
+            return "skipped"
+
+        previous_invoice_status = invoice.status
+        previous_order_status = invoice.order.status
+        normalized_status = apply_invoice_status_update(
+            invoice,
+            provider_status=int(response.status),
+            status_payload={
+                "raw_response": {
+                    "InvoiceNo": invoice.provider_invoice_no,
+                    "Status": int(response.status),
+                    "CheckedAt": timezone.now().isoformat(),
+                    "Source": "periodic_sync",
+                },
+            },
+            source="periodic_sync",
+            persist=True,
+        )
+
+    if normalized_status is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.status_sync.unknown_status",
+            invoice_id=invoice.id,
+            order_id=invoice.order_id,
+            provider_invoice_no=invoice.provider_invoice_no,
+            provider_status=int(response.status),
+            previous_invoice_status=previous_invoice_status,
+            previous_order_status=previous_order_status,
+        )
+        return "unknown"
+
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.status_sync.invoice_processed",
+        invoice_id=invoice.id,
+        order_id=invoice.order_id,
+        provider_invoice_no=invoice.provider_invoice_no,
+        provider_status=int(response.status),
+        previous_invoice_status=previous_invoice_status,
+        new_invoice_status=invoice.status,
+        previous_order_status=previous_order_status,
+        new_order_status=invoice.order.status,
+    )
+    return normalized_status.lower()
 
 
 @shared_task(bind=True, autoretry_for=(), retry_backoff=False)
@@ -262,5 +376,52 @@ def create_test_invoice_task(self, order_id: int) -> None:
 
 
 @shared_task
-def sync_waiting_invoice_statuses_task() -> None:
-    log_event(logger, logging.INFO, "invoice.status_sync.started")
+def sync_waiting_invoice_statuses_task() -> dict[str, int]:
+    now = timezone.now()
+    batch_size = _invoice_status_sync_batch_size()
+    invoice_ids = _get_invoice_ids_for_status_sync(now=now, limit=batch_size)
+    summary = {
+        "selected": len(invoice_ids),
+        "processed": 0,
+        "paid": 0,
+        "expired": 0,
+        "canceled": 0,
+        "pending": 0,
+        "refunded": 0,
+        "unknown": 0,
+        "skipped": 0,
+        "failed": 0,
+    }
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.status_sync.started",
+        batch_size=batch_size,
+        selected=summary["selected"],
+    )
+
+    for invoice_id in invoice_ids:
+        try:
+            result = _sync_single_waiting_invoice(invoice_id)
+        except Exception as exc:
+            summary["failed"] += 1
+            log_event(
+                logger,
+                logging.ERROR,
+                "invoice.status_sync.invoice_failed",
+                exc_info=exc,
+                invoice_id=invoice_id,
+                error_type=type(exc).__name__,
+            )
+            continue
+
+        summary["processed"] += 1
+        summary[result] += 1
+
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.status_sync.completed",
+        **summary,
+    )
+    return summary
