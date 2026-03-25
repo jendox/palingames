@@ -27,5 +27,6 @@ dependencies = [
     "boto3>=1.42.74",
     "boto3-stubs~=1.42.74",
     "cryptography>=46.0.1",
+    "prometheus-client>=0.22.1",
     "sentry-sdk[django]>=2.27.0",
 ]

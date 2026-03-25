@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.core.metrics import record_invoice_status_sync_summary
 from apps.orders.models import Order
 from apps.payments.models import Invoice
 from apps.payments.services import apply_invoice_status_update
@@ -424,4 +425,5 @@ def sync_waiting_invoice_statuses_task() -> dict[str, int]:
         "invoice.status_sync.completed",
         **summary,
     )
+    record_invoice_status_sync_summary(summary)
     return summary

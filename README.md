@@ -281,10 +281,12 @@ DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingame
 ```text
 /health/live/
 /health/ready/
+/metrics/
 ```
 
 - `live` отвечает только за то, что Django-процесс жив;
 - `ready` проверяет доступность PostgreSQL, Redis и S3-compatible storage.
+- `metrics` отдаёт Prometheus-метрики приложения.
 
 ### Sentry
 
@@ -305,6 +307,18 @@ Sentry подключается опционально:
 - к какому HTTP-запросу она относится;
 - из какой Celery-задачи пришла;
 - на каком endpoint или шаге пайплайна произошел сбой.
+
+### Prometheus metrics
+
+Для реального экспорта метрик нужен пакет `prometheus-client`.
+
+После изменений в зависимостях выполнить:
+
+```bash
+uv sync
+```
+
+После этого endpoint `/metrics/` начнет отдавать реальные Prometheus-метрики приложения.
 
 Подробный operational-гайд по event taxonomy и alert rules:
 - [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)

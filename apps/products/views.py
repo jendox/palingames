@@ -13,6 +13,7 @@ from django.views.generic import DetailView, TemplateView
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
+from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 from .pricing import format_price
@@ -696,10 +697,12 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 product_id=product_id,
                 reason="access_not_found",
             )
+            inc_product_download_failed(access_type="user", reason="access_not_found")
             raise Http404("Product download not found")
 
         product = Product.objects.filter(id=product_id).prefetch_related("files").first()
         if product is None:
+            inc_product_download_failed(access_type="user", reason="product_not_found")
             raise Http404("Product download not found")
 
         product_file = next((item for item in product.files.all() if item.is_active), None)
@@ -712,6 +715,7 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 product_id=product_id,
                 reason="active_file_not_found",
             )
+            inc_product_download_failed(access_type="user", reason="active_file_not_found")
             raise Http404("Product download not found")
 
         try:
@@ -730,6 +734,7 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 file_key=product_file.file_key,
                 error_type=type(exc).__name__,
             )
+            inc_product_download_failed(access_type="user", reason="download_unavailable")
             raise Http404("Product download not found") from exc
 
         log_event(
@@ -740,4 +745,5 @@ class ProductDownloadView(LoginRequiredMixin, View):
             product_id=product_id,
             file_key=product_file.file_key,
         )
+        inc_product_download_redirect(access_type="user")
         return HttpResponseRedirect(download_url)

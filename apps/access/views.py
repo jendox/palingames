@@ -7,6 +7,7 @@ from django.shortcuts import render
 from django.views import View
 
 from apps.core.logging import log_event
+from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 from .services import mark_guest_access_used, resolve_guest_access
@@ -21,6 +22,7 @@ class GuestProductDownloadView(View):
     def get(self, request, token: str, *args, **kwargs):
         guest_access = resolve_guest_access(token)
         if guest_access is None:
+            inc_product_download_failed(access_type="guest", reason="invalid_or_expired")
             return self._render_invalid(
                 request,
                 reason="invalid_or_expired",
@@ -38,6 +40,7 @@ class GuestProductDownloadView(View):
                 product_id=guest_access.product_id,
                 reason="active_file_not_found",
             )
+            inc_product_download_failed(access_type="guest", reason="file_not_found")
             return self._render_invalid(
                 request,
                 reason="file_not_found",
@@ -61,6 +64,7 @@ class GuestProductDownloadView(View):
                 file_key=product_file.file_key,
                 error_type=type(exc).__name__,
             )
+            inc_product_download_failed(access_type="guest", reason="download_unavailable")
             return self._render_invalid(
                 request,
                 reason="download_unavailable",
@@ -77,6 +81,7 @@ class GuestProductDownloadView(View):
                 product_id=guest_access.product_id,
                 reason="download_limit_exhausted",
             )
+            inc_product_download_failed(access_type="guest", reason="download_limit_exhausted")
             return self._render_invalid(
                 request,
                 reason="invalid_or_expired",
@@ -92,6 +97,7 @@ class GuestProductDownloadView(View):
             downloads_count=guest_access.downloads_count,
             max_downloads=guest_access.max_downloads,
         )
+        inc_product_download_redirect(access_type="guest")
         return HttpResponseRedirect(download_url)
 
     def _render_invalid(self, request, *, reason: str, status: int):

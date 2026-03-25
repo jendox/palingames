@@ -196,3 +196,13 @@ class HealthViewsTests(TestCase):
                 },
             },
         )
+
+    @patch("apps.core.views.metrics_response")
+    def test_metrics_endpoint_returns_prometheus_payload(self, metrics_response_mock):
+        metrics_response_mock.return_value = (b"test_metric 1\n", "text/plain; version=0.0.4; charset=utf-8")
+
+        response = self.client.get(reverse("metrics"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain; version=0.0.4; charset=utf-8")
+        self.assertEqual(response.content, b"test_metric 1\n")

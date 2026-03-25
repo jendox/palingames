@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
 
 from .emails import send_guest_order_download_email
 from .models import GuestAccessEmailOutbox
@@ -66,6 +67,7 @@ def create_guest_access_email_outbox(*, order, guest_access_payloads: list[dict]
         email=order.email,
         items_count=len(guest_access_payloads),
     )
+    inc_guest_email_outbox_created()
     return outbox
 
 
@@ -120,6 +122,7 @@ def process_guest_access_email_outbox(*, outbox_id: int) -> bool:
             attempts=outbox.attempts,
             error_type=type(exc).__name__,
         )
+        inc_guest_email_failed()
         raise
 
     with transaction.atomic():
@@ -137,6 +140,7 @@ def process_guest_access_email_outbox(*, outbox_id: int) -> bool:
         email=outbox.email,
         attempts=outbox.attempts,
     )
+    inc_guest_email_sent()
     return True
 
 
