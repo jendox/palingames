@@ -95,6 +95,7 @@ dependencies = [
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/74/ec/636ab2aa7ad9e6bf6e297240ac2d44dba63cc6611e2d5038db318436d449/boto3-1.42.74.tar.gz", hash = "sha256:dbacd808cf2a3dadbf35f3dbd8de97b94dc9f78b1ebd439f38f552e0f9753577", size = 112739, upload-time = "2026-03-23T19:34:09.815Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ad/16/a264b4da2af99f4a12609b93fea941cce5ec41da14b33ed3fef77a910f0c/boto3-1.42.74-py3-none-any.whl", hash = "sha256:4bf89c044d618fe4435af854ab820f09dd43569c0df15d7beb0398f50b9aa970", size = 140557, upload-time = "2026-03-23T19:34:07.084Z" },
 ]
@@ -633,6 +634,7 @@ dependencies = [
     { name = "boto3-stubs" },
     { name = "celery" },
     { name = "celery-types" },
+    { name = "cryptography" },
     { name = "dj-database-url" },
     { name = "django" },
     { name = "django-admin-thumbnails" },
@@ -659,6 +661,7 @@ requires-dist = [
     { name = "boto3-stubs", specifier = "~=1.42.74" },
     { name = "celery", specifier = ">=5.6.2" },
     { name = "celery-types", specifier = ">=0.26.0" },
+    { name = "cryptography", specifier = ">=46.0.1" },
     { name = "dj-database-url", specifier = ">=3.1.0" },
     { name = "django", specifier = "==5.2.10" },
     { name = "django-admin-thumbnails", specifier = ">=1.0.0" },

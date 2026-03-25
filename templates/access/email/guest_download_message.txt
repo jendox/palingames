@@ -1,0 +1,12 @@
+Здравствуйте!
+
+Ваш заказ №{{ order.payment_account_no }} успешно оплачен.
+
+Ссылки на скачивание:
+{% for item in items %}
+- {{ item.title }}: {{ item.download_url }}
+{% endfor %}
+
+Каждая ссылка действует {{ guest_access_expire_hours }} часа(ов) и может быть использована до {{ guest_access_max_downloads }} раз.
+
+Команда PaliGames

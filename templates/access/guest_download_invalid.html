@@ -1,0 +1,21 @@
+{% extends "base/base.html" %}
+{% load i18n %}
+
+{% block content %}
+  <section class="mx-auto max-w-[760px] px-4 py-[60px] text-center">
+    <div class="rounded-[20px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[24px] py-[36px]">
+      <h1 class="text-[28px] font-bold leading-[34px] text-[var(--color-black)]">
+        {% trans "Ссылка недействительна" %}
+      </h1>
+      <p class="mt-[16px] text-[16px] leading-[24px] text-[var(--color-black-80)]">
+        {% if guest_download_reason == "invalid_or_expired" %}
+          {% trans "Срок действия ссылки истёк или лимит скачиваний уже использован." %}
+        {% elif guest_download_reason == "file_not_found" %}
+          {% trans "Файл для скачивания сейчас недоступен." %}
+        {% else %}
+          {% trans "Не удалось подготовить скачивание. Попробуйте позже." %}
+        {% endif %}
+      </p>
+    </div>
+  </section>
+{% endblock %}

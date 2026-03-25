@@ -1,188 +1,274 @@
 # Palin Games
 
-Интернет-магазин цифровых развивающих игр для детей на Django. Проект сейчас находится в активной разработке: уже собраны витрина, каталог, карточка товара, корзина, базовый checkout-flow и инфраструктура для дальнейшей интеграции платежей и выдачи файлов.
+Интернет-магазин цифровых развивающих игр для детей на Django.
 
-## Что уже реализовано
+Проект уже покрывает полный базовый цикл:
+- витрина и каталог;
+- карточка товара и корзина;
+- checkout и создание заказа;
+- интеграция с Express Pay;
+- выдача доступа к цифровым товарам после оплаты;
+- хранение архивов игр в S3-compatible storage;
+- скачивание купленных файлов для авторизованных пользователей;
+- гостевой сценарий с email-ссылками на скачивание.
 
-- главная и контентные страницы в server-rendered templates;
-- каталог категорий и каталог товаров;
-- фильтрация, сортировка и пагинация каталога через `htmx`;
-- карточка товара с галереей, отзывами и быстрым preview из каталога;
+## Что реализовано
+
+- server-rendered UI на Django templates;
+- `htmx` для частичных обновлений каталога и корзины;
+- каталог категорий и товаров;
+- карточка товара, отзывы, preview из каталога;
 - корзина для гостя и авторизованного пользователя;
-- удаление товаров из корзины через `htmx`;
-- базовая страница checkout на данных реальной корзины;
-- регистрация, вход, подтверждение email и восстановление пароля через `django-allauth headless`;
-- кастомная модель пользователя с авторизацией по email;
-- подготовленный typed-клиент для интеграции с Express Pay;
-- Django Admin для управления данными.
+- merge guest cart в пользовательскую корзину при логине;
+- checkout на основе реальной корзины;
+- кастомная модель пользователя и auth через `django-allauth headless`;
+- создание заказов и order items;
+- интеграция с Express Pay и webhook-обработка платежей;
+- выдача постоянного `UserProductAccess` для оплаченных товаров авторизованным пользователям;
+- выдача временного `GuestAccess` для guest checkout;
+- backend download endpoints с проверкой доступа;
+- приватное хранение product files в S3-compatible storage;
+- загрузка файлов из Django Admin напрямую в S3;
+- presigned download URLs для скачивания архивов;
+- guest email outbox с шифрованным payload и отправкой через Celery;
+- structured JSON logging.
 
-## Текущий статус
+## Архитектура
 
-Проект уже пригоден для разработки витрины и пользовательских сценариев выбора товаров, но еще не завершен как production-ready e-commerce MVP.
+### Приложения
 
-Что еще не завершено:
+- `apps/users` — пользователи и интеграция с allauth.
+- `apps/pages` — контентные страницы и личный кабинет.
+- `apps/products` — категории, товары, изображения, файлы, каталог, product detail, S3 upload/download services.
+- `apps/cart` — корзина для guest/user, merge, cart page.
+- `apps/orders` — checkout, заказы и order items.
+- `apps/payments` — инвойсы, webhook/payment processing, orchestration after successful payment.
+- `apps/access` — доступ к оплаченным продуктам, guest download grants, guest email outbox.
+- `apps/core` — logging, middleware, shared infra.
 
-- нет доменной модели заказов с полным жизненным циклом оплаты;
-- Express Pay клиент пока не встроен в checkout-flow;
-- выдача доступа к цифровым файлам после оплаты не реализована;
-- избранное пока не реализовано;
-- checkout пока не создает оплачиваемый заказ.
+### Основные доменные сущности
 
-## Стек технологий
+- `Product` — товар.
+- `ProductFile` — архив игры в приватном S3 storage.
+- `Order` / `OrderItem` — заказ и состав заказа.
+- `Invoice` / `PaymentEvent` — платежная часть.
+- `UserProductAccess` — постоянный доступ авторизованного пользователя к продукту.
+- `GuestAccess` — ограниченный по времени и количеству скачиваний доступ для guest order.
+- `GuestAccessEmailOutbox` — зашифрованная очередь писем с guest download links.
+
+## Как работает выдача файлов
+
+### Авторизованный пользователь
+
+После успешной оплаты создаётся `UserProductAccess`.
+
+Скачать оплаченный архив можно из:
+- каталога;
+- страницы товара;
+- раздела заказов в личном кабинете.
+
+Все UI-точки ведут в backend endpoint, который:
+- требует логин;
+- проверяет `UserProductAccess`;
+- проверяет наличие активного `ProductFile`;
+- генерирует короткоживущую presigned URL;
+- делает redirect на S3 / MinIO.
+
+TTL для таких ссылок задаётся через `S3_PRESIGNED_EXPIRE_SECONDS`.
+
+### Гостевой заказ
+
+После успешной оплаты:
+- для каждого товара создаётся `GuestAccess`;
+- создаётся `GuestAccessEmailOutbox` с зашифрованным payload;
+- Celery task отправляет письмо со списком ссылок.
+
+Письмо содержит не S3 URL, а backend links вида:
+- `/downloads/guest/<token>/`
+
+При открытии такой ссылки backend:
+- валидирует `GuestAccess`;
+- проверяет срок действия и лимит скачиваний;
+- ищет активный `ProductFile`;
+- генерирует короткую presigned URL;
+- увеличивает `downloads_count`;
+- делает redirect на storage.
+
+Параметры guest-доступа:
+- срок действия: `GUEST_ACCESS_EXPIRE_HOURS`
+- лимит скачиваний: `GUEST_ACCESS_MAX_DOWNLOADS`
+
+## Хранение файлов
+
+Product files хранятся в приватном S3-compatible object storage.
+
+Текущий dev-ориентированный сценарий:
+- локально используется `MinIO`;
+- в production предполагается `Contabo Object Storage`.
+
+Поддерживаемая схема ключей:
+- bucket: `products`
+- object key: `{product_slug}/{uuid4}.{ext}`
+
+`ProductFile` хранит только метаданные и `file_key`, а не локальный файл.
+
+### Что делает админка
+
+В Django Admin:
+- файл можно загрузить как `ProductFile`;
+- файл уходит напрямую в S3;
+- в БД сохраняются `file_key`, имя файла, MIME type, размер и checksum;
+- на продукт допускается только один активный архив.
+
+## Стек
 
 - Python `3.13`
 - Django `5.2`
 - PostgreSQL `16`
+- Redis
+- Celery
+- `django-celery-beat`
 - Django Allauth (`headless`, `socialaccount`)
 - Django REST Framework
-- Tailwind CSS `v4` через `django-tailwind-cli`
-- `htmx` для частичных обновлений интерфейса
-- Pydantic `v2` для typed data models в `libs`
-- Ruff для линтинга
-- `uv` для управления зависимостями и запуском команд
-- `docker-compose` для локального PostgreSQL и SMTP
-- Celery + Redis + `django-celery-beat` для фоновых и периодических задач
-
-## Архитектура проекта
-
-### Приложения
-
-- `apps/users` — пользователи, headless auth, интеграция с allauth.
-- `apps/pages` — статические и полу-статические страницы сайта.
-- `apps/products` — категории, товары, изображения, файлы, отзывы, каталог и product detail.
-- `apps/cart` — корзина, guest/user flow, merge в аккаунт, cart page.
-- `apps/orders` — заготовка под checkout и будущие заказы.
-
-### Библиотеки
-
-- `libs/express_pay` — typed HTTP-клиент Express Pay.
-- `libs/payments` — общие модели и protocol для платежного провайдера.
-
-### Шаблоны и статика
-
-- `templates/` — серверные шаблоны Django.
-- `assets/` — исходные CSS-файлы и Tailwind entrypoints.
-- `static/` — иконки, JS, изображения, в том числе `htmx` и прикладные скрипты.
-- `media/` — загружаемые product images.
-
-## Ключевые пользовательские сценарии
-
-### Каталог
-
-- каталог категорий доступен по `/catalog/`;
-- при выборе категории открывается товарный листинг;
-- desktop-каталог уже поддерживает:
-  - сортировку,
-  - фильтры,
-  - пагинацию,
-  - частичное обновление результатов через `htmx`.
-
-### Товар
-
-- каждая карточка товара открывается по URL `/products/<slug>/`;
-- product page берет реальные данные из БД;
-- отзывы привязаны к зарегистрированным пользователям;
-- форма отзыва не запрашивает имя отдельно, используется пользовательский аккаунт.
-
-### Корзина
-
-- для гостя корзина хранится в сессии;
-- для авторизованного пользователя корзина хранится в БД;
-- при логине guest cart merge-ится в пользовательскую корзину;
-- в каталоге состояние кнопки корзины синхронизировано с реальной корзиной;
-- удаление отдельного товара со страницы корзины работает без полной перезагрузки.
+- Tailwind CSS `v4`
+- `htmx`
+- Pydantic `v2`
+- `boto3`
+- Ruff
+- `uv`
 
 ## Локальный запуск
 
-### 1. Подготовить окружение
-
-Требуется:
-
-- установленный `uv`;
-- Python `3.13`;
-- Docker и Docker Compose для локального PostgreSQL и SMTP.
-
-### 2. Установить зависимости
+### 1. Установить зависимости
 
 ```bash
 uv sync
 ```
 
-### 3. Поднять инфраструктуру разработки
+### 2. Поднять dev-инфраструктуру
 
 ```bash
 make up-develop
 ```
 
 Это поднимет:
-
-- PostgreSQL на порту `5433`;
-- Redis на порту `6379`;
+- PostgreSQL на `5433`;
+- Redis на `6379`;
 - `smtp4dev` для просмотра писем.
 
-### 4. Настроить переменные окружения
+### 3. Подготовить `.env`
 
-Скопировать `.env.example` в `.env` и при необходимости скорректировать значения.
+Скопировать `.env.example` в `.env` и скорректировать значения.
 
-Минимально важные переменные:
-
-- `DJANGO_SECRET_KEY`
-- `DJANGO_DEBUG`
-- `DJANGO_ALLOWED_HOSTS`
+Ключевые переменные:
 - `DATABASE_URL`
 - `REDIS_URL`
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
+- `S3_ENDPOINT_URL`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_BUCKET_NAME`
+- `S3_PRESIGNED_EXPIRE_SECONDS`
+- `SITE_BASE_URL`
+- `GUEST_ACCESS_EXPIRE_HOURS`
+- `GUEST_ACCESS_MAX_DOWNLOADS`
+- `APP_DATA_ENCRYPTION_KEY`
 
-### 5. Применить миграции
+`APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
+
+### 4. Применить миграции
 
 ```bash
 uv run python manage.py migrate
 ```
 
-### 6. Создать администратора
+### 5. Создать суперпользователя
 
 ```bash
 uv run python manage.py createsuperuser
 ```
 
-### 7. Загрузить справочники каталога
+### 6. Загрузить fixture для тегов
 
 ```bash
 uv run python manage.py loaddata tags_fixture.json
 ```
 
-### 8. Запустить Django
+### 7. Запустить Django
 
 ```bash
 uv run python manage.py runserver
 ```
 
-### 9. Запустить Tailwind watcher
-
-В отдельном терминале:
+### 8. Запустить Tailwind watcher
 
 ```bash
 make tailwind
 ```
 
-### 10. Запустить Celery worker
-
-В отдельном терминале:
+### 9. Запустить Celery worker
 
 ```bash
 uv run celery -A config worker -l info
 ```
 
-### 11. Запустить Celery Beat
-
-В отдельном терминале:
+### 10. Запустить Celery beat
 
 ```bash
 uv run celery -A config beat -l info
 ```
 
-`django-celery-beat` уже подключен в проект. После миграций можно управлять периодическими задачами через Django Admin.
+## Настройка MinIO для разработки
+
+В `.env` можно использовать, например:
+
+```env
+S3_ENDPOINT_URL=http://127.0.0.1:9000
+S3_ACCESS_KEY_ID=minioadmin
+S3_SECRET_ACCESS_KEY=minioadmin
+S3_REGION_NAME=us-east-1
+S3_BUCKET_NAME=products
+S3_ADDRESSING_STYLE=path
+S3_USE_SSL=False
+```
+
+Важно:
+- bucket должен существовать;
+- файлы должны храниться приватно;
+- backend сам генерирует presigned URLs.
+
+## Celery и периодические задачи
+
+### Guest email outbox
+
+Task отправки писем:
+
+```text
+apps.access.tasks.send_guest_access_email_outbox_task
+```
+
+В Celery broker уходит только `outbox_id`. Raw tokens остаются только внутри зашифрованного payload в БД.
+
+### Cleanup старых outbox записей
+
+Task очистки:
+
+```text
+apps.access.tasks.cleanup_guest_access_email_outbox_task
+```
+
+Рекомендуется создать periodic task в Django Admin через `django-celery-beat`:
+- task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`
+- schedule: `daily` или `nightly`
+
+Retention настраивается через:
+- `GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS`
+- `GUEST_ACCESS_EMAIL_OUTBOX_FAILED_RETENTION_DAYS`
+
+Рекомендуемые значения по умолчанию:
+- `SENT`: `30` дней
+- `FAILED`: `90` дней
 
 ## Полезные команды
 
@@ -192,7 +278,7 @@ uv run celery -A config beat -l info
 make lint
 ```
 
-### Автоисправление Ruff
+### Автоисправление
 
 ```bash
 make fix
@@ -205,13 +291,29 @@ make makemigrations
 make migrate
 ```
 
-### Остановка локальной инфраструктуры
+### Запуск тестов
+
+Основной вариант:
+
+```bash
+uv run python manage.py test
+```
+
+Если в локальном окружении недоступен PostgreSQL test DB, для части тестов можно использовать временную SQLite-базу:
+
+```bash
+DATABASE_URL=sqlite:////tmp/palingames-test.sqlite3 uv run python manage.py test apps.access.tests apps.payments.tests
+```
+
+Это подходит для unit/integration тестов, которые не опираются на PostgreSQL-specific behaviour.
+
+### Остановка dev-инфраструктуры
 
 ```bash
 make down-develop
 ```
 
-### Остановка с очисткой volumes
+### Остановка с удалением volumes
 
 ```bash
 make down-v
@@ -219,92 +321,23 @@ make down-v
 
 ## Логирование
 
-В проекте настроено структурное логирование в JSON-формате.
+В проекте используется structured JSON logging.
 
-Основные свойства:
+Что есть сейчас:
+- события пишутся в stdout;
+- используется событийная модель логов;
+- есть `request_id` для HTTP и Celery chains;
+- чувствительные поля редактируются автоматически.
 
-- все логи пишутся в stdout в виде JSON-объектов;
-- события именуются по событийной модели, например: `app.started`, `request.started`, `order.creation.success`, `order.creation.failed`, `invoice.creation.enqueued`;
-- для каждого HTTP-запроса создается или принимается входящий `request_id` из заголовка `X-Request-ID`;
-- `request_id` добавляется в лог-контекст и возвращается клиенту в заголовке `X-Request-ID`;
-- при постановке Celery-задач `request_id` прокидывается через task headers, чтобы связать request- и async-цепочку;
-- в логах автоматически редактируются чувствительные поля, включая `token`, `password`, `email`, `authorization`, `cookie`, `signature`, `sms_phone` и другие похожие ключи.
+Примеры событий:
+- `order.paid`
+- `guest_access.granted`
+- `guest_access.email.sent`
+- `guest_access.email_outbox.created`
+- `guest_access.email_outbox.sent`
+- `guest_access.email_outbox.cleanup.completed`
 
-Пример структуры лога:
-
-```json
-{
-  "timestamp": "2026-03-22T11:51:16.280066+00:00",
-  "level": "INFO",
-  "logger": "apps.orders",
-  "event": "order.creation.success",
-  "message": "order.creation.success",
-  "request_id": "7e7f6f2e1dc54d93b9c3fd4b3956a2b4",
-  "context": {
-    "order_id": 42,
-    "checkout_type": "GUEST",
-    "items_count": 1,
-    "total_amount": "25.00",
-    "currency": 933
-  }
-}
-```
-
-Уровень логирования настраивается через переменную окружения:
-
-- `DJANGO_LOG_LEVEL=INFO`
-
-Ключевые точки инфраструктуры:
-
-- [apps/core/logging.py](/home/jendox/PycharmProjects/palingames/apps/core/logging.py) — formatter, redaction, context helpers;
-- [apps/core/middleware.py](/home/jendox/PycharmProjects/palingames/apps/core/middleware.py) — request context и `request_id`;
-- [apps/core/celery_logging.py](/home/jendox/PycharmProjects/palingames/apps/core/celery_logging.py) — перенос лог-контекста в Celery.
-
-## Тесты
-
-Базовые тесты в проекте уже есть, в том числе на:
-
-- каталог и его `htmx`-части;
-- alphabet navigator;
-- cart guest/auth flows.
-- orders/checkout flow;
-
-Запуск:
-
-```bash
-uv run python manage.py test
-```
-
-Если локальный PostgreSQL не поднят, тестовый прогон можно временно выполнить через SQLite:
-
-```bash
-DATABASE_URL=sqlite:////tmp/palingames-tests.sqlite3 uv run python manage.py test
-```
-
-## Платежи
-
-В проекте уже подготовлена typed-инфраструктура под Express Pay:
-
-- `libs/payments`
-- `libs/express_pay`
-
-Сейчас это именно клиентский слой, а не завершенная платежная интеграция. Для полноценного запуска магазина еще нужно:
-
-- ввести модели заказов и платежных инвойсов;
-- встроить Express Pay в checkout;
-- обработать webhook/уведомления об оплате;
-- реализовать выдачу временных ссылок на файлы после оплаты.
-
-## Что логично делать дальше
-
-Приоритетные следующие шаги:
-
-1. Довести checkout до создания реального `Order`.
-2. Встроить Express Pay EPOS в сервисный слой.
-3. Реализовать выдачу доступа к файлам после успешной оплаты.
-4. Добавить избранное с guest/user flow по тому же паттерну, что и корзина.
-5. Доработать mobile-версии каталога, корзины и checkout до полного parity.
-
-## Авторство
-
-Проект разрабатывается как storefront для Palin Games.
+Ключевые файлы:
+- [apps/core/logging.py](/home/jendox/PycharmProjects/palingames/apps/core/logging.py)
+- [apps/core/middleware.py](/home/jendox/PycharmProjects/palingames/apps/core/middleware.py)
+- [apps/core/celery_logging.py](/home/jendox/PycharmProjects/palingames/apps/core/celery_logging.py)

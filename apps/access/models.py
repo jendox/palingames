@@ -59,7 +59,9 @@ class GuestAccess(TimeStampedModel):
     )
     token_hash = models.CharField(_("Хеш токена"), max_length=64, unique=True)
     expires_at = models.DateTimeField(_("Истекает"), db_index=True)
-    used_at = models.DateTimeField(_("Использован"), null=True, blank=True)
+    last_used_at = models.DateTimeField(_("Последнее использование"), null=True, blank=True)
+    downloads_count = models.PositiveSmallIntegerField(_("Количество использований"), default=0)
+    max_downloads = models.PositiveSmallIntegerField(_("Максимум использований"), default=3)
     revoked_at = models.DateTimeField(_("Отозван"), null=True, blank=True)
     email = models.EmailField(_("Email"), db_index=True)
 
@@ -83,7 +85,15 @@ class GuestAccess(TimeStampedModel):
 
     @property
     def is_used(self) -> bool:
-        return self.used_at is not None
+        return self.downloads_count > 0
+
+    @property
+    def has_remaining_downloads(self) -> bool:
+        return self.downloads_count < self.max_downloads
+
+    @property
+    def remaining_downloads(self) -> int:
+        return max(self.max_downloads - self.downloads_count, 0)
 
     @property
     def is_revoked(self) -> bool:
@@ -91,4 +101,40 @@ class GuestAccess(TimeStampedModel):
 
     @property
     def is_active(self) -> bool:
-        return not self.is_expired and not self.is_used and not self.is_revoked
+        return not self.is_expired and self.has_remaining_downloads and not self.is_revoked
+
+
+class GuestAccessEmailOutbox(TimeStampedModel):
+    class GuestAccessEmailStatus(models.TextChoices):
+        PENDING = "PENDING", _("Ожидает отправки")
+        PROCESSING = "PROCESSING", _("Отправка")
+        SENT = "SENT", _("Отправлено")
+        FAILED = "FAILED", _("Ошибка")
+
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        related_name="guest_access_email_outboxes",
+        verbose_name=_("Заказ"),
+    )
+    email = models.EmailField(_("Email"), db_index=True)
+    payload_encrypted = models.BinaryField(_("Зашифрованное содержимое"))
+    status = models.CharField(
+        _("Статус"),
+        choices=GuestAccessEmailStatus.choices,
+        max_length=16,
+        default=GuestAccessEmailStatus.PENDING,
+        db_index=True,
+    )
+    attempts = models.PositiveSmallIntegerField(_("Количество попыток"), default=0)
+    last_error = models.CharField(_("Последняя ошибка"), max_length=512, null=True, blank=True)
+    last_attempt_at = models.DateTimeField(_("Последняя попытка"), null=True, blank=True)
+    sent_at = models.DateTimeField(_("Отправлено"), null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = _("Письмо с гостевыми ссылками")
+        verbose_name_plural = _("Письма с гостевыми ссылками")
+
+    def __str__(self) -> str:
+        return f"Guest email #{self.id} → {self.email}"

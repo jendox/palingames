@@ -1,7 +1,11 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
 
-from .models import GuestAccess, UserProductAccess
+from apps.orders.models import Order
+
+from .models import GuestAccess, GuestAccessEmailOutbox, UserProductAccess
+from .services import create_guest_access_email_outbox_for_order
+from .tasks import send_guest_access_email_outbox_task
 
 
 @admin.register(UserProductAccess)
@@ -64,13 +68,15 @@ class GuestAccessAdmin(admin.ModelAdmin):
         "product",
         "order",
         "expires_at",
-        "used_at",
+        "downloads_count",
+        "max_downloads",
+        "last_used_at",
         "revoked_at",
         "created_at",
     )
     list_filter = (
         "expires_at",
-        "used_at",
+        "last_used_at",
         "revoked_at",
         "created_at",
     )
@@ -103,7 +109,9 @@ class GuestAccessAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "expires_at",
-                    "used_at",
+                    "downloads_count",
+                    "max_downloads",
+                    "last_used_at",
                     "revoked_at",
                 ),
             },
@@ -118,3 +126,103 @@ class GuestAccessAdmin(admin.ModelAdmin):
             },
         ),
     )
+
+
+@admin.register(GuestAccessEmailOutbox)
+class GuestAccessEmailOutboxAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "email",
+        "order",
+        "status",
+        "attempts",
+        "last_attempt_at",
+        "sent_at",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "last_attempt_at",
+        "sent_at",
+        "created_at",
+    )
+    search_fields = (
+        "email",
+        "order__payment_account_no",
+        "order__email",
+    )
+    autocomplete_fields = ("order",)
+    actions = ("resend_selected_emails",)
+    readonly_fields = (
+        "payload_encrypted",
+        "created_at",
+        "updated_at",
+    )
+    ordering = ("-created_at", "-id")
+    save_on_top = True
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "order",
+                    "email",
+                    "status",
+                    "attempts",
+                ),
+            },
+        ),
+        (
+            _("Содержимое"),
+            {
+                "fields": (
+                    "payload_encrypted",
+                    "last_error",
+                ),
+            },
+        ),
+        (
+            _("Даты"),
+            {
+                "fields": (
+                    "last_attempt_at",
+                    "sent_at",
+                    "created_at",
+                    "updated_at",
+                ),
+            },
+        ),
+    )
+
+    @admin.action(description="Повторно отправить письма с новыми ссылками")
+    def resend_selected_emails(self, request, queryset):
+        queued = 0
+        skipped = 0
+
+        for outbox in queryset.select_related("order"):
+            order = outbox.order
+            if order.checkout_type != Order.CheckoutType.GUEST or order.status != Order.OrderStatus.PAID:
+                skipped += 1
+                continue
+
+            new_outbox = create_guest_access_email_outbox_for_order(order)
+            if new_outbox is None:
+                skipped += 1
+                continue
+
+            send_guest_access_email_outbox_task.delay(new_outbox.id)
+            queued += 1
+
+        if queued:
+            self.message_user(
+                request,
+                f"Поставлено в очередь писем: {queued}.",
+                level=messages.SUCCESS,
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"Пропущено записей: {skipped}.",
+                level=messages.WARNING,
+            )

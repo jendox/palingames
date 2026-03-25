@@ -2,10 +2,11 @@ import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from apps.access.models import UserProductAccess
+from apps.access.models import GuestAccess, GuestAccessEmailOutbox, UserProductAccess
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
 from apps.products.models import Product
@@ -73,7 +74,8 @@ class ExpressPayNotificationViewTests(TestCase):
         }
 
     def test_notification_marks_invoice_and_order_as_paid(self):
-        response = self.client.post(self.notification_url, data=self._build_request_payload())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload())
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
@@ -83,6 +85,7 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(self.order.status, Order.OrderStatus.PAID)
         self.assertTrue(PaymentEvent.objects.filter(invoice=self.invoice, is_processed=True).exists())
         self.assertFalse(UserProductAccess.objects.exists())
+        self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
 
     def test_notification_creates_access_for_authenticated_user(self):
         user = get_user_model().objects.create_user(email="paid@example.com", password="test-pass-123")
@@ -126,6 +129,25 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(UserProductAccess.objects.filter(user=user, product=self.product, order=order).exists())
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        GUEST_ACCESS_EXPIRE_HOURS=24,
+        GUEST_ACCESS_MAX_DOWNLOADS=3,
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_notification_sends_guest_download_email(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.order.payment_account_no, mail.outbox[0].subject)
+        outbox = GuestAccessEmailOutbox.objects.get(order=self.order)
+        self.assertEqual(outbox.status, GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT)
 
     def test_notification_is_idempotent_for_same_notification(self):
         payload = self._build_request_payload()
