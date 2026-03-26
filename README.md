@@ -383,6 +383,12 @@ http://127.0.0.1:3000
 План метрик и дешбордов:
 - [docs/metrics.md](/home/jendox/PycharmProjects/palingames/docs/metrics.md)
 
+Отдельная инструкция по локальному использованию Prometheus и Grafana:
+- [docs/monitoring-local.md](/home/jendox/PycharmProjects/palingames/docs/monitoring-local.md)
+
+Готовые PromQL-запросы и панели для первого локального dashboard:
+- [docs/dashboard-local.md](/home/jendox/PycharmProjects/palingames/docs/dashboard-local.md)
+
 ## Настройка MinIO для разработки
 
 В `.env` можно использовать, например:
