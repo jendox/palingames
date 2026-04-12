@@ -88,6 +88,7 @@ class CatalogView(TemplateView):
             "price": format_price(product.price, product.currency),
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(selected_category or product.categories.first()),
+            "content": product.content,
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
             "is_favorited": False,
             "is_in_cart": product.id in cart_ids and not is_purchased,

@@ -32,6 +32,12 @@ tailwind: ## Запустить сервер tailwind
 		python manage.py tailwind watch; \
 	fi
 
+celery-worker: ## Запустить воркер celery
+	$(UV) run celery -A config worker -l info
+
+celery-beat: ## Запустить celery beat
+	$(UV) run celery -A config beat -l info
+
 list: ## Отображает список доступных команд и их описания
 	@echo "Cписок доступных команд:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

@@ -369,6 +369,7 @@ function openCatalogPreviewDialog(trigger) {
   const price = dialog.querySelector("[data-catalog-preview-price]");
   const rating = dialog.querySelector("[data-catalog-preview-rating]");
   const link = dialog.querySelector("[data-catalog-preview-link]");
+  const content = dialog.querySelector("[data-catalog-preview-content]");
 
   if (image instanceof HTMLImageElement) {
     image.src = trigger.dataset.previewImage || "";
@@ -388,6 +389,9 @@ function openCatalogPreviewDialog(trigger) {
   }
   if (link instanceof HTMLAnchorElement) {
     link.href = trigger.dataset.previewUrl || "#";
+  }
+  if (content instanceof HTMLElement) {
+    content.textContent = trigger.dataset.previewContent || "";
   }
 
   if (!dialog.open) {
@@ -499,6 +503,7 @@ function fillCatalogMobileProduct(node, product) {
     previewButton.dataset.previewRating = product.rating || "";
     previewButton.dataset.previewImage = product.image_url || "";
     previewButton.dataset.previewUrl = product.url || "#";
+    previewButton.dataset.previewContent = product.content || "";
   }
 
   const cartButton = node.querySelector("[data-catalog-cart-toggle]");
