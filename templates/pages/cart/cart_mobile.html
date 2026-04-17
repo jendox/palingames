@@ -10,8 +10,17 @@
       {% for item in cart_items %}
         {% include "pages/cart/mobile/_cart_item.html" %}
       {% empty %}
-        <div class="mx-auto w-full max-w-[320px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[20px] text-center text-[14px] font-semibold text-[var(--color-black-80)]">
-          {% trans "Корзина пока пуста." %}
+        <div class="text-center text-[14px] leading-[18px] text-[var(--color-black)]">
+          <p class="text-[16px] font-bold leading-[20px]">{% trans "Корзина пока пуста." %}</p>
+          <p class="mt-[10px] text-[13px] leading-[18px] text-[var(--color-black-80)]">
+            {% trans "Загляните в каталог и добавьте игры, которые вам понравились." %}
+          </p>
+          <a
+            href="{% url 'catalog' %}"
+            class="btn-primary btn-primary--h40 mt-[18px] inline-flex items-center justify-center px-[22px] text-[14px]"
+          >
+            {% trans "Перейти в каталог" %}
+          </a>
         </div>
       {% endfor %}
     </div>

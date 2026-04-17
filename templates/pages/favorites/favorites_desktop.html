@@ -1,6 +1,6 @@
 {% load static i18n %}
 
-<section class="relative mt-[70px] min-h-[600px] overflow-hidden bg-[var(--color-white)]">
+<section class="relative overflow-hidden bg-[var(--color-white)]">
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute left-[168px] top-[92px] w-[34px] opacity-90" draggable="false">
     <img src="{% static 'images/decor/stars/star-purple.svg' %}" alt="" class="absolute left-[86px] top-[72px] w-[18px] opacity-80" draggable="false">
@@ -11,23 +11,25 @@
     <img src="{% static 'images/decor/stars/star-orange.svg' %}" alt="" class="absolute right-[170px] bottom-[96px] w-[34px] opacity-85" draggable="false">
   </div>
 
-  <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
-    {% trans "Избранное" %}
-  </h1>
+  <div class="relative z-10 mx-auto max-w-[1500px] px-6 pb-[90px] pt-[56px] min-[1280px]:px-[42px] min-[1600px]:px-[72px]">
+    <h1 class="text-center text-[32px] font-bold uppercase leading-[32px] text-[var(--color-black)] min-[1280px]:text-[40px] min-[1280px]:leading-[40px]">
+      {% trans "Избранное" %}
+    </h1>
 
-  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
     {% if favorites_count %}
-      <div class="mt-[10px] flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
-        {% blocktrans count counter=favorites_count %}{{ counter }} товар{% plural %}{{ counter }} товаров{% endblocktrans %}
-      </div>
+      <div class="mt-[48px] min-[1200px]:mt-[70px]" data-favorites-listing>
+        <div class="flex items-center justify-end text-[14px] font-bold text-[var(--color-black-80)]">
+          {% blocktrans count counter=favorites_count %}{{ counter }} товар{% plural %}{{ counter }} товаров{% endblocktrans %}
+        </div>
 
-      <div class="mt-[30px] grid grid-cols-1 justify-items-center gap-x-[24px] gap-y-[46px] min-[1180px]:grid-cols-2 min-[1500px]:grid-cols-3">
-        {% for product in favorites_products %}
-          {% include "pages/catalog/desktop/product_card.html" %}
-        {% endfor %}
+        <div class="mt-[30px] grid grid-cols-1 justify-items-center gap-x-[24px] gap-y-[46px] min-[1180px]:grid-cols-2 min-[1500px]:grid-cols-3" data-favorites-products-grid>
+          {% for product in favorites_products %}
+            {% include "pages/catalog/desktop/product_card.html" %}
+          {% endfor %}
+        </div>
       </div>
     {% else %}
-      <div class="mx-auto mt-[60px] max-w-[640px] rounded-[24px] bg-[var(--color-lilac)] px-[40px] py-[48px] text-center text-[18px] leading-[24px] text-[var(--color-black)]">
+      <div class="mx-auto mt-[48px] w-full max-w-[640px] min-[1200px]:mt-[70px] text-center text-[18px] leading-[24px] text-[var(--color-black)]">
         <p class="text-[22px] font-bold leading-[28px]">{% trans "В избранном пока пусто." %}</p>
         <p class="mt-[12px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
           {% trans "Загляните в каталог и добавьте игры, которые вам понравились." %}

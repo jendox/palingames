@@ -43,8 +43,17 @@
           {% for item in cart_items %}
             {% include "pages/cart/desktop/_cart_item.html" %}
           {% empty %}
-            <div class="mx-auto w-full max-w-[640px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[24px] py-[30px] text-center text-[18px] font-semibold text-[var(--color-black-80)]">
-              {% trans "Корзина пока пуста." %}
+            <div class="mx-auto w-full max-w-[640px] text-center text-[18px] leading-[24px] text-[var(--color-black)]">
+              <p class="text-[22px] font-bold leading-[28px]">{% trans "Корзина пока пуста." %}</p>
+              <p class="mt-[12px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
+                {% trans "Загляните в каталог и добавьте игры, которые вам понравились." %}
+              </p>
+              <a
+                href="{% url 'catalog' %}"
+                class="btn-primary mt-[24px] inline-flex items-center justify-center px-[28px] text-[18px]"
+              >
+                {% trans "Перейти в каталог" %}
+              </a>
             </div>
           {% endfor %}
         </div>

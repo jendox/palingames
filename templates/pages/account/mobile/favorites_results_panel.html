@@ -1,0 +1,34 @@
+{% load static i18n %}
+
+<div id="account-favorites-mobile-results" data-favorites-listing>
+  <p class="mt-[10px] text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
+    {% if account_favorites_page_obj and account_favorites_count %}
+      {{ account_favorites_page_obj.start_index }}-{{ account_favorites_page_obj.end_index }} {% trans "из" %} {{ account_favorites_count }}
+    {% else %}
+      0-0 {% trans "из" %} 0
+    {% endif %}
+  </p>
+
+  <div
+    id="account-favorites-mobile-products-grid"
+    class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]"
+    data-catalog-mobile-products
+    data-favorites-products-grid
+  >
+    {% for product in account_favorites_products %}
+      {% include "pages/catalog/mobile/_product_card.html" %}
+    {% endfor %}
+  </div>
+
+  <p
+    class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]"
+    data-catalog-mobile-empty
+    {% if account_favorites_products %}hidden{% endif %}
+  >
+    {% trans "В избранном пока пусто." %}
+  </p>
+
+  <div class="mt-[22px]">
+    {% include "pages/catalog/mobile/pagination.html" with page_obj=account_favorites_page_obj pagination_items=account_favorites_mobile_pagination_items pagination_scroll_anchor="account-favorites-mobile-controls" %}
+  </div>
+</div>

@@ -38,6 +38,39 @@
     font-family: "Airfool", ui-sans-serif, system-ui, sans-serif;
   }
 
+  /* Крошки: явные px — arbitrary text-[8px] из шаблонов не всегда попадает в JIT-сборку Tailwind */
+  .text-breadcrumbs-trail {
+    font-size: 8px;
+    font-weight: 600;
+    line-height: 10px;
+    color: var(--color-black-80);
+  }
+
+  .text-breadcrumbs-trail a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .text-breadcrumbs-trail a:hover {
+    color: var(--color-pink);
+  }
+
+  .text-breadcrumbs-trail [aria-current="page"] {
+    color: var(--color-black);
+  }
+
+  .text-breadcrumbs-trail .breadcrumb-sep {
+    color: var(--color-grey);
+  }
+
+  @media (min-width: 1024px) {
+    .text-breadcrumbs-trail {
+      font-size: 16px;
+      line-height: 20px;
+    }
+  }
+
   .checkbox-pink {
     appearance: none;
     display: inline-block;
@@ -176,6 +209,10 @@
   .btn-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  .btn-primary.btn-primary--h40 {
+    height: 40px;
   }
 
   .btn-outline-pink {

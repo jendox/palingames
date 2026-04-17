@@ -1,0 +1,114 @@
+{% load static i18n %}
+
+<article class="w-full max-w-[320px] justify-self-center overflow-hidden rounded-[12px] bg-[var(--color-white)] shadow-[0_12px_28px_rgba(0,0,0,0.07)]">
+  <div class="relative">
+    <a href="{{ product.url }}" class="block">
+      <img
+        src="{{ product.image_url }}"
+        alt="{{ product.title }}"
+        class="aspect-[280/340] w-full object-cover"
+        draggable="false"
+      >
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[118px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[6px]"></div>
+
+      <div class="absolute left-[10px] top-[10px]">
+        <div class="inline-flex items-center gap-[6px] rounded-[6px] bg-[rgba(31,31,31,0.3)] px-[10px] py-[5px] backdrop-blur-[6px]">
+          <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[18px]" aria-hidden="true">
+          <span class="text-[15px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
+        </div>
+      </div>
+
+      <div class="absolute inset-x-0 bottom-0 h-[118px] px-[14px] pb-[12px] text-[var(--color-white)]">
+        <div class="pt-[18px]">
+          <div
+            class="min-h-[44px] text-[16px] font-bold leading-[1.2]"
+            style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
+          >
+            {{ product.title }}
+          </div>
+          <div class="text-[12px] font-normal leading-[1.2] text-[rgba(255,255,255,0.84)]">
+            {{ product.category }}
+          </div>
+        </div>
+        <div class="absolute inset-x-[14px] bottom-[12px] flex items-center justify-between">
+          <div class="text-[16px] font-black leading-none">
+            {{ product.price }}
+          </div>
+        </div>
+      </div>
+    </a>
+
+    <div class="absolute right-[10px] top-[10px] z-10 flex flex-col gap-[10px]">
+      <button
+        type="button"
+        class="inline-flex h-[32px] w-[34px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+        aria-label="{% if product.is_favorited %}{% trans 'Удалить из избранного' %}{% else %}{% trans 'Добавить в избранное' %}{% endif %}"
+        data-catalog-favorite-toggle
+        data-product-id="{{ product.id }}"
+        data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}"
+      >
+        <img
+          src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
+          alt=""
+          class="size-[34px]"
+          aria-hidden="true"
+          data-favorite-icon
+          data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
+          data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
+        >
+      </button>
+      <button
+        type="button"
+        class="inline-flex h-[32px] w-[34px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+        aria-label="{% trans 'Быстрый просмотр товара' %}"
+        data-catalog-preview-open
+        data-preview-title="{{ product.title }}"
+        data-preview-category="{{ product.category }}"
+        data-preview-price="{{ product.price }}"
+        data-preview-rating="{{ product.rating }}"
+        data-preview-image="{{ product.image_url }}"
+        data-preview-url="{{ product.url }}"
+        data-preview-content="{{ product.content }}"
+      >
+        <img src="{% static 'images/icons/preview.svg' %}" alt="" class="size-[34px]" aria-hidden="true">
+      </button>
+    </div>
+
+    <div class="absolute bottom-[12px] right-[14px] z-10">
+      {% if product.is_purchased %}
+        <a
+          href="{{ product.download_url }}"
+          class="inline-flex size-[48px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
+          aria-label="{% trans 'Скачать' %}"
+          title="{% trans 'Скачать' %}"
+        >
+          <img
+            src="{% static 'images/icons/download.svg' %}"
+            alt=""
+            class="h-[48px] w-[48px]"
+            aria-hidden="true"
+          >
+        </a>
+      {% else %}
+        <button
+          type="button"
+          class="catalog-card-cart-button inline-flex size-[48px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04] {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
+          aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}"
+          data-catalog-cart-toggle
+          data-product-id="{{ product.id }}"
+          data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"
+        >
+          <img
+            src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}"
+            alt=""
+            class="h-[48px] w-[48px]"
+            aria-hidden="true"
+            data-cart-icon
+            data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
+            data-icon-full="{% static 'images/icons/cart-full.svg' %}"
+          >
+        </button>
+      {% endif %}
+    </div>
+  </div>
+</article>

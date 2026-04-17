@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 
 from apps.access.services import get_user_product_access_ids
+from apps.favorites.services import get_account_favorites_context
 from apps.orders.models import Order
 from apps.products.pricing import format_price
 
@@ -85,6 +86,10 @@ class AccountPageView(TemplateView):
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request") == "true":
+            hx_target = self.request.headers.get("HX-Target", "").strip().lstrip("#")
+            is_favorites_tab = _get_active_tab(self.request) == AccountTab.FAVORITES
+            if hx_target == "account-favorites-desktop-results" and is_favorites_tab:
+                return ["pages/account/desktop/_account_favorites_desktop_results.html"]
             return ["pages/account/desktop/_shell.html"]
         return [self.template_name]
 
@@ -100,6 +105,7 @@ class AccountPageView(TemplateView):
         password_form_saved = kwargs.get("password_form_saved", False)
 
         context["active_tab"] = active_tab
+        context["open_account_favorites_mobile"] = active_tab == AccountTab.FAVORITES
         context["active_tab_template"] = self.tab_templates[active_tab]
         context["demo_mode"] = self.request.GET.get("demo") == "1"
         context["personal_form"] = personal_form
@@ -113,6 +119,7 @@ class AccountPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Личный кабинет"},
         ]
+        context.update(get_account_favorites_context(self.request))
         return context
 
     def _get_orders_context(self) -> list[dict]:

@@ -1,0 +1,30 @@
+{% load i18n %}
+
+<dialog
+  id="accountFavoritesMobileSortDialog"
+  class="m-auto w-[calc(100%-24px)] max-w-[356px] rounded-[18px] border-none bg-transparent p-0 text-[var(--color-black)] backdrop:bg-black/30"
+>
+  <div tabindex="-1" class="rounded-[18px] bg-[var(--color-white)] px-[18px] pb-[20px] pt-[18px] shadow-[0_20px_40px_rgba(0,0,0,0.12)]">
+    <p class="text-[18px] font-bold leading-[22px]">{% trans "Сортировка" %}</p>
+
+    <div class="mt-[18px] space-y-[14px]">
+      {% for option in account_favorites_sort_options %}
+        <a
+          href="{% querystring tab='favorites' sort=option.value page=None %}"
+          class="flex min-h-[28px] w-full items-center rounded-[8px] px-[4px] py-[6px] text-left text-[15px] hover:bg-[var(--color-lilac)]/40"
+        >
+          <span class="checkbox-option">
+            <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
+            <span class="font-normal leading-[18px]">{{ option.label }}</span>
+          </span>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="mt-[18px] flex justify-center">
+      <a href="{% querystring tab='favorites' sort=None page=None %}" class="btn-reset-control">
+        {% trans "сбросить" %}
+      </a>
+    </div>
+  </div>
+</dialog>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch
 from django.templatetags.static import static
@@ -11,6 +12,19 @@ from apps.products.models import Product, ProductImage
 from apps.products.pricing import format_price
 
 from .models import Favorite
+
+ACCOUNT_FAVORITES_PER_PAGE = 8
+
+ACCOUNT_FAVORITES_SORT_OPTIONS = (
+    ("title", "имя"),
+    ("price_desc", "цена по убыванию"),
+    ("price_asc", "цена по возрастанию"),
+    ("newest", "новые игры"),
+    ("oldest", "старые игры"),
+)
+
+_MOBILE_PAGINATION_COMPACT_LIMIT = 3
+_MOBILE_PAGINATION_LEADING_WINDOW = 2
 
 SESSION_FAVORITES_KEY = "guest_favorite_product_ids"
 
@@ -107,18 +121,39 @@ def merge_guest_favorites_to_user(request, user) -> None:
     _set_guest_favorite_ids(request, [])
 
 
+def _format_category_label(category) -> str:
+    if category is None:
+        return ""
+
+    replacements = (
+        ("ческие игры", "ческая игра"),
+        ("тивные игры", "тивная игра"),
+        ("ные игры", "ная игра"),
+        ("ые игры", "ая игра"),
+        ("ие игры", "ая игра"),
+        ("ги", "га"),
+    )
+
+    title = category.title
+    for source, target in replacements:
+        if title.endswith(source):
+            return title[: -len(source)] + target
+    return title
+
+
 def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]) -> dict:
     primary_kind = product.subtypes.first() or product.categories.first()
     primary_category = product.categories.first()
     primary_image = next(iter(product.images.all()), None)
     is_purchased = product.id in purchased_ids
+    category_label = _format_category_label(primary_category) if primary_category else ""
     return {
         "id": product.id,
         "title": product.title,
         "url": product.get_absolute_url(),
         "price": format_price(product.price, product.currency),
         "kind": primary_kind.title if primary_kind else "",
-        "category": primary_category.title if primary_category else "",
+        "category": category_label,
         "content": product.content,
         "rating": f"{product.average_rating:.1f}".replace(".", ","),
         "is_favorited": True,
@@ -164,4 +199,128 @@ def get_favorites_page_context(request) -> dict:
     return {
         "favorites_products": cards,
         "favorites_count": len(cards),
+    }
+
+
+def _mobile_pagination_page_item(page_number: int, current_page: int) -> dict:
+    return {
+        "type": "page",
+        "number": page_number,
+        "current": page_number == current_page,
+    }
+
+
+def _build_mobile_pagination(page_obj) -> list[dict]:
+    total_pages = page_obj.paginator.num_pages
+    current_page = page_obj.number
+
+    if total_pages <= 1:
+        return []
+
+    if total_pages <= _MOBILE_PAGINATION_COMPACT_LIMIT:
+        return [
+            _mobile_pagination_page_item(page_number, current_page)
+            for page_number in range(1, total_pages + 1)
+        ]
+
+    if current_page <= _MOBILE_PAGINATION_LEADING_WINDOW:
+        visible_pages = (1, 2, 3, total_pages)
+        return [
+            *[
+                _mobile_pagination_page_item(page_number, current_page)
+                for page_number in visible_pages[:-1]
+            ],
+            {"type": "ellipsis"},
+            _mobile_pagination_page_item(visible_pages[-1], current_page),
+        ]
+
+    if current_page >= total_pages - 1:
+        trailing_pages = (1, total_pages - 2, total_pages - 1, total_pages)
+        return [
+            _mobile_pagination_page_item(trailing_pages[0], current_page),
+            {"type": "ellipsis"},
+            *[
+                _mobile_pagination_page_item(page_number, current_page)
+                for page_number in trailing_pages[1:]
+            ],
+        ]
+
+    return [
+        _mobile_pagination_page_item(1, current_page),
+        {"type": "ellipsis"},
+        _mobile_pagination_page_item(current_page, current_page),
+        {"type": "ellipsis"},
+        _mobile_pagination_page_item(total_pages, current_page),
+    ]
+
+
+def _apply_favorite_sort(queryset, sort_value: str):
+    sort_map = {
+        "price_asc": ("product__price", "product__title"),
+        "price_desc": ("-product__price", "product__title"),
+        "title": ("product__title",),
+        "newest": ("-created_at", "product__title"),
+        "oldest": ("created_at", "product__title"),
+    }
+    return queryset.order_by(*sort_map.get(sort_value, sort_map["newest"]))
+
+
+def get_account_favorites_context(request) -> dict:
+    """Authenticated ЛК: избранное с сортировкой и пагинацией (как каталог)."""
+    if not request.user.is_authenticated:
+        return {
+            "account_favorites_products": [],
+            "account_favorites_page_obj": None,
+            "account_favorites_count": 0,
+            "account_favorites_sort_value": "",
+            "account_favorites_sort_options": [],
+            "account_favorites_mobile_pagination_items": [],
+        }
+
+    sort_value = request.GET.get("sort", "") or "newest"
+    valid_sorts = {value for value, _ in ACCOUNT_FAVORITES_SORT_OPTIONS}
+    if sort_value not in valid_sorts:
+        sort_value = "newest"
+
+    page_raw = request.GET.get("page") or 1
+    try:
+        page_number = int(page_raw)
+    except (TypeError, ValueError):
+        page_number = 1
+
+    base_qs = (
+        Favorite.objects.filter(user=request.user)
+        .select_related("product")
+        .prefetch_related(
+            "product__categories",
+            "product__subtypes",
+            Prefetch("product__images", queryset=ProductImage.objects.order_by("order")),
+        )
+    )
+    base_qs = _apply_favorite_sort(base_qs, sort_value)
+
+    paginator = Paginator(base_qs, ACCOUNT_FAVORITES_PER_PAGE)
+    page_obj = paginator.get_page(page_number)
+
+    favorite_rows = list(page_obj.object_list)
+    products = [row.product for row in favorite_rows]
+
+    product_ids = [product.id for product in products]
+    cart_ids = set(get_cart_product_ids(request))
+    purchased_ids = get_user_product_access_ids(request.user, product_ids=product_ids)
+
+    cards = [_build_favorite_card(product, cart_ids=cart_ids, purchased_ids=purchased_ids) for product in products]
+
+    sort_options = [
+        {"value": value, "label": label, "selected": value == sort_value}
+        for value, label in ACCOUNT_FAVORITES_SORT_OPTIONS
+    ]
+
+    return {
+        "account_favorites_products": cards,
+        "account_favorites_page_obj": page_obj,
+        "account_favorites_count": paginator.count,
+        "account_favorites_sort_value": sort_value,
+        "account_favorites_sort_options": sort_options,
+        "account_favorites_mobile_pagination_items": _build_mobile_pagination(page_obj),
     }

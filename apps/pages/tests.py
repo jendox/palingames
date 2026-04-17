@@ -5,8 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
+from apps.favorites.models import Favorite
 from apps.orders.models import Order, OrderItem
-from apps.products.models import Product
+from apps.products.models import Category, Product
 
 
 class AccountOrdersDownloadTests(TestCase):
@@ -48,3 +49,38 @@ class AccountOrdersDownloadTests(TestCase):
             order_item["download_url"],
             reverse("product-download", kwargs={"product_id": self.product.id}),
         )
+
+
+class AccountFavoritesTabTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(email="fav-tab@example.com", password="test-pass-123")
+        cls.category = Category.objects.create(title="Дидактические игры", slug="didakticheskie-igry-fav")
+        cls.product = Product.objects.create(title="Избранный товар", slug="fav-tab-product", price=Decimal("19.00"))
+        cls.product.categories.add(cls.category)
+
+    def test_favorites_tab_lists_saved_products(self):
+        Favorite.objects.create(user=self.user, product=self.product)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("account"), {"tab": "favorites"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["account_favorites_count"], 1)
+        cards = response.context["account_favorites_products"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["id"], self.product.id)
+
+    def test_favorites_tab_htmx_target_results_returns_fragment(self):
+        Favorite.objects.create(user=self.user, product=self.product)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("account"),
+            {"tab": "favorites"},
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="account-favorites-desktop-results",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "pages/account/desktop/_account_favorites_desktop_results.html")

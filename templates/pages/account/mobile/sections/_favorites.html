@@ -1,6 +1,6 @@
 {% load static i18n %}
 
-<details class="group rounded-[10px]" data-account-section="favorites">
+<details class="group rounded-[10px]" data-account-section="favorites" {% if open_account_favorites_mobile %}open{% endif %}>
   <summary class="account-nav-item w-full cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden">
     <span class="inline-flex items-center gap-[10px] text-[16px] font-bold">
       <img
@@ -21,95 +21,55 @@
     >
   </summary>
 
-  <div class="mt-[20px]" data-account-favorites>
-    <div class="flex items-center justify-between gap-[10px]">
-      <button
-        type="button"
-        data-account-filter="favorites"
-        class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border-none bg-[var(--color-white)]"
-        aria-label="{% trans 'Фильтр избранного' %}"
-      >
-        <img
-          src="{% static 'images/icons/filter-icon.svg' %}"
-          alt=""
-          class="h-[28px] w-[36px]"
-          aria-hidden="true"
-          draggable="false"
-        >
-      </button>
-
-      <div class="flex items-center gap-[20px]">
-        <button
-          type="button"
-          data-account-favorites-view="list"
-          aria-pressed="false"
-          class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
-          aria-label="{% trans 'Вид списком' %}"
-        >
-          <img
-            src="{% static 'images/icons/list-view.svg' %}"
-            alt=""
-            class="h-[16px] w-[16px]"
-            aria-hidden="true"
-            draggable="false"
-          >
-        </button>
-        <button
-          type="button"
-          data-account-favorites-view="grid"
-          aria-pressed="false"
-          class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
-          aria-label="{% trans 'Вид плиткой' %}"
-        >
-          <img
-            src="{% static 'images/icons/grid-view.svg' %}"
-            alt=""
-            class="h-[16px] w-[16px]"
-            aria-hidden="true"
-            draggable="false"
-          >
-        </button>
-      </div>
-    </div>
-
-    <div class="mt-[15px]" data-account-favorites-list></div>
-    <p class="mt-[15px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-account-favorites-empty>
-      {% trans "В избранном пока пусто." %}
-    </p>
-    <nav class="account-pagination mt-[15px]" aria-label="{% trans 'Пагинация избранного' %}" data-account-favorites-pagination data-pagination-variant="mobile"></nav>
-
-    <template data-account-favorite-template>
-      <div class="relative overflow-hidden rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)]">
-        <div class="aspect-[4/3] overflow-hidden bg-[var(--color-lilac)]">
-          <img
-            data-fav-img
-            src="{% static 'images/home/hero/owl.svg' %}"
-            alt=""
-            class="h-full w-full object-cover"
-            aria-hidden="true"
-            draggable="false"
-          >
-        </div>
-        <div class="p-[10px]">
-          <div class="text-[12px] font-bold leading-[14px]" data-fav-title></div>
-          <div class="mt-[8px] flex items-center justify-between gap-[10px]">
-            <div class="text-[12px] font-bold leading-[14px] text-[var(--color-orange)]" data-fav-price></div>
+  <div class="mt-[20px]" data-account-favorites data-account-favorites-from-server>
+    {% if account_favorites_count %}
+      <section class="mx-auto max-w-[356px]" data-catalog-mobile-listing>
+        <div id="account-favorites-mobile-controls" class="mt-[18px]" style="scroll-margin-top: 24px;">
+          <div class="flex items-center justify-between gap-[10px]">
             <button
               type="button"
-              class="inline-flex h-[24px] w-[24px] items-center justify-center rounded-full bg-[var(--color-white)] shadow-[var(--shadow-default)]"
-              aria-label="{% trans 'Убрать из избранного' %}"
+              data-dialog-open="accountFavoritesMobileSortDialog"
+              class="inline-flex h-[28px] w-[36px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.06)] bg-[var(--color-white)]"
+              aria-label="{% trans 'Сортировка избранного' %}"
             >
-              <img
-                src="{% static 'images/icons/favorite-active.svg' %}"
-                alt=""
-                class="h-[14px] w-[14px]"
-                aria-hidden="true"
-                draggable="false"
-              >
+              <img src="{% static 'images/icons/filter-icon.svg' %}" alt="" class="h-[28px] w-[36px]" aria-hidden="true" draggable="false">
             </button>
+
+            <div class="flex items-center gap-[14px]">
+              <button
+                type="button"
+                data-catalog-mobile-view="list"
+                aria-pressed="false"
+                class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-40"
+                aria-label="{% trans 'Вид списком' %}"
+              >
+                <img src="{% static 'images/icons/list-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
+              </button>
+              <button
+                type="button"
+                data-catalog-mobile-view="grid"
+                aria-pressed="false"
+                class="inline-flex h-[24px] w-[24px] items-center justify-center opacity-100"
+                aria-label="{% trans 'Вид плиткой' %}"
+              >
+                <img src="{% static 'images/icons/grid-view.svg' %}" alt="" class="h-[16px] w-[16px]" aria-hidden="true" draggable="false">
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </template>
+
+        {% include "pages/account/mobile/favorites_results_panel.html" %}
+
+        {{ account_favorites_products|json_script:"catalog-mobile-products-data" }}
+
+        {% include "pages/catalog/mobile/_mobile_grid_list_templates.html" %}
+      </section>
+
+      {% include "pages/account/mobile/favorites_sort_dialog.html" %}
+    {% else %}
+      <p class="text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "В избранном пока пусто." %}
+      </p>
+    {% endif %}
   </div>
 </details>

@@ -655,6 +655,31 @@ function initCatalogMobileListing(root = document) {
   });
 }
 
+function removeProductFromFavoritesListing(button, listingRoot, productId) {
+  const card = button.closest("article");
+  if (card instanceof HTMLElement) {
+    card.remove();
+  }
+
+  const mobileListing = listingRoot.closest("[data-catalog-mobile-listing]");
+  if (
+    mobileListing &&
+    mobileListing._catalogMobileState &&
+    Array.isArray(mobileListing._catalogMobileState.products)
+  ) {
+    mobileListing._catalogMobileState.products = mobileListing._catalogMobileState.products.filter(
+      (p) => Number(p.id) !== Number(productId),
+    );
+  }
+
+  const grid = listingRoot.querySelector("[data-favorites-products-grid]");
+  const remaining = grid ? grid.querySelectorAll("article").length : listingRoot.querySelectorAll("article").length;
+
+  if (remaining === 0) {
+    window.location.reload();
+  }
+}
+
 function initCatalogProductCards(root = document) {
   root.querySelectorAll("[data-catalog-favorite-toggle]").forEach((button) => {
     if (button.dataset.favoriteBound === "true") {
@@ -676,19 +701,34 @@ function initCatalogProductCards(root = document) {
         return;
       }
 
+      const listingRoot = button.closest("[data-favorites-listing]");
       const previousState = button.dataset.favorited === "true";
       const optimisticState = !previousState;
-      setFavoriteState(button, optimisticState);
+      const isUnfavoriteFromFavoritesList = Boolean(listingRoot && previousState);
+
+      if (!isUnfavoriteFromFavoritesList) {
+        setFavoriteState(button, optimisticState);
+      }
 
       button.dataset.favoritePending = "true";
       button.setAttribute("aria-busy", "true");
 
       try {
         const payload = await toggleFavoriteOnServer(productId);
+        if (isUnfavoriteFromFavoritesList) {
+          if (payload.is_favorited === false) {
+            removeProductFromFavoritesListing(button, listingRoot, productId);
+            return;
+          }
+          setFavoriteState(button, true);
+          return;
+        }
         setFavoriteState(button, Boolean(payload.is_favorited));
       } catch (error) {
         console.error(error);
-        setFavoriteState(button, previousState);
+        if (!isUnfavoriteFromFavoritesList) {
+          setFavoriteState(button, previousState);
+        }
       } finally {
         button.dataset.favoritePending = "false";
         button.removeAttribute("aria-busy");

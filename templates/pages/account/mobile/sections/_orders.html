@@ -95,14 +95,9 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[16px]">
-        <p class="text-[14px] font-bold leading-[18px] text-[var(--color-black)]">
-          {% trans "У вас пока нет заказов." %}
-        </p>
-        <p class="mt-[10px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "После оформления и оплаты заказа он появится здесь вместе с текущим статусом." %}
-        </p>
-      </div>
+      <p class="text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "У вас пока нет заказов." %}
+      </p>
     {% endif %}
   </div>
 </details>

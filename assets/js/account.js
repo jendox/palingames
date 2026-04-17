@@ -81,6 +81,8 @@
     const orderTemplate = $("template[data-account-order-template]", root);
     const orderItemTemplate = $("template[data-account-order-item-template]", root);
 
+    const favoritesServer = $("[data-account-favorites-from-server]", root);
+
     const favoritesWrap = $("[data-account-favorites]", root);
     const favoritesList = $("[data-account-favorites-list]", root);
     const favoritesEmpty = $("[data-account-favorites-empty]", root);
@@ -192,10 +194,14 @@
       });
     };
 
-    initFavoritesViewToggle(root, state, renderFavorites);
-
     renderOrders();
-    renderFavorites();
+
+    if (favoritesServer) {
+      // Избранное в ЛК: разметка и пагинация с сервера; list/grid и карточки — catalog-filters.js
+    } else {
+      initFavoritesViewToggle(root, state, renderFavorites);
+      renderFavorites();
+    }
 
     root.addEventListener("click", (e) => {
       const filterBtn = e.target.closest?.("[data-account-filter]");
