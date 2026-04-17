@@ -42,8 +42,9 @@
       <button
         type="button"
         class="inline-flex h-[38px] w-[40px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
-        aria-label="{% trans 'Добавить в избранное' %}"
+        aria-label="{% if product.is_favorited %}{% trans 'Удалить из избранного' %}{% else %}{% trans 'Добавить в избранное' %}{% endif %}"
         data-catalog-favorite-toggle
+        data-product-id="{{ product.id }}"
         data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}"
       >
         <img

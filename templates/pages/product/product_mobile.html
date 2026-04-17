@@ -61,12 +61,13 @@
           <button
             type="button"
             class="inline-flex size-[34px] items-center justify-center cursor-pointer"
-            aria-label="{% trans 'Добавить в избранное' %}"
+            aria-label="{% if product_is_favorited %}{% trans 'Удалить из избранного' %}{% else %}{% trans 'Добавить в избранное' %}{% endif %}"
             data-product-favorite-toggle
-            data-favorited="false"
+            data-product-id="{{ product.id }}"
+            data-favorited="{% if product_is_favorited %}true{% else %}false{% endif %}"
           >
             <img
-              src="{% static 'images/icons/favorite-inactive.svg' %}"
+              src="{% static 'images/icons/' %}{% if product_is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
               alt=""
               class="size-[24px]"
               aria-hidden="true"

@@ -1,0 +1,34 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
+  <div class="mx-auto max-w-[356px]">
+    <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
+      {% trans "Избранное" %}
+    </h1>
+
+    {% if favorites_count %}
+      <p class="mt-[10px] text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
+        {% blocktrans count counter=favorites_count %}{{ counter }} товар{% plural %}{{ counter }} товаров{% endblocktrans %}
+      </p>
+
+      <div class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]">
+        {% for product in favorites_products %}
+          {% include "pages/catalog/mobile/_product_card.html" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="mt-[30px] rounded-[18px] bg-[var(--color-lilac)] px-[20px] py-[24px] text-center text-[14px] leading-[18px] text-[var(--color-black)]">
+        <p class="text-[16px] font-bold leading-[20px]">{% trans "В избранном пока пусто." %}</p>
+        <p class="mt-[10px] text-[13px] leading-[18px] text-[var(--color-black-80)]">
+          {% trans "Загляните в каталог и добавьте игры, которые вам понравились." %}
+        </p>
+        <a
+          href="{% url 'catalog' %}"
+          class="btn-primary mt-[18px] inline-flex items-center justify-center px-[22px] text-[14px]"
+        >
+          {% trans "Перейти в каталог" %}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</section>

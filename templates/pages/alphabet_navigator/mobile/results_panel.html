@@ -25,7 +25,7 @@
             </div>
 
             <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
-              <button type="button" class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в избранное' %}" data-catalog-favorite-toggle data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}">
+              <button type="button" class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200" aria-label="{% if product.is_favorited %}{% trans 'Удалить из избранного' %}{% else %}{% trans 'Добавить в избранное' %}{% endif %}" data-catalog-favorite-toggle data-product-id="{{ product.id }}" data-favorited="{% if product.is_favorited %}true{% else %}false{% endif %}">
                 <img src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true" data-favorite-icon data-icon-active="{% static 'images/icons/favorite-active.svg' %}" data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}">
               </button>
               <button type="button" class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Быстрый просмотр товара' %}" data-catalog-preview-open data-preview-title="{{ product.title }}" data-preview-category="{{ product.category }}" data-preview-price="{{ product.price }}" data-preview-rating="{{ product.rating }}" data-preview-image="{{ product.image_url }}" data-preview-url="{{ product.url }}" data-preview-content="{{ product.content }}">

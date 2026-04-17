@@ -341,6 +341,28 @@ async function toggleCartOnServer(productId) {
   return response.json();
 }
 
+async function toggleFavoriteOnServer(productId) {
+  const csrfToken = getCookie("csrftoken");
+  const body = new URLSearchParams({ product_id: String(productId) });
+
+  const response = await fetch("/favorites/toggle/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Favorite toggle failed");
+  }
+
+  return response.json();
+}
+
 function getCatalogPreviewDialog() {
   const dialog = document.getElementById("catalogProductPreviewDialog");
   return dialog instanceof HTMLDialogElement ? dialog : null;
@@ -491,6 +513,7 @@ function fillCatalogMobileProduct(node, product) {
 
   const favoriteButton = node.querySelector("[data-catalog-favorite-toggle]");
   if (favoriteButton instanceof HTMLElement) {
+    favoriteButton.dataset.productId = String(product.id || "");
     favoriteButton.dataset.favorited = product.is_favorited ? "true" : "false";
     setFavoriteState(favoriteButton, Boolean(product.is_favorited));
   }
@@ -639,11 +662,37 @@ function initCatalogProductCards(root = document) {
     }
 
     button.dataset.favoriteBound = "true";
-    button.addEventListener("click", (event) => {
+    setFavoriteState(button, button.dataset.favorited === "true");
+    button.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const isFavorited = button.dataset.favorited === "true";
-      setFavoriteState(button, !isFavorited);
+
+      if (button.dataset.favoritePending === "true") {
+        return;
+      }
+
+      const productId = Number.parseInt(button.dataset.productId || "", 10);
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return;
+      }
+
+      const previousState = button.dataset.favorited === "true";
+      const optimisticState = !previousState;
+      setFavoriteState(button, optimisticState);
+
+      button.dataset.favoritePending = "true";
+      button.setAttribute("aria-busy", "true");
+
+      try {
+        const payload = await toggleFavoriteOnServer(productId);
+        setFavoriteState(button, Boolean(payload.is_favorited));
+      } catch (error) {
+        console.error(error);
+        setFavoriteState(button, previousState);
+      } finally {
+        button.dataset.favoritePending = "false";
+        button.removeAttribute("aria-busy");
+      }
     });
   });
 

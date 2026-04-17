@@ -257,6 +257,28 @@ async function toggleCartOnServer(productId) {
   return response.json();
 }
 
+async function toggleFavoriteOnServer(productId) {
+  const csrfToken = getCookie("csrftoken");
+  const body = new URLSearchParams({ product_id: String(productId) });
+
+  const response = await fetch("/favorites/toggle/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Favorite toggle failed");
+  }
+
+  return response.json();
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -361,9 +383,32 @@ function initProductFavoriteButtons() {
     button.dataset.favoriteBound = "true";
     setProductFavoriteState(button, button.dataset.favorited === "true");
 
-    button.addEventListener("click", () => {
-      const isFavorited = button.dataset.favorited === "true";
-      setProductFavoriteState(button, !isFavorited);
+    button.addEventListener("click", async () => {
+      if (button.dataset.favoritePending === "true") {
+        return;
+      }
+
+      const productId = Number.parseInt(button.dataset.productId || "", 10);
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return;
+      }
+
+      const previousState = button.dataset.favorited === "true";
+      setProductFavoriteState(button, !previousState);
+
+      button.dataset.favoritePending = "true";
+      button.setAttribute("aria-busy", "true");
+
+      try {
+        const payload = await toggleFavoriteOnServer(productId);
+        setProductFavoriteState(button, Boolean(payload.is_favorited));
+      } catch (error) {
+        console.error(error);
+        setProductFavoriteState(button, previousState);
+      } finally {
+        button.dataset.favoritePending = "false";
+        button.removeAttribute("aria-busy");
+      }
     });
   });
 }

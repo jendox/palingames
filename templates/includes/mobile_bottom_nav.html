@@ -55,9 +55,10 @@
     </a>
 
     <a
-      href="#"
+      href="{% if user.is_authenticated %}{% url 'account' %}?tab=favorites{% else %}{% url 'favorites' %}{% endif %}"
       data-mobile-nav-item
       class="mobile-nav-item flex flex-1 flex-col items-center justify-end gap-[5px] text-center text-[var(--color-pink)] no-underline"
+      {% if request.resolver_match.url_name == "favorites" %}aria-current="page"{% endif %}
     >
       <img
         src="{% static 'images/header/menu-favorite-mobile.svg' %}"

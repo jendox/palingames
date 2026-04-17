@@ -14,6 +14,7 @@ from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
+from apps.favorites.services import get_favorite_product_ids
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 from .pricing import format_price
@@ -75,11 +76,19 @@ class CatalogView(TemplateView):
                 return title[: -len(source)] + target
         return title
 
-    def _build_product_card(self, product, selected_category=None, cart_product_ids=None, purchased_product_ids=None):
+    def _build_product_card(
+        self,
+        product,
+        selected_category=None,
+        cart_product_ids=None,
+        purchased_product_ids=None,
+        favorite_product_ids=None,
+    ):
         primary_kind = product.subtypes.first() or product.categories.first()
         primary_image = next(iter(product.images.all()), None)
         cart_ids = cart_product_ids or set()
         purchased_ids = purchased_product_ids or set()
+        favorite_ids = favorite_product_ids or set()
         is_purchased = product.id in purchased_ids
         return {
             "id": product.id,
@@ -90,7 +99,7 @@ class CatalogView(TemplateView):
             "category": self._format_category_label(selected_category or product.categories.first()),
             "content": product.content,
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
-            "is_favorited": False,
+            "is_favorited": product.id in favorite_ids,
             "is_in_cart": product.id in cart_ids and not is_purchased,
             "is_purchased": is_purchased,
             "download_url": reverse("product-download", kwargs={"product_id": product.id}) if is_purchased else "",
@@ -295,6 +304,7 @@ class CatalogView(TemplateView):
         )
 
         cart_product_ids = set(get_cart_product_ids(self.request))
+        favorite_product_ids = set(get_favorite_product_ids(self.request))
         purchased_product_ids = get_user_product_access_ids(
             self.request.user,
             product_ids=list(sorted_queryset.values_list("id", flat=True)),
@@ -313,6 +323,7 @@ class CatalogView(TemplateView):
                     selected_category=selected_category,
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
+                    favorite_product_ids=favorite_product_ids,
                 )
                 for product in desktop_page_obj.object_list
             ],
@@ -333,6 +344,7 @@ class CatalogView(TemplateView):
                     selected_category=selected_category,
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
+                    favorite_product_ids=favorite_product_ids,
                 )
                 for product in mobile_page_obj.object_list
             ],
@@ -521,6 +533,7 @@ class AlphabetNavigatorView(CatalogView):
         filtered_queryset = self._apply_filters(base_queryset)
         sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
         cart_product_ids = set(get_cart_product_ids(self.request))
+        favorite_product_ids = set(get_favorite_product_ids(self.request))
         purchased_product_ids = get_user_product_access_ids(
             self.request.user,
             product_ids=list(sorted_queryset.values_list("id", flat=True)),
@@ -555,6 +568,7 @@ class AlphabetNavigatorView(CatalogView):
                     product,
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
+                    favorite_product_ids=favorite_product_ids,
                 )
                 for product in desktop_page_obj.object_list
             ],
@@ -565,6 +579,7 @@ class AlphabetNavigatorView(CatalogView):
                     product,
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
+                    favorite_product_ids=favorite_product_ids,
                 )
                 for product in mobile_page_obj.object_list
             ],
@@ -655,8 +670,10 @@ class ProductDetailView(DetailView):
         reviews = getattr(product, "published_reviews_list", [])
         primary_kind = product.subtypes.first() or product.categories.first()
         cart_product_ids = set(get_cart_product_ids(self.request))
+        favorite_product_ids = set(get_favorite_product_ids(self.request))
         purchased_product_ids = get_user_product_access_ids(self.request.user, product_ids=[product.id])
         product_is_purchased = product.id in purchased_product_ids
+        product_is_favorited = product.id in favorite_product_ids
 
         context["product_active_tab"] = active_tab
         context["product_active_tab_template"] = self.tab_templates[active_tab]
@@ -674,6 +691,7 @@ class ProductDetailView(DetailView):
         context["product_price"] = format_price(product.price, product.currency)
         context["product_is_in_cart"] = product.id in cart_product_ids and not product_is_purchased
         context["product_is_purchased"] = product_is_purchased
+        context["product_is_favorited"] = product_is_favorited
         context["product_download_url"] = (
             reverse("product-download", kwargs={"product_id": product.id}) if product_is_purchased else ""
         )
