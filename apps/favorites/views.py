@@ -20,6 +20,10 @@ class FavoritesPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(get_favorites_page_context(self.request))
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Избранное"},
+        ]
         return context
 
 

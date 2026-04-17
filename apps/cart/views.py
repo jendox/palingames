@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
@@ -27,6 +28,10 @@ class CartPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(get_cart_page_context(self.request))
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Корзина"},
+        ]
         return context
 
 

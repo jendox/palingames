@@ -408,6 +408,14 @@ class CatalogView(TemplateView):
         context["selected_category"] = selected_category
         context["catalog_mode"] = "products" if selected_category else "categories"
 
+        breadcrumbs = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Каталог", "url": reverse("catalog") if selected_category else None},
+        ]
+        if selected_category:
+            breadcrumbs.append({"title": selected_category.title})
+        context["breadcrumbs"] = breadcrumbs
+
         if not selected_category:
             return context
 
@@ -614,6 +622,10 @@ class AlphabetNavigatorView(CatalogView):
         context = TemplateView.get_context_data(self, **kwargs)
         context["alphabet_mode"] = "products"
         context.update(self._build_products_mode_context())
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Алфавитный навигатор"},
+        ]
         return context
 
 
@@ -699,6 +711,21 @@ class ProductDetailView(DetailView):
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()
         context["product_content_html"] = product.content_as_html()
+
+        primary_category = product.categories.first()
+        breadcrumbs = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Каталог", "url": reverse("catalog")},
+        ]
+        if primary_category is not None:
+            breadcrumbs.append(
+                {
+                    "title": primary_category.title,
+                    "url": f"{reverse('catalog')}?category={primary_category.slug}",
+                },
+            )
+        breadcrumbs.append({"title": product.title})
+        context["breadcrumbs"] = breadcrumbs
         return context
 
 

@@ -1,0 +1,23 @@
+{% load i18n %}
+
+{% if breadcrumbs %}
+  <nav aria-label="{% trans 'Хлебные крошки' %}" class="w-full">
+    <ol class="flex flex-wrap items-center gap-y-[2px] text-[8px] font-semibold leading-[10px] text-[var(--color-black-80)] min-[1024px]:text-[16px] min-[1024px]:leading-[20px]">
+      {% for crumb in breadcrumbs %}
+        <li class="flex items-center">
+          {% if not forloop.first %}
+            <span class="select-none whitespace-pre text-[var(--color-grey)]" aria-hidden="true"> / </span>
+          {% endif %}
+          {% if crumb.url and not forloop.last %}
+            <a
+              href="{{ crumb.url }}"
+              class="no-underline transition-colors hover:text-[var(--color-pink)]"
+            >{{ crumb.title }}</a>
+          {% else %}
+            <span aria-current="page" class="text-[var(--color-black)]">{{ crumb.title }}</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </nav>
+{% endif %}

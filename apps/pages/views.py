@@ -35,13 +35,37 @@ class HomePageView(TemplateView):
 class AboutPageView(TemplateView):
     template_name = "pages/about.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "О нас"},
+        ]
+        return context
+
 
 class PaymentPageView(TemplateView):
     template_name = "pages/payment.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Оплата"},
+        ]
+        return context
+
 
 class CustomGamePageView(TemplateView):
     template_name = "pages/custom_game.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Игра на заказ"},
+        ]
+        return context
 
 
 class AccountPageView(TemplateView):
@@ -85,6 +109,10 @@ class AccountPageView(TemplateView):
         context["password_form_saved"] = password_form_saved
         context["password_form_expanded"] = password_form.is_bound or password_form_saved
         context["account_orders"] = self._get_orders_context()
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Личный кабинет"},
+        ]
         return context
 
     def _get_orders_context(self) -> list[dict]:

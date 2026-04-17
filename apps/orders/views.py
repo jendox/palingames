@@ -47,6 +47,11 @@ class CheckoutPageView(TemplateView):
         )
         if created_public_id:
             context["checkout_created_order"] = Order.objects.filter(public_id=created_public_id).first()
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Корзина", "url": reverse("cart")},
+            {"title": "Оформление заказа"},
+        ]
         return context
 
     def post(self, request, *args, **kwargs):

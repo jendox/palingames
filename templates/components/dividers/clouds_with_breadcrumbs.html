@@ -1,0 +1,25 @@
+{% load static %}
+
+<div class="relative isolate w-full">
+  <img
+    src="{% static 'images/decor/clouds/clouds-group-mobile.svg' %}"
+    alt=""
+    class="relative z-0 w-full select-none pointer-events-none sm:hidden"
+    draggable="false"
+  >
+  <img
+    src="{% static 'images/decor/clouds/clouds-group.svg' %}"
+    alt=""
+    class="relative z-0 hidden w-full select-none pointer-events-none sm:block"
+    draggable="false"
+  >
+
+  {% if breadcrumbs %}
+    {# z-10: клики должны попадать в слой с крошками, а не в img (даже с pointer-events-none в части браузеров) #}
+    <div class="absolute inset-0 z-10 flex items-center">
+      <div class="mx-auto w-full max-w-[1500px] px-4 sm:px-[42px] min-[1600px]:px-[72px]">
+        {% include "components/breadcrumbs.html" %}
+      </div>
+    </div>
+  {% endif %}
+</div>
