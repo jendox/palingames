@@ -2,52 +2,77 @@
 
 <dialog
   id="catalogProductPreviewDialog"
-  class="m-auto w-[min(940px,calc(100%-48px))] rounded-[24px] bg-[var(--color-white)] p-0 text-[var(--color-black)] opacity-0 scale-95 transition duration-150 backdrop:bg-[rgba(31,31,31,0.45)]"
+  class="m-auto max-h-[90vh] w-[min(940px,calc(100%-24px))] overflow-hidden rounded-[18px] bg-[var(--color-white)] p-0 text-[var(--color-black)] opacity-0 scale-95 transition duration-150 backdrop:bg-[rgba(31,31,31,0.45)] lg:w-[min(940px,calc(100%-48px))] lg:rounded-[24px]"
 >
-  <div class="relative overflow-hidden rounded-[24px]">
+  <div
+    class="relative max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-[18px] lg:max-h-none lg:overflow-visible lg:rounded-[24px]"
+  >
     <button
       type="button"
-      class="absolute right-[20px] top-[20px] z-20 inline-flex size-[42px] items-center justify-center rounded-full cursor-pointer"
+      class="absolute right-[14px] top-[14px] z-20 inline-flex size-[36px] items-center justify-center rounded-full cursor-pointer lg:right-[20px] lg:top-[20px] lg:size-[42px]"
       aria-label="{% trans 'Закрыть превью' %}"
       data-catalog-preview-close
     >
       <img src="{% static 'images/icons/close-icon.svg' %}" alt="" class="size-[16px]" aria-hidden="true">
     </button>
 
-    <div class="grid min-h-[520px] grid-cols-[420px_1fr]">
-      <div class="relative bg-[var(--color-lilac)]">
+    <div class="grid min-h-0 grid-cols-1 lg:min-h-[520px] lg:grid-cols-[420px_1fr]">
+      <div
+        class="relative aspect-[436/510] w-full shrink-0 overflow-hidden bg-[var(--color-lilac)] lg:aspect-auto lg:min-h-[520px]"
+      >
         <img
           src=""
           alt=""
-          class="h-full w-full object-cover"
+          class="absolute inset-0 h-full w-full object-cover"
           data-catalog-preview-image
         >
-        <div class="absolute left-[24px] top-[24px] inline-flex items-center gap-[10px] rounded-[10px] bg-[rgba(31,31,31,0.35)] px-[16px] py-[10px] text-[var(--color-white)] backdrop-blur-[8px]">
-          <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[22px]" aria-hidden="true">
-          <span class="text-[20px] font-black leading-none" data-catalog-preview-rating></span>
+        <div
+          class="absolute left-[12px] top-[12px] inline-flex items-center gap-[6px] rounded-[8px] bg-[rgba(31,31,31,0.35)] px-[10px] py-[6px] text-[var(--color-white)] backdrop-blur-[8px] lg:left-[24px] lg:top-[24px] lg:gap-[10px] lg:rounded-[10px] lg:px-[16px] lg:py-[10px]"
+        >
+          <img
+            src="{% static 'images/icons/star-bold.svg' %}"
+            alt=""
+            class="size-[18px] lg:size-[22px]"
+            aria-hidden="true"
+          >
+          <span class="text-[16px] font-black leading-none lg:text-[20px]" data-catalog-preview-rating></span>
         </div>
       </div>
 
-      <div class="flex flex-col justify-between px-[36px] py-[34px]">
-        <div class="w-[436px] max-w-full min-w-0">
-          <div class="text-[16px] leading-[1.2] text-[var(--color-black-80)]" data-catalog-preview-category></div>
-          <h3 class="mt-[14px] text-[32px] font-bold leading-[1.08]" data-catalog-preview-title></h3>
-          <div class="mt-[28px] text-[28px] font-black leading-none" data-catalog-preview-price></div>
+      <div
+        class="flex min-h-0 flex-col justify-between gap-[20px] px-[18px] pb-[22px] pt-[16px] lg:min-h-[520px] lg:gap-0 lg:px-[36px] lg:pb-[34px] lg:pt-[34px]"
+      >
+        <div class="min-w-0 flex-1">
+          <div
+            class="text-[14px] leading-[1.2] text-[var(--color-black-80)] lg:text-[16px]"
+            data-catalog-preview-category
+          ></div>
+          <h3
+            class="mt-[10px] text-[22px] font-bold leading-[1.08] lg:mt-[14px] lg:text-[32px]"
+            data-catalog-preview-title
+          ></h3>
+          <div
+            class="mt-[18px] text-[22px] font-black leading-none lg:mt-[28px] lg:text-[28px]"
+            data-catalog-preview-price
+          ></div>
 
-          <div class="mt-[24px] max-h-[210px] overflow-y-auto pr-[8px] text-[16px] leading-[1.45] whitespace-pre-line text-[var(--color-black-80)]" data-catalog-preview-content></div>
+          <div
+            class="mt-[18px] max-h-[min(200px,32vh)] overflow-y-auto pr-[6px] text-[14px] leading-[1.45] whitespace-pre-line text-[var(--color-black-80)] lg:mt-[24px] lg:max-h-[210px] lg:pr-[8px] lg:text-[16px]"
+            data-catalog-preview-content
+          ></div>
         </div>
 
-        <div class="flex items-center gap-[16px]">
+        <div class="flex shrink-0 flex-col gap-[12px] lg:flex-row lg:items-center lg:gap-[16px]">
           <a
             href="#"
-            class="btn-primary h-[56px] min-w-[240px] px-[28px] text-[18px]"
+            class="btn-primary !h-[40px] w-full min-w-0 justify-center px-[20px] text-[14px] lg:!h-[60px] lg:min-w-[240px] lg:w-auto lg:px-[28px] lg:text-[18px]"
             data-catalog-preview-link
           >
             {% trans "Перейти к описанию" %}
           </a>
           <button
             type="button"
-            class="btn-reset-control h-[56px] w-[180px] text-[16px]"
+            class="btn-reset-control !h-[40px] !w-full max-w-none text-[14px] lg:!h-[60px] lg:!w-[180px] lg:max-w-[180px] lg:text-[16px]"
             data-catalog-preview-close
           >
             {% trans "Закрыть" %}

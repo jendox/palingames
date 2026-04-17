@@ -1,27 +1,36 @@
 {% load static i18n %}
 
-<article class="h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+<article class="w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
   <div class="relative">
     <a href="{{ product.url }}" class="block">
       <img
         src="{{ product.image_url }}"
         alt="{{ product.title }}"
-        class="h-[213px] w-[170px] object-cover"
+        class="aspect-[436/510] w-full object-cover"
         draggable="false"
       >
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-0 h-[34.31%] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"
+      ></div>
 
       <div class="absolute left-[8px] top-[8px]">
-        <div class="inline-flex items-center gap-[5px] rounded-[6px] bg-[rgba(31,31,31,0.3)] px-[7px] py-[4px] backdrop-blur-[4px]">
-          <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="h-[12px] w-[12px]" aria-hidden="true">
-          <span class="text-[10px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
+        <div
+          class="inline-flex items-center gap-[6px] rounded-[8px] bg-[rgba(31,31,31,0.3)] px-[9px] py-[5px] backdrop-blur-[8px]"
+        >
+          <img
+            src="{% static 'images/icons/star-bold.svg' %}"
+            alt=""
+            class="h-[14px] w-[14px]"
+            aria-hidden="true"
+          >
+          <span class="text-[12px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
         </div>
       </div>
 
-      <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[6px]">
+      <div class="absolute right-[8px] top-[8px] z-20 flex flex-col gap-[8px]">
         <button
           type="button"
-          class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+          class="inline-flex h-[28px] w-[28px] cursor-pointer items-center justify-center transition-transform duration-200 active:scale-[0.98]"
           aria-label="{% if product.is_favorited %}{% trans 'Удалить из избранного' %}{% else %}{% trans 'Добавить в избранное' %}{% endif %}"
           data-catalog-favorite-toggle
           data-product-id="{{ product.id }}"
@@ -30,7 +39,7 @@
           <img
             src="{% static 'images/icons/' %}{% if product.is_favorited %}favorite-active.svg{% else %}favorite-inactive.svg{% endif %}"
             alt=""
-            class="h-[20px] w-[20px]"
+            class="h-[28px] w-[28px]"
             aria-hidden="true"
             data-favorite-icon
             data-icon-active="{% static 'images/icons/favorite-active.svg' %}"
@@ -39,7 +48,7 @@
         </button>
         <button
           type="button"
-          class="inline-flex h-[20px] w-[20px] items-center justify-center transition-transform duration-200"
+          class="inline-flex h-[28px] w-[28px] cursor-pointer items-center justify-center transition-transform duration-200 active:scale-[0.98]"
           aria-label="{% trans 'Быстрый просмотр товара' %}"
           data-catalog-preview-open
           data-preview-title="{{ product.title }}"
@@ -50,24 +59,29 @@
           data-preview-url="{{ product.url }}"
           data-preview-content="{{ product.content }}"
         >
-          <img src="{% static 'images/icons/preview.svg' %}" alt="" class="h-[20px] w-[20px]" aria-hidden="true">
+          <img
+            src="{% static 'images/icons/preview.svg' %}"
+            alt=""
+            class="h-[28px] w-[28px]"
+            aria-hidden="true"
+          >
         </button>
       </div>
 
-      <div class="absolute inset-x-0 bottom-0 h-[74px] px-[10px] pb-[9px] text-[var(--color-white)]">
+      <div class="absolute inset-x-0 bottom-0 h-[34.31%] px-[10px] pb-[8px] text-[var(--color-white)]">
         <div class="pt-[10px]">
           <div
-            class="min-h-[24px] text-[10px] font-bold leading-[12px]"
+            class="min-h-[28px] text-[12px] font-bold leading-[1.2]"
             style="-webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; overflow: hidden;"
           >
             {{ product.title }}
           </div>
-          <div class="mt-[2px] text-[9px] leading-[11px] text-[rgba(255,255,255,0.84)]">
+          <div class="mt-[2px] text-[11px] font-normal leading-[1.2] text-[rgba(255,255,255,0.84)]">
             {{ product.category }}
           </div>
         </div>
-        <div class="absolute inset-x-[10px] bottom-[9px] flex items-center justify-between">
-          <div class="text-[12px] font-black leading-none">
+        <div class="absolute inset-x-[10px] bottom-[8px] flex items-center justify-between">
+          <div class="text-[13px] font-black leading-none">
             {{ product.price }}
           </div>
         </div>
@@ -78,21 +92,21 @@
       {% if product.is_purchased %}
         <a
           href="{{ product.download_url }}"
-          class="inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200"
+          class="inline-flex h-[36px] w-[36px] cursor-pointer items-center justify-center transition-transform duration-200 active:scale-[0.98]"
           aria-label="{% trans 'Скачать' %}"
           title="{% trans 'Скачать' %}"
         >
           <img
             src="{% static 'images/icons/download.svg' %}"
             alt=""
-            class="h-[26px] w-[26px]"
+            class="h-[36px] w-[36px]"
             aria-hidden="true"
           >
         </a>
       {% else %}
         <button
           type="button"
-          class="catalog-card-cart-button inline-flex h-[26px] w-[26px] items-center justify-center transition-transform duration-200 {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
+          class="catalog-card-cart-button inline-flex h-[36px] w-[36px] cursor-pointer items-center justify-center transition-transform duration-200 active:scale-[0.98] {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
           aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}"
           data-catalog-cart-toggle
           data-product-id="{{ product.id }}"
@@ -101,7 +115,7 @@
           <img
             src="{% static 'images/icons/' %}{% if product.is_in_cart %}cart-full.svg{% else %}cart-empty.svg{% endif %}"
             alt=""
-            class="h-[26px] w-[26px]"
+            class="h-[36px] w-[36px]"
             aria-hidden="true"
             data-cart-icon
             data-icon-empty="{% static 'images/icons/cart-empty.svg' %}"
