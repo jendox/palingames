@@ -3,8 +3,17 @@
 <section id="catalog-mobile-listing-root" class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
   <div class="mx-auto max-w-[356px]" data-catalog-mobile-listing>
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-      {{ selected_category.title }}
+      {% if selected_category %}
+        {{ selected_category.title }}
+      {% elif catalog_search_active %}
+        {% trans "Поиск" %}
+      {% endif %}
     </h1>
+    {% if catalog_search_active and not selected_category %}
+      <p class="mt-[8px] text-center text-[13px] font-semibold leading-[18px] text-[var(--color-black-80)]">
+        «{{ catalog_search_q }}»
+      </p>
+    {% endif %}
 
     <div id="catalog-mobile-controls" class="mt-[18px]" style="scroll-margin-top: 24px;">
       <div class="flex items-center justify-between gap-[10px]">

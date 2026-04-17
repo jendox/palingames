@@ -4,9 +4,10 @@ from enum import StrEnum
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect, JsonResponse
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.translation import gettext as _
 from django.views import View
 from django.views.generic import DetailView, TemplateView
 
@@ -18,6 +19,13 @@ from apps.favorites.services import get_favorite_product_ids
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
 from .pricing import format_price
+from .search import (
+    MIN_QUERY_LEN,
+    apply_product_search,
+    normalize_catalog_search_q,
+    order_catalog_queryset,
+    suggest_product_hits,
+)
 from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.products")
@@ -221,11 +229,14 @@ class CatalogView(TemplateView):
         selected_areas,
         selected_themes,
     ):
+        subtype_filters = {}
+        if selected_category is not None:
+            subtype_filters["category"] = selected_category
         subtype_options = self._filter_option_queryset(
             SubType,
             "products",
             category_queryset,
-            category=selected_category,
+            **subtype_filters,
         )
         age_options = self._filter_option_queryset(AgeGroupTag, "products", category_queryset)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", category_queryset)
@@ -281,13 +292,23 @@ class CatalogView(TemplateView):
 
         return catalog_filters, catalog_quick_filters
 
-    def _build_products_mode_context(self, selected_category):  # noqa: PLR0914
-        sort_value = self.request.GET.get("sort", "")
+    def _build_products_mode_context(self, selected_category, *, search_q: str = ""):  # noqa: PLR0914
+        sort_value = self.request.GET.get("sort", "").strip()
         page_number = self.request.GET.get("page") or 1
-        category_queryset = self._base_products_queryset().filter(categories=selected_category)
-        price_bounds = category_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
-        filtered_queryset = self._apply_filters(category_queryset)
-        sorted_queryset = self._apply_sort(filtered_queryset, sort_value)
+
+        scope_queryset = self._base_products_queryset()
+        if selected_category is not None:
+            scope_queryset = scope_queryset.filter(categories=selected_category)
+
+        scope_queryset, search_active, order_by_sim = apply_product_search(scope_queryset, search_q)
+        price_bounds = scope_queryset.aggregate(min_price=Min("price"), max_price=Max("price"))
+        filtered_queryset = self._apply_filters(scope_queryset)
+        sorted_queryset = order_catalog_queryset(
+            filtered_queryset,
+            sort_value=sort_value,
+            search_active=search_active,
+            order_by_similarity=order_by_sim,
+        )
 
         selected_subtypes = self._selected_values("subtype")
         selected_ages = self._selected_values("age")
@@ -296,7 +317,7 @@ class CatalogView(TemplateView):
 
         catalog_filters, catalog_quick_filters = self._build_catalog_filters_context(
             selected_category,
-            category_queryset,
+            scope_queryset,
             selected_subtypes,
             selected_ages,
             selected_areas,
@@ -374,11 +395,15 @@ class CatalogView(TemplateView):
             },
             "catalog_filters": catalog_filters,
             "catalog_quick_filters": catalog_quick_filters,
+            "catalog_search_q": search_q if search_active else "",
+            "catalog_search_active": search_active,
         }
 
     def get_template_names(self):
         category_slug = self.request.GET.get("category")
-        if self.request.headers.get("HX-Request") == "true" and category_slug:
+        q_normalized = normalize_catalog_search_q(self.request.GET.get("q", ""))
+        hx_ok = bool(category_slug) or len(q_normalized) >= MIN_QUERY_LEN
+        if self.request.headers.get("HX-Request") == "true" and hx_ok:
             if self.request.headers.get("HX-Target") == "catalog-mobile-listing-root":
                 return [self.htmx_mobile_template_name]
             return [self.htmx_results_template_name]
@@ -405,22 +430,37 @@ class CatalogView(TemplateView):
         if category_slug:
             selected_category = Category.objects.filter(slug=category_slug).first()
 
+        search_q = normalize_catalog_search_q(self.request.GET.get("q", ""))
+        search_ok = len(search_q) >= MIN_QUERY_LEN
+
         context["selected_category"] = selected_category
-        context["catalog_mode"] = "products" if selected_category else "categories"
+        products_mode = bool(selected_category) or search_ok
+        context["catalog_mode"] = "products" if products_mode else "categories"
 
         breadcrumbs = [
             {"title": "Главная", "url": reverse("home")},
-            {"title": "Каталог", "url": reverse("catalog") if selected_category else None},
+            {"title": "Каталог", "url": reverse("catalog") if (selected_category or search_ok) else None},
         ]
         if selected_category:
             breadcrumbs.append({"title": selected_category.title})
+        elif search_ok:
+            breadcrumbs.append({"title": f'{_("Поиск")}: «{search_q}»'})
         context["breadcrumbs"] = breadcrumbs
 
-        if not selected_category:
+        if not products_mode:
             return context
 
-        context.update(self._build_products_mode_context(selected_category))
+        context.update(self._build_products_mode_context(selected_category, search_q=search_q))
         return context
+
+
+class CatalogSearchSuggestView(View):
+    """AJAX-подсказки по названию товара (trigram / icontains)."""
+
+    def get(self, request, *args, **kwargs):
+        q = request.GET.get("q", "")
+        hits = suggest_product_hits(q, limit=10)
+        return JsonResponse({"results": hits})
 
 
 class AlphabetNavigatorView(CatalogView):

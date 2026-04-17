@@ -6,7 +6,11 @@
       {% include "pages/catalog/desktop/product_card.html" %}
     {% empty %}
       <div class="rounded-[24px] bg-[var(--color-lilac)] px-[28px] py-[32px] text-[18px] leading-[24px] text-[var(--color-black)] min-[1180px]:col-span-2 min-[1500px]:col-span-3">
-        {% trans "По выбранным фильтрам пока ничего не найдено." %}
+        {% if catalog_search_active %}
+          {% trans "Ничего не найдено. Попробуйте изменить запрос или фильтры." %}
+        {% else %}
+          {% trans "По выбранным фильтрам пока ничего не найдено." %}
+        {% endif %}
       </div>
     {% endfor %}
   </div>

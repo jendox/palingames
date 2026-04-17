@@ -65,6 +65,32 @@ class CatalogViewTests(TestCase):
         self.assertCountEqual(titles, ["Альфа", "Бета", "Гамма"])
         self.assertNotIn("Чужой товар", titles)
 
+    def test_catalog_global_search_shows_matching_products(self):
+        response = self.client.get(reverse("catalog"), {"q": "Альф"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["catalog_mode"], "products")
+        self.assertTrue(response.context["catalog_search_active"])
+        titles = [product["title"] for product in response.context["catalog_products"]]
+        self.assertIn("Альфа", titles)
+
+    def test_catalog_search_within_category(self):
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug, "q": "Бета"})
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["catalog_products"]]
+        self.assertEqual(titles, ["Бета"])
+
+    def test_catalog_search_suggest_returns_results(self):
+        response = self.client.get(reverse("catalog-search-suggest"), {"q": "Ал"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("results", payload)
+        self.assertGreater(len(payload["results"]), 0)
+        self.assertIn("title", payload["results"][0])
+        self.assertIn("url", payload["results"][0])
+
     def test_catalog_sorts_products_by_price_ascending(self):
         response = self.client.get(
             reverse("catalog"),

@@ -13,8 +13,17 @@
   </div>
 
   <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
-    {{ selected_category.title }}
+    {% if selected_category %}
+      {{ selected_category.title }}
+    {% elif catalog_search_active %}
+      {% trans "Поиск" %}
+    {% endif %}
   </h1>
+  {% if catalog_search_active and not selected_category %}
+    <p class="mx-auto mt-[12px] max-w-[900px] text-center text-[18px] font-semibold text-[var(--color-black-80)]">
+      «{{ catalog_search_q }}»
+    </p>
+  {% endif %}
   <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[110px] pt-[32px] min-[1600px]:px-[72px]">
     <div id="catalog-controls" class="flex items-center justify-between" style="scroll-margin-top: 24px;">
       <details class="group relative" data-catalog-dropdown>

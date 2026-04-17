@@ -2,7 +2,7 @@
 
   <div class="mx-auto hidden max-w-6xl px-4 pt-10 min-[1024px]:block min-[1920px]:mx-0 min-[1920px]:max-w-none min-[1920px]:pl-[180px] min-[1920px]:pr-[150px] min-[1920px]:pt-[35px]">
     <div class="flex flex-wrap items-center gap-6 sm:flex-nowrap min-[1920px]:grid min-[1920px]:grid-cols-[250px,50px,625px,97px,568px] min-[1920px]:items-start min-[1920px]:gap-0">
-      <a href="/" class="order-1 flex items-center gap-3 sm:order-none min-[1920px]:col-start-1">
+      <a href="{% url 'home' %}" class="order-1 flex items-center gap-3 sm:order-none min-[1920px]:col-start-1">
         <img
           src="{% static 'images/logo.svg' %}"
           alt="PaliGames"
@@ -12,10 +12,10 @@
 
       <form
         role="search"
-        action="#"
+        action="{% url 'catalog' %}"
         method="get"
-        class="order-3 w-full sm:order-none sm:flex-1 min-[1920px]:col-start-3 min-[1920px]:mt-[18px] min-[1920px]:w-[625px] min-[1920px]:max-w-[625px] {% if request.resolver_match.url_name != 'home' %}invisible pointer-events-none{% endif %}"
-        {% if request.resolver_match.url_name != "home" %}aria-hidden="true" inert{% endif %}
+        class="relative order-3 w-full sm:order-none sm:flex-1 min-[1920px]:col-start-3 min-[1920px]:mt-[18px] min-[1920px]:w-[625px] min-[1920px]:max-w-[625px]"
+        data-header-search-form
       >
         <div class="relative h-[60px] w-full max-w-[625px] rounded-[10px] border-2 border-[var(--color-pink)] bg-[var(--color-white)]">
           <button
@@ -30,10 +30,20 @@
             id="header-search-input"
             name="q"
             type="search"
+            autocomplete="off"
             placeholder="{% trans 'Поиск' %}"
-            class="h-full w-full rounded-[10px] bg-transparent pl-[74px] pr-4 text-sm font-semibold text-[var(--color-black)] placeholder:text-[var(--color-black-80)] focus:outline-none"
+            class="h-full w-full rounded-[10px] bg-transparent pl-[74px] pr-4 text-[18px] font-semibold text-[var(--color-black)] placeholder:text-[var(--color-black-80)] focus:outline-none"
+            data-header-search-input
           >
         </div>
+        <ul
+          id="header-search-suggestions"
+          class="pointer-events-none invisible absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[min(360px,55vh)] overflow-y-auto rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] py-2 text-left text-sm font-semibold text-[var(--color-black)] shadow-[0_20px_40px_rgba(0,0,0,0.1)] opacity-0 transition-opacity"
+          role="listbox"
+          aria-label="{% trans 'Подсказки' %}"
+          hidden
+          data-header-search-suggestions
+        ></ul>
       </form>
 
       <div class="order-2 ml-auto flex items-center gap-[50px] sm:order-none sm:ml-0 min-[1920px]:col-start-5 min-[1920px]:mt-[18px] min-[1920px]:ml-0">

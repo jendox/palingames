@@ -2,7 +2,7 @@
 
   <div class="min-[1024px]:hidden">
     <div class="flex items-center px-4 pb-[18px] pt-[22px]">
-      <a href="#" class="block">
+      <a href="{% url 'home' %}" class="block">
         <img
           src="{% static 'images/logo.svg' %}"
           alt="PaliGames"
@@ -15,6 +15,9 @@
           type="button"
           class="inline-flex h-[42px] w-[48px] items-center justify-center rounded-[10px] bg-transparent"
           aria-label="{% trans 'Поиск' %}"
+          aria-expanded="false"
+          aria-controls="mobile-header-search"
+          data-mobile-search-toggle
         >
           <img
             src="{% static 'images/header/mobile_search.svg' %}"
@@ -42,6 +45,50 @@
           >
         </button>
       </div>
+    </div>
+
+    <div
+      id="mobile-header-search"
+      data-mobile-search-panel
+      hidden
+      class="fixed inset-x-0 top-0 z-50 flex max-h-[min(560px,85vh)] flex-col bg-[var(--color-white)] shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
+    >
+      <div class="flex items-center justify-between gap-3 border-b border-[var(--color-grey)] px-4 py-3">
+        <button
+          type="button"
+          class="text-[14px] font-bold text-[var(--color-purple)]"
+          data-mobile-search-close
+        >
+          {% trans "Закрыть" %}
+        </button>
+        <span class="text-[14px] font-bold uppercase text-[var(--color-black)]">{% trans "Поиск" %}</span>
+        <span class="w-[56px]" aria-hidden="true"></span>
+      </div>
+      <form action="{% url 'catalog' %}" method="get" class="px-4 pb-3 pt-3" data-mobile-search-form>
+        <div class="relative flex min-h-[48px] items-stretch rounded-[10px] border-2 border-[var(--color-pink)] bg-[var(--color-white)]">
+          <button
+            type="submit"
+            class="flex w-[48px] shrink-0 items-center justify-center rounded-l-[8px] bg-[var(--color-pink)] text-[var(--color-white)]"
+            aria-label="{% trans 'Поиск' %}"
+          >
+            <img src="{% static 'images/header/search.svg' %}" alt="" class="size-6" aria-hidden="true">
+          </button>
+          <input
+            name="q"
+            type="search"
+            autocomplete="off"
+            placeholder="{% trans 'Название игры' %}"
+            class="min-w-0 flex-1 rounded-r-[8px] px-3 text-[14px] font-semibold text-[var(--color-black)] placeholder:text-[var(--color-black-80)] focus:outline-none"
+            data-mobile-search-input
+          >
+        </div>
+        <ul
+          class="mt-2 max-h-[220px] overflow-y-auto rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] py-2 text-left text-[14px] font-semibold text-[var(--color-black)] empty:hidden"
+          role="listbox"
+          aria-label="{% trans 'Подсказки' %}"
+          data-mobile-search-suggestions
+        ></ul>
+      </form>
     </div>
 
     <div

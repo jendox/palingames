@@ -16,7 +16,11 @@
   </div>
 
   <p class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]" data-catalog-mobile-empty {% if catalog_mobile_products %}hidden{% endif %}>
-    {% trans "По выбранным фильтрам пока ничего не найдено." %}
+    {% if catalog_search_active %}
+      {% trans "Ничего не найдено. Попробуйте изменить запрос или фильтры." %}
+    {% else %}
+      {% trans "По выбранным фильтрам пока ничего не найдено." %}
+    {% endif %}
   </p>
 
   <div class="mt-[22px]">
