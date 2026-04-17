@@ -1,19 +1,208 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)]">
+<section class="relative overflow-hidden bg-[var(--color-white)]" data-custom-game-scope>
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
-    <img src="{% static 'images/decor/clouds/cloud-3.svg' %}" alt="" class="absolute left-[120px] top-[70px] w-[150px]" draggable="false">
-    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[140px] top-[110px] w-[160px]" draggable="false">
-    <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute left-[220px] bottom-[100px] w-[90px]" draggable="false">
-    <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute right-[220px] bottom-[120px] w-[90px]" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[60px] top-[22px] w-[90px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[322px] top-[60px] w-[34px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[88px] top-[22px] w-[98px] opacity-85" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[178px] top-[210px] w-[32px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[280px] bottom-[178px] w-[46px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[490px] bottom-[56px] w-[64px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[394px] top-[336px] w-[74px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute right-[188px] bottom-[34px] w-[34px] opacity-80" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute left-[390px] top-[250px] w-[44px]" draggable="false">
+    <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute left-[540px] bottom-[34px] w-[58px]" draggable="false">
+    <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[92px] bottom-[62px] w-[78px]" draggable="false">
   </div>
 
-  <div class="mx-auto flex min-h-[520px] w-full max-w-[960px] flex-col items-center justify-center px-4 py-[70px] text-center">
-    <h1 class="text-[40px] font-bold uppercase text-[var(--color-black)]">
+  <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[100px] pt-[70px] min-[1600px]:px-[72px]">
+    <h1 class="text-center text-[40px] font-bold uppercase leading-[40px] text-[var(--color-black)]">
       {% trans "Игра на заказ" %}
     </h1>
-    <p class="mt-[30px] text-[24px] font-semibold leading-[30px] text-[var(--color-black-80)]">
-      {% trans "Раздел в разработке." %}
-    </p>
+
+    <form class="mx-auto mt-[60px] max-w-[880px]" method="post" data-custom-game-form novalidate>
+      {% csrf_token %}
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] items-start gap-x-[25px]" data-custom-game-step-block="1">
+        <div class="relative h-[106px] w-[106px]">
+          <img
+            src="{% static 'images/custom/star-1.svg' %}"
+            alt=""
+            class="h-[106px] w-[106px] object-contain"
+            aria-hidden="true"
+            data-custom-game-star
+            data-step="1"
+            data-active-src="{% static 'images/custom/star-1.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
+          >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[4px] font-airfool text-[36px] leading-none text-[var(--color-white)]" data-custom-game-digit>1</span>
+        </div>
+        <div class="pt-[24px]">
+          <h2 class="text-[20px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Идея игры" %}</h2>
+          <p class="mt-[12px] max-w-[520px] text-[14px] leading-[1.35] text-[var(--color-black-80)]">
+            {% trans "Расскажите, о какой игре вы мечтаете: тема, сюжет, персонажи или задачи для детей." %}
+          </p>
+          <label class="sr-only" for="custom-game-idea-desktop">{% trans "Описание идеи" %}</label>
+          <textarea
+            id="custom-game-idea-desktop"
+            name="idea"
+            required
+            minlength="20"
+            rows="5"
+            class="account-input mt-[16px] min-h-[120px] w-full max-w-[560px] resize-y rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] py-[14px] text-[16px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Например: настольная игра про космос для детей 5–7 лет...' %}"
+            autocomplete="off"
+          ></textarea>
+          <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
+            {% trans "Далее" %}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] gap-x-[25px]">
+        <div class="flex h-[100px] items-center justify-center">
+          <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[100px] w-auto object-contain" draggable="false" aria-hidden="true">
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] items-start gap-x-[25px]" data-custom-game-step-block="2">
+        <div class="relative h-[106px] w-[106px]">
+          <img
+            src="{% static 'images/custom/star-2-inactive.svg' %}"
+            alt=""
+            class="h-[106px] w-[106px] object-contain"
+            aria-hidden="true"
+            data-custom-game-star
+            data-step="2"
+            data-active-src="{% static 'images/custom/star-2.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-2-inactive.svg' %}"
+          >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[4px] font-airfool text-[36px] leading-none text-[var(--color-black)]" data-custom-game-digit>2</span>
+        </div>
+        <div class="pt-[24px]">
+          <h2 class="text-[20px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Для кого игра" %}</h2>
+          <p class="mt-[12px] max-w-[520px] text-[14px] leading-[1.35] text-[var(--color-black-80)]">
+            {% trans "Возраст детей, состав группы, количество игроков." %}
+          </p>
+          <label class="sr-only" for="custom-game-audience-desktop">{% trans "Аудитория" %}</label>
+          <input
+            id="custom-game-audience-desktop"
+            name="audience"
+            type="text"
+            required
+            class="account-input mt-[16px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Например: 6–8 лет, группа до 10 детей' %}"
+            autocomplete="off"
+          >
+          <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
+            {% trans "Далее" %}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] gap-x-[25px]">
+        <div class="flex h-[100px] items-center justify-center">
+          <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[100px] w-auto rotate-180 object-contain" draggable="false" aria-hidden="true">
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] items-start gap-x-[25px]" data-custom-game-step-block="3">
+        <div class="relative h-[106px] w-[106px]">
+          <img
+            src="{% static 'images/custom/star-1-inactive.svg' %}"
+            alt=""
+            class="h-[106px] w-[106px] object-contain"
+            aria-hidden="true"
+            data-custom-game-star
+            data-step="3"
+            data-active-src="{% static 'images/custom/star-1.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
+          >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[4px] font-airfool text-[36px] leading-none text-[var(--color-black)]" data-custom-game-digit>3</span>
+        </div>
+        <div class="pt-[24px]">
+          <h2 class="text-[20px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Сроки и формат" %}</h2>
+          <p class="mt-[12px] max-w-[520px] text-[14px] leading-[1.35] text-[var(--color-black-80)]">
+            {% trans "Когда нужна готовая игра и в каком виде: печать, PDF, онлайн." %}
+          </p>
+          <label class="sr-only" for="custom-game-timing-desktop">{% trans "Сроки" %}</label>
+          <input
+            id="custom-game-timing-desktop"
+            name="timing"
+            type="text"
+            required
+            class="account-input mt-[16px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Например: к 1 сентября, PDF для печати А4' %}"
+            autocomplete="off"
+          >
+          <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
+            {% trans "Далее" %}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] gap-x-[25px]">
+        <div class="flex h-[100px] items-center justify-center">
+          <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[100px] w-auto object-contain" draggable="false" aria-hidden="true">
+        </div>
+        <div></div>
+      </div>
+
+      <div class="grid grid-cols-[106px_minmax(0,1fr)] items-start gap-x-[25px]" data-custom-game-step-block="4">
+        <div class="relative h-[106px] w-[106px]">
+          <img
+            src="{% static 'images/custom/star-2-inactive.svg' %}"
+            alt=""
+            class="h-[106px] w-[106px] object-contain"
+            aria-hidden="true"
+            data-custom-game-star
+            data-step="4"
+            data-active-src="{% static 'images/custom/star-2.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-2-inactive.svg' %}"
+          >
+          <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[4px] font-airfool text-[36px] leading-none text-[var(--color-black)]" data-custom-game-digit>4</span>
+        </div>
+        <div class="pt-[24px]">
+          <h2 class="text-[20px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Контакты" %}</h2>
+          <p class="mt-[12px] max-w-[520px] text-[14px] leading-[1.35] text-[var(--color-black-80)]">
+            {% trans "Как с вами связаться для уточнения деталей." %}
+          </p>
+          <label class="sr-only" for="custom-game-name-desktop">{% trans "Имя" %}</label>
+          <input
+            id="custom-game-name-desktop"
+            name="contact_name"
+            type="text"
+            required
+            class="account-input mt-[14px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Имя' %}"
+            autocomplete="name"
+          >
+          <label class="sr-only" for="custom-game-email-desktop">{% trans "Email" %}</label>
+          <input
+            id="custom-game-email-desktop"
+            name="contact_email"
+            type="email"
+            required
+            class="account-input mt-[12px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Электронная почта' %}"
+            autocomplete="email"
+          >
+          <label class="sr-only" for="custom-game-phone-desktop">{% trans "Телефон" %}</label>
+          <input
+            id="custom-game-phone-desktop"
+            name="contact_phone"
+            type="tel"
+            class="account-input mt-[12px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Телефон (необязательно)' %}"
+            autocomplete="tel"
+          >
+          <button type="submit" class="btn-primary mt-[24px] min-w-[260px] px-[28px] text-[18px] font-bold">
+            {% trans "Отправить заявку" %}
+          </button>
+        </div>
+      </div>
+    </form>
   </div>
 </section>
