@@ -9,14 +9,19 @@
     <div class="mt-[40px] space-y-[20px]">
       {% if favorites_count %}
         <div data-favorites-listing class="space-y-[18px]">
-          <p class="text-right text-[12px] leading-[12px] text-[var(--color-black-80)]">
-            {% blocktrans count counter=favorites_count %}{{ counter }} товар{% plural %}{{ counter }} товаров{% endblocktrans %}
-          </p>
-
-          <div class="grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-favorites-products-grid>
+          <div
+            id="favorites-public-mobile-controls"
+            class="grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]"
+            style="scroll-margin-top: 24px;"
+            data-favorites-products-grid
+          >
             {% for product in favorites_products %}
               {% include "pages/catalog/mobile/_product_card.html" %}
             {% endfor %}
+          </div>
+
+          <div class="mt-[22px]">
+            {% include "pages/catalog/mobile/pagination.html" with page_obj=favorites_page_obj pagination_items=favorites_mobile_pagination_items pagination_scroll_anchor="favorites-public-mobile-controls" %}
           </div>
         </div>
       {% else %}

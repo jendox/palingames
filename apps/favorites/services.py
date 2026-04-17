@@ -13,6 +13,9 @@ from apps.products.pricing import format_price
 
 from .models import Favorite
 
+# Гостевая страница /favorites/: на десктопе до 3 карточек в ряд.
+PUBLIC_FAVORITES_PER_PAGE = 9
+# Вкладка «Избранное» в ЛК: на десктопе 2 карточки в ряд.
 ACCOUNT_FAVORITES_PER_PAGE = 8
 
 ACCOUNT_FAVORITES_SORT_OPTIONS = (
@@ -166,15 +169,59 @@ def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]
     }
 
 
+def _guest_session_index_by_product_id(session_product_ids: list[int]) -> dict[int, int]:
+    return {pid: idx for idx, pid in enumerate(session_product_ids)}
+
+
+def _sort_guest_favorite_products(
+    products: list[Product],
+    session_order_ids: list[int],
+    sort_value: str,
+) -> list[Product]:
+    by_index = _guest_session_index_by_product_id(session_order_ids)
+
+    if sort_value == "title":
+        return sorted(products, key=lambda p: (p.title or "").lower())
+    if sort_value == "price_asc":
+        return sorted(products, key=lambda p: (p.price, (p.title or "").lower()))
+    if sort_value == "price_desc":
+        return sorted(products, key=lambda p: (-p.price, (p.title or "").lower()))
+    if sort_value == "oldest":
+        return sorted(products, key=lambda p: by_index.get(p.id, 0))
+    # "newest" and fallback: later in session list = added more recently
+    return sorted(products, key=lambda p: by_index.get(p.id, 0), reverse=True)
+
+
 def get_favorites_page_context(request) -> dict:
+    """Гостевая страница /favorites/: сортировка и пагинация как в каталоге."""
     product_ids = get_favorite_product_ids(request)
+
+    empty_sort_options = [
+        {"value": value, "label": label, "selected": value == "newest"}
+        for value, label in ACCOUNT_FAVORITES_SORT_OPTIONS
+    ]
     if not product_ids:
         return {
             "favorites_products": [],
             "favorites_count": 0,
+            "favorites_page_obj": None,
+            "favorites_sort_value": "newest",
+            "favorites_sort_options": empty_sort_options,
+            "favorites_mobile_pagination_items": [],
         }
 
-    products = (
+    sort_value = request.GET.get("sort", "") or "newest"
+    valid_sorts = {value for value, _ in ACCOUNT_FAVORITES_SORT_OPTIONS}
+    if sort_value not in valid_sorts:
+        sort_value = "newest"
+
+    page_raw = request.GET.get("page") or 1
+    try:
+        page_number = int(page_raw)
+    except (TypeError, ValueError):
+        page_number = 1
+
+    products_bulk = (
         Product.objects.filter(id__in=product_ids)
         .prefetch_related(
             "categories",
@@ -183,22 +230,34 @@ def get_favorites_page_context(request) -> dict:
         )
         .in_bulk(product_ids)
     )
-    ordered_products = [products[product_id] for product_id in product_ids if product_id in products]
+    ordered_products = [products_bulk[pid] for pid in product_ids if pid in products_bulk]
 
+    ordered_products = _sort_guest_favorite_products(ordered_products, product_ids, sort_value)
+
+    paginator = Paginator(ordered_products, PUBLIC_FAVORITES_PER_PAGE)
+    page_obj = paginator.get_page(page_number)
+
+    page_product_ids = [p.id for p in page_obj.object_list]
     cart_ids = set(get_cart_product_ids(request))
-    purchased_ids = get_user_product_access_ids(
-        request.user,
-        product_ids=[product.id for product in ordered_products],
-    )
+    purchased_ids = get_user_product_access_ids(request.user, product_ids=page_product_ids)
 
     cards = [
         _build_favorite_card(product, cart_ids=cart_ids, purchased_ids=purchased_ids)
-        for product in ordered_products
+        for product in page_obj.object_list
+    ]
+
+    sort_options = [
+        {"value": value, "label": label, "selected": value == sort_value}
+        for value, label in ACCOUNT_FAVORITES_SORT_OPTIONS
     ]
 
     return {
         "favorites_products": cards,
-        "favorites_count": len(cards),
+        "favorites_count": paginator.count,
+        "favorites_page_obj": page_obj,
+        "favorites_sort_value": sort_value,
+        "favorites_sort_options": sort_options,
+        "favorites_mobile_pagination_items": _build_mobile_pagination(page_obj),
     }
 
 

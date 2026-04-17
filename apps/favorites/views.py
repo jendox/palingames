@@ -17,6 +17,13 @@ class FavoritesPageView(TemplateView):
             return redirect(f"{reverse('account')}?tab=favorites")
         return super().dispatch(request, *args, **kwargs)
 
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request") == "true":
+            hx_target = self.request.headers.get("HX-Target", "").strip().lstrip("#")
+            if hx_target == "favorites-public-desktop-results":
+                return ["pages/favorites/_favorites_desktop_results.html"]
+        return [self.template_name]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(get_favorites_page_context(self.request))

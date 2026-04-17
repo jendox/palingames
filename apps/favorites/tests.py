@@ -152,6 +152,19 @@ class FavoritesPageViewTests(TestCase):
         self.assertContains(response, self.product_2.title)
         self.assertEqual(response.context["favorites_count"], 2)
 
+    def test_guest_favorites_htmx_target_returns_desktop_results_fragment(self):
+        session = self.client.session
+        session[SESSION_FAVORITES_KEY] = [self.product_1.id]
+        session.save()
+
+        response = self.client.get(
+            reverse("favorites"),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="favorites-public-desktop-results",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "pages/favorites/_favorites_desktop_results.html")
+
     def test_authenticated_user_is_redirected_to_account_favorites_tab(self):
         user = CustomUser.objects.create_user(email="redirect@example.com", password="test-password-123")
         self.client.force_login(user)

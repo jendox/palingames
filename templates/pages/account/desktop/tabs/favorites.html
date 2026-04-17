@@ -1,63 +1,11 @@
-{% load static i18n %}
+{% load i18n %}
 
 <section class="relative min-h-[480px]">
   <h2 class="text-[36px] font-bold leading-[47px]">{% trans "Избранное" %}</h2>
 
   {% if account_favorites_count %}
     <div data-favorites-listing>
-    <div id="account-favorites-controls" class="mt-[24px] flex flex-wrap items-center gap-[16px]" style="scroll-margin-top: 24px;">
-      <details class="group relative" data-catalog-dropdown data-sort-dropdown>
-        <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
-          <div class="grid h-[50px] w-[130px] cursor-pointer select-none grid-cols-[1fr_10px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
-            <span class="text-center">{% trans "сортировка" %}</span>
-            <span class="flex w-[10px] items-center justify-center">
-              <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[7px] w-[10px] group-open:hidden" aria-hidden="true">
-              <img src="{% static 'images/icons/arrow-down-white.svg' %}" alt="" class="hidden h-[10px] w-[10px] group-open:block" aria-hidden="true">
-            </span>
-          </div>
-        </summary>
-
-        <div class="absolute left-0 top-[62px] z-20 h-[310px] w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
-          <div class="flex h-full flex-col">
-            <div class="flex flex-1 flex-col gap-[15px] overflow-hidden px-[20px] pt-[20px]">
-              {% for option in account_favorites_sort_options %}
-                <a
-                  href="{% querystring tab='favorites' sort=option.value page=None %}"
-                  hx-get="{% querystring tab='favorites' sort=option.value page=None %}"
-                  hx-target="#account-favorites-desktop-results"
-                  hx-swap="outerHTML"
-                  hx-push-url="true"
-                  data-sort-option
-                  data-sort-value="{{ option.value }}"
-                  class="flex h-[24px] items-center hover:bg-[var(--color-lilac)]/40"
-                >
-                  <span class="checkbox-option">
-                    <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
-                    <span class="font-normal">{{ option.label }}</span>
-                  </span>
-                </a>
-              {% endfor %}
-            </div>
-
-            <div class="flex justify-center px-[20px] pb-[20px] pt-[30px]">
-              <a
-                href="{% querystring tab='favorites' sort=None page=None %}"
-                hx-get="{% querystring tab='favorites' sort=None page=None %}"
-                hx-target="#account-favorites-desktop-results"
-                hx-swap="outerHTML"
-                hx-push-url="true"
-                data-sort-reset
-                class="btn-reset-control"
-              >
-                {% trans "сбросить" %}
-              </a>
-            </div>
-          </div>
-        </div>
-      </details>
-    </div>
-
-    {% include "pages/account/desktop/_account_favorites_desktop_results.html" %}
+      {% include "pages/account/desktop/_account_favorites_desktop_results.html" %}
     </div>
   {% else %}
     <p class="mt-[20px] text-[16px] leading-[22px] text-[var(--color-black-80)]">

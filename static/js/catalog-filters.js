@@ -655,27 +655,38 @@ function initCatalogMobileListing(root = document) {
   });
 }
 
-function removeProductFromFavoritesListing(button, listingRoot, productId) {
-  const card = button.closest("article");
-  if (card instanceof HTMLElement) {
-    card.remove();
+async function refreshFavoritesListingAfterUnfavorite(listingRoot) {
+  const targetEl =
+    listingRoot.querySelector("#favorites-public-desktop-results") ||
+    listingRoot.querySelector("#account-favorites-desktop-results");
+
+  if (!targetEl?.id) {
+    window.location.reload();
+    return;
   }
 
-  const mobileListing = listingRoot.closest("[data-catalog-mobile-listing]");
-  if (
-    mobileListing &&
-    mobileListing._catalogMobileState &&
-    Array.isArray(mobileListing._catalogMobileState.products)
-  ) {
-    mobileListing._catalogMobileState.products = mobileListing._catalogMobileState.products.filter(
-      (p) => Number(p.id) !== Number(productId),
-    );
-  }
+  const targetId = targetEl.id;
+  const url = `${window.location.pathname}${window.location.search}`;
 
-  const grid = listingRoot.querySelector("[data-favorites-products-grid]");
-  const remaining = grid ? grid.querySelectorAll("article").length : listingRoot.querySelectorAll("article").length;
+  try {
+    const response = await fetch(url, {
+      credentials: "same-origin",
+      headers: {
+        "HX-Request": "true",
+        "HX-Target": targetId,
+      },
+    });
 
-  if (remaining === 0) {
+    if (!response.ok) {
+      window.location.reload();
+      return;
+    }
+
+    const html = await response.text();
+    targetEl.outerHTML = html;
+    initCatalogUi(document);
+  } catch (error) {
+    console.error(error);
     window.location.reload();
   }
 }
@@ -717,7 +728,11 @@ function initCatalogProductCards(root = document) {
         const payload = await toggleFavoriteOnServer(productId);
         if (isUnfavoriteFromFavoritesList) {
           if (payload.is_favorited === false) {
-            removeProductFromFavoritesListing(button, listingRoot, productId);
+            if ((payload.favorites_count ?? 0) === 0) {
+              window.location.reload();
+              return;
+            }
+            await refreshFavoritesListingAfterUnfavorite(listingRoot);
             return;
           }
           setFavoriteState(button, true);
