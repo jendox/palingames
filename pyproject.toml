@@ -4,29 +4,45 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = "==3.13.*"
 dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.11.3",
+]
+
+[project.optional-dependencies]
+web = [
     "argon2-cffi>=25.1.0",
+    "boto3>=1.42.74",
+    "celery>=5.6.2",
+    "cryptography>=46.0.1",
     "dj-database-url>=3.1.0",
     "django==5.2.10",
+    "djangorestframework>=3.16.1",
     "django-admin-thumbnails>=1.0.0",
     "django-allauth[headless,headless-spec,socialaccount]>=65.14.0",
+    "django-celery-beat>=2.9.0",
     "django-environ>=0.12.0",
     "django-tailwind-cli>=4.5.1",
-    "djangorestframework>=3.16.1",
-    "editorconfig-checker>=3.6.0",
     "markdown>=3.10.2",
     "pillow>=12.1.1",
-    "pydantic>=2.11.3",
-    "pre-commit>=4.5.1",
-    "psycopg2-binary>=2.9.11",
-    "ruff>=0.14.13",
-    "celery>=5.6.2",
-    "django-celery-beat>=2.9.0",
-    "redis>=7.3.0",
-    "celery-types>=0.26.0",
-    "httpx>=0.28.1",
-    "boto3>=1.42.74",
-    "boto3-stubs~=1.42.74",
-    "cryptography>=46.0.1",
     "prometheus-client>=0.22.1",
+    "psycopg2-binary>=2.9.11",
+    "redis>=7.3.0",
     "sentry-sdk[django]>=2.27.0",
 ]
+bot = [
+    "aiogram>=3.27.0",
+]
+dev = [
+    "boto3-stubs~=1.42.74",
+    "celery-types>=0.26.0",
+    "editorconfig-checker>=3.6.0",
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bot/telegram_bot"]
