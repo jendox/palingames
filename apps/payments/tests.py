@@ -57,14 +57,22 @@ class ExpressPayNotificationViewTests(TestCase):
             ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
         )
 
-    def _build_request_payload(self, *, signature=None, invoice_no=12345678, account_no=None, status=3):
+    def _build_request_payload(
+        self,
+        *,
+        signature=None,
+        invoice_no=12345678,
+        account_no=None,
+        status=3,
+        payment_no=555001,
+    ):
         data = json.dumps(
             {
                 "CmdType": 3,
                 "Status": status,
                 "AccountNo": account_no or self.order.payment_account_no,
                 "InvoiceNo": invoice_no,
-                "PaymentNo": 555001,
+                "PaymentNo": payment_no,
                 "Amount": "25,00",
                 "Currency": "933",
                 "Created": "20260322153000",
@@ -161,6 +169,36 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
         self.assertEqual(PaymentEvent.objects.count(), 1)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        GUEST_ACCESS_EXPIRE_HOURS=24,
+        GUEST_ACCESS_MAX_DOWNLOADS=3,
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_notification_different_paid_event_does_not_duplicate_guest_side_effects(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            first_response = self.client.post(self.notification_url, data=self._build_request_payload())
+        guest_access = GuestAccess.objects.get(order=self.order, product=self.product)
+        first_token_hash = guest_access.token_hash
+
+        with self.captureOnCommitCallbacks(execute=True):
+            second_response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(payment_no=555002),
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(PaymentEvent.objects.count(), 2)
+        self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
+        guest_access.refresh_from_db()
+        self.assertEqual(guest_access.token_hash, first_token_hash)
+        self.assertEqual(GuestAccessEmailOutbox.objects.filter(order=self.order).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_notification_rejects_invalid_signature(self):
         response = self.client.post(self.notification_url, data=self._build_request_payload(signature="INVALID"))
@@ -295,17 +333,24 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
             ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
         )
 
-    def _build_epos_payload(self, *, signature=None, account_number=None):
+    def _build_epos_payload(
+        self,
+        *,
+        signature=None,
+        account_number=None,
+        payment_no=770011,
+        transaction_id="txn-100500",
+    ):
         data = json.dumps(
             {
                 "CmdType": 5,
                 "ServiceId": 12345,
                 "AccountNumber": account_number or self.order.payment_account_no,
-                "PaymentNo": 770011,
+                "PaymentNo": payment_no,
                 "Amount": "25,00",
                 "TransferAmount": "24,50",
                 "Currency": 933,
-                "TransactionId": "txn-100500",
+                "TransactionId": transaction_id,
                 "DateResultUtc": "2026-03-22T15:30:00",
                 "PaymentDateTime": "20260322153000",
             },
@@ -367,6 +412,36 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(UserProductAccess.objects.filter(user=user, product=self.product, order=order).exists())
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        GUEST_ACCESS_EXPIRE_HOURS=24,
+        GUEST_ACCESS_MAX_DOWNLOADS=3,
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_settlement_different_paid_event_does_not_duplicate_guest_side_effects(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            first_response = self.client.post(self.settlement_url, data=self._build_epos_payload())
+        guest_access = GuestAccess.objects.get(order=self.order, product=self.product)
+        first_token_hash = guest_access.token_hash
+
+        with self.captureOnCommitCallbacks(execute=True):
+            second_response = self.client.post(
+                self.settlement_url,
+                data=self._build_epos_payload(payment_no=770012, transaction_id="txn-100501"),
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(PaymentEvent.objects.count(), 2)
+        self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
+        guest_access.refresh_from_db()
+        self.assertEqual(guest_access.token_hash, first_token_hash)
+        self.assertEqual(GuestAccessEmailOutbox.objects.filter(order=self.order).count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_settlement_notification_normalizes_provider_account_prefix(self):
         prefixed_account_number = f"36586-1-{self.order.payment_account_no}"

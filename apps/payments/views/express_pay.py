@@ -137,10 +137,11 @@ class ExpressPayNotificationView(View):
 
     @transaction.atomic
     def _process_status_change(self, notification: ExpressPayWebhookNotification) -> Invoice:
-        invoice = Invoice.objects.select_related("order").get(
+        invoice = Invoice.objects.select_for_update().get(
             provider_invoice_no=str(notification.invoice_no),
             order__payment_account_no=notification.account_no,
         )
+        invoice.order = Order.objects.select_for_update().get(pk=invoice.order_id)
 
         provider_event_key = build_payment_event_key(notification)
         payment_event, created = PaymentEvent.objects.get_or_create(
@@ -313,8 +314,11 @@ class ExpressPaySettlementNotificationView(View):
 
     @transaction.atomic
     def _process_epos_notification(self, notification: ExpressPayEPOSSettlementNotification) -> Invoice:
-        order = Order.objects.select_related("invoice").get(payment_account_no=notification.account_number)
-        invoice = order.invoice
+        order = Order.objects.select_for_update().get(
+            payment_account_no=notification.account_number,
+        )
+        invoice = Invoice.objects.select_for_update().get(order=order)
+        order.invoice = invoice
         event_at = normalize_notification_datetime(notification.date_result_utc or notification.created_at)
         provider_event_key = build_settlement_event_key(notification)
 

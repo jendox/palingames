@@ -50,6 +50,7 @@ def mark_order_paid(
     persist: bool = True,
 ) -> None:
     paid_at = paid_at or timezone.now()
+    already_paid = order.status == Order.OrderStatus.PAID
 
     invoice.status = Invoice.InvoiceStatus.PAID
     invoice.paid_at = paid_at
@@ -79,32 +80,33 @@ def mark_order_paid(
             ],
         )
 
-    guest_access_payloads = []
-    guest_access_email_outbox = None
-    if order.checkout_type == Order.CheckoutType.AUTHENTICATED:
-        grant_user_product_accesses(order)
-    elif order.checkout_type == Order.CheckoutType.GUEST:
-        guest_access_email_outbox = create_guest_access_email_outbox_for_order(order)
-        if guest_access_email_outbox:
-            guest_access_payloads = [{}] * order.items_count
-            transaction.on_commit(
-                lambda: send_guest_access_email_outbox_task.delay(guest_access_email_outbox.id),
-            )
-    log_event(
-        logger,
-        logging.INFO,
-        "order.paid",
-        source=source,
-        order_id=order.id,
-        order_public_id=str(order.public_id),
-        invoice_id=invoice.id,
-        provider_invoice_no=invoice.provider_invoice_no,
-        checkout_type=order.checkout_type,
-        user_id=order.user_id,
-        guest_accesses_count=len(guest_access_payloads),
-        guest_access_email_outbox_id=guest_access_email_outbox.id if guest_access_email_outbox else None,
-    )
-    inc_order_paid(checkout_type=order.checkout_type, source=order.source)
+    if not already_paid:
+        guest_access_payloads = []
+        guest_access_email_outbox = None
+        if order.checkout_type == Order.CheckoutType.AUTHENTICATED:
+            grant_user_product_accesses(order)
+        elif order.checkout_type == Order.CheckoutType.GUEST:
+            guest_access_email_outbox = create_guest_access_email_outbox_for_order(order)
+            if guest_access_email_outbox:
+                guest_access_payloads = [{}] * order.items_count
+                transaction.on_commit(
+                    lambda: send_guest_access_email_outbox_task.delay(guest_access_email_outbox.id),
+                )
+        log_event(
+            logger,
+            logging.INFO,
+            "order.paid",
+            source=source,
+            order_id=order.id,
+            order_public_id=str(order.public_id),
+            invoice_id=invoice.id,
+            provider_invoice_no=invoice.provider_invoice_no,
+            checkout_type=order.checkout_type,
+            user_id=order.user_id,
+            guest_accesses_count=len(guest_access_payloads),
+            guest_access_email_outbox_id=guest_access_email_outbox.id if guest_access_email_outbox else None,
+        )
+        inc_order_paid(checkout_type=order.checkout_type, source=order.source)
 
 
 def apply_order_status_from_invoice_status(
