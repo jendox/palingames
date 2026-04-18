@@ -44,6 +44,11 @@ ORDERS_PAID_TOTAL = Counter(
     "Total paid orders.",
     ["checkout_type", "source"],
 )
+ORDERS_PAID_DUPLICATE_TOTAL = Counter(
+    "orders_paid_duplicate_total",
+    "Total duplicate paid order transitions skipped after an order was already paid.",
+    ["checkout_type", "source"],
+)
 INVOICES_CREATED_TOTAL = Counter(
     "invoices_created_total",
     "Total created invoices.",
@@ -63,6 +68,11 @@ PAYMENT_WEBHOOKS_REJECTED_TOTAL = Counter(
     "payment_webhooks_rejected_total",
     "Total rejected payment webhooks.",
     ["provider", "reason"],
+)
+PAYMENT_DUPLICATE_EVENTS_TOTAL = Counter(
+    "payment_duplicate_events_total",
+    "Total duplicate payment events received.",
+    ["provider", "cmd_type", "source"],
 )
 INVOICE_STATUS_SYNC_RUNS_TOTAL = Counter(
     "invoice_status_sync_runs_total",
@@ -137,6 +147,10 @@ def inc_order_paid(*, checkout_type: str, source: str) -> None:
     ORDERS_PAID_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
 
 
+def inc_order_paid_duplicate(*, checkout_type: str, source: str) -> None:
+    ORDERS_PAID_DUPLICATE_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
+
+
 def inc_invoice_created(*, provider: str) -> None:
     INVOICES_CREATED_TOTAL.labels(provider=provider).inc()
 
@@ -151,6 +165,10 @@ def inc_payment_webhook_failed(*, provider: str, reason: str) -> None:
 
 def inc_payment_webhook_rejected(*, provider: str, reason: str) -> None:
     PAYMENT_WEBHOOKS_REJECTED_TOTAL.labels(provider=provider, reason=reason).inc()
+
+
+def inc_payment_duplicate_event(*, provider: str, cmd_type: int | str, source: str) -> None:
+    PAYMENT_DUPLICATE_EVENTS_TOTAL.labels(provider=provider, cmd_type=str(cmd_type), source=source).inc()
 
 
 def record_invoice_status_sync_summary(summary: dict[str, int]) -> None:

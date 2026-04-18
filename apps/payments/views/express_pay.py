@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from apps.core.logging import log_event
 from apps.core.metrics import (
+    inc_payment_duplicate_event,
     inc_payment_webhook_failed,
     inc_payment_webhook_received,
     inc_payment_webhook_rejected,
@@ -200,6 +201,12 @@ class ExpressPayNotificationView(View):
             payment_event.is_processed = True
             payment_event.processed_at = timezone.now()
             payment_event.save(update_fields=["is_processed", "processed_at", "updated_at"])
+        else:
+            inc_payment_duplicate_event(
+                provider=invoice.provider,
+                cmd_type=notification.cmd_type,
+                source="webhook",
+            )
 
         return invoice
 
@@ -390,5 +397,11 @@ class ExpressPaySettlementNotificationView(View):
             payment_event.is_processed = True
             payment_event.processed_at = timezone.now()
             payment_event.save(update_fields=["is_processed", "processed_at", "updated_at"])
+        else:
+            inc_payment_duplicate_event(
+                provider=invoice.provider,
+                cmd_type=notification.cmd_type,
+                source="settlement",
+            )
 
         return invoice

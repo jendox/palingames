@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.orders.models import Order
 from apps.products.models import Product, ProductFile
+from apps.products.services.s3 import ProductFileDownloadUrlError
 
 from .email_outbox import (
     cleanup_old_guest_access_email_outboxes,
@@ -19,7 +20,7 @@ from .email_outbox import (
 )
 from .emails import send_guest_order_download_email
 from .models import GuestAccess, GuestAccessEmailOutbox
-from .services import create_guest_access, mark_guest_access_used, resolve_guest_access
+from .services import create_guest_access, mark_guest_access_used, release_guest_access_use, resolve_guest_access
 
 
 class GuestAccessModelTests(TestCase):
@@ -170,6 +171,27 @@ class GuestAccessServiceTests(TestCase):
 
         self.assertFalse(updated)
 
+    def test_release_guest_access_use_decrements_counter(self):
+        order = Order.objects.create(
+            email="guest@example.com",
+            checkout_type=Order.CheckoutType.GUEST,
+            subtotal_amount="10.00",
+            total_amount="10.00",
+            items_count=1,
+        )
+        product = Product.objects.create(title="Архив 6c", slug="archive-access-6c", price="10.00")
+        guest_access, _ = create_guest_access(
+            order=order,
+            product=product,
+            expires_in=timedelta(hours=24),
+        )
+        self.assertTrue(mark_guest_access_used(guest_access))
+
+        release_guest_access_use(guest_access)
+
+        guest_access.refresh_from_db()
+        self.assertEqual(guest_access.downloads_count, 0)
+
 
 class GuestProductDownloadViewTests(TestCase):
     @classmethod
@@ -236,6 +258,45 @@ class GuestProductDownloadViewTests(TestCase):
             response = self.client.get(reverse("guest-product-download", kwargs={"token": raw_token}))
 
         self.assertEqual(response.status_code, 410)
+        guest_access.refresh_from_db()
+        self.assertEqual(guest_access.downloads_count, 0)
+
+    def test_guest_download_marks_used_before_generating_presigned_url(self):
+        guest_access, raw_token = create_guest_access(
+            order=self.order,
+            product=self.product,
+            expires_in=timedelta(hours=24),
+            max_downloads=1,
+        )
+
+        def assert_marked_before_generating_url(*args, **kwargs):
+            guest_access.refresh_from_db()
+            self.assertEqual(guest_access.downloads_count, 1)
+            return "https://example.com/download"
+
+        with patch(
+            "apps.access.views.generate_presigned_download_url",
+            side_effect=assert_marked_before_generating_url,
+        ):
+            response = self.client.get(reverse("guest-product-download", kwargs={"token": raw_token}))
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_guest_download_releases_use_when_presigned_url_generation_fails(self):
+        guest_access, raw_token = create_guest_access(
+            order=self.order,
+            product=self.product,
+            expires_in=timedelta(hours=24),
+            max_downloads=1,
+        )
+
+        with patch(
+            "apps.access.views.generate_presigned_download_url",
+            side_effect=ProductFileDownloadUrlError("boom"),
+        ):
+            response = self.client.get(reverse("guest-product-download", kwargs={"token": raw_token}))
+
+        self.assertEqual(response.status_code, 503)
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.downloads_count, 0)
 

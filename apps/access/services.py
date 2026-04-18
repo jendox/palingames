@@ -155,3 +155,15 @@ def mark_guest_access_used(guest_access: GuestAccess) -> bool:
         return False
     guest_access.refresh_from_db(fields=["downloads_count", "last_used_at", "updated_at"])
     return True
+
+
+def release_guest_access_use(guest_access: GuestAccess) -> None:
+    updated = GuestAccess.objects.filter(
+        pk=guest_access.pk,
+        downloads_count__gt=0,
+    ).update(
+        downloads_count=F("downloads_count") - 1,
+        updated_at=timezone.now(),
+    )
+    if updated:
+        guest_access.refresh_from_db(fields=["downloads_count", "updated_at"])

@@ -10,7 +10,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
-from .services import mark_guest_access_used, resolve_guest_access
+from .services import mark_guest_access_used, release_guest_access_use, resolve_guest_access
 
 logger = logging.getLogger("apps.access")
 
@@ -47,12 +47,30 @@ class GuestProductDownloadView(View):
                 status=404,
             )
 
+        if not mark_guest_access_used(guest_access):
+            log_event(
+                logger,
+                logging.WARNING,
+                "guest_access.download.rejected",
+                guest_access_id=guest_access.id,
+                order_id=guest_access.order_id,
+                product_id=guest_access.product_id,
+                reason="download_limit_exhausted",
+            )
+            inc_product_download_failed(access_type="guest", reason="download_limit_exhausted")
+            return self._render_invalid(
+                request,
+                reason="invalid_or_expired",
+                status=410,
+            )
+
         try:
             download_url = generate_presigned_download_url(
                 file_key=product_file.file_key,
                 original_filename=product_file.original_filename or f"{guest_access.product.slug}.zip",
             )
         except ProductFileDownloadUrlError as exc:
+            release_guest_access_use(guest_access)
             log_event(
                 logger,
                 logging.ERROR,
@@ -69,23 +87,6 @@ class GuestProductDownloadView(View):
                 request,
                 reason="download_unavailable",
                 status=503,
-            )
-
-        if not mark_guest_access_used(guest_access):
-            log_event(
-                logger,
-                logging.WARNING,
-                "guest_access.download.rejected",
-                guest_access_id=guest_access.id,
-                order_id=guest_access.order_id,
-                product_id=guest_access.product_id,
-                reason="download_limit_exhausted",
-            )
-            inc_product_download_failed(access_type="guest", reason="download_limit_exhausted")
-            return self._render_invalid(
-                request,
-                reason="invalid_or_expired",
-                status=410,
             )
         log_event(
             logger,
