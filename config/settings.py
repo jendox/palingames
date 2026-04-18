@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.RequestContextLoggingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "apps.core.rate_limit_middleware.AuthRateLimitMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -339,5 +340,17 @@ CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT_WINDOW_SECONDS = env.int(
 CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT = env.int("CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT", default=30)
 CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS = env.int(
     "CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS",
+    default=600,
+)
+
+AUTH_LOGIN_EMAIL_RATE_LIMIT = env.int("AUTH_LOGIN_EMAIL_RATE_LIMIT", default=5)
+AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS = env.int(
+    "AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS",
+    default=600,
+)
+
+AUTH_LOGIN_IP_RATE_LIMIT = env.int("AUTH_LOGIN_IP_RATE_LIMIT", default=30)
+AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS = env.int(
+    "AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS",
     default=600,
 )

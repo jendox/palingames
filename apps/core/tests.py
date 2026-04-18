@@ -3,6 +3,7 @@ import logging
 from contextlib import contextmanager
 from unittest.mock import patch
 
+from django.core.cache import caches
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
@@ -247,3 +248,75 @@ class RateLimitTests(SimpleTestCase):
         self.assertFalse(third.allowed)
         self.assertEqual(third.count, 3)
         self.assertEqual(third.limit, 2)
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "auth-rate-limit-test-default",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "auth-rate-limit-test-rate-limit",
+        },
+    },
+    AUTH_LOGIN_EMAIL_RATE_LIMIT=1,
+    AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+    AUTH_LOGIN_IP_RATE_LIMIT=100,
+    AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+)
+class AuthRateLimitMiddlewareTests(TestCase):
+    def setUp(self):
+        caches["rate_limit"].clear()
+
+    def test_auth_login_enforces_email_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много попыток входа. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    @override_settings(
+        AUTH_LOGIN_EMAIL_RATE_LIMIT=100,
+        AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        AUTH_LOGIN_IP_RATE_LIMIT=1,
+        AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_auth_login_enforces_ip_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "first@example.com", "password": "wrong"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.30",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "second@example.com", "password": "wrong"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.30",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "600")
