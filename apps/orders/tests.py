@@ -89,6 +89,12 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(invoice.amount, order.total_amount)
         self.assertIsNotNone(invoice.expires_at)
         self.assertIn(f"created={order.public_id}", response["Location"])
+        self.assertEqual(self.client.session.get(SESSION_CART_KEY), [])
+
+        success_response = self.client.get(response["Location"])
+
+        self.assertEqual(success_response.status_code, 200)
+        self.assertEqual(success_response.context["checkout_created_order"], order)
 
     def test_authenticated_checkout_post_creates_order_for_user(self):
         self.client.force_login(self.user)
@@ -101,6 +107,7 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(order.user, self.user)
         self.assertEqual(order.checkout_type, Order.CheckoutType.AUTHENTICATED)
         self.assertEqual(order.source, Order.Source.PALINGAMES)
+        self.assertFalse(CartItem.objects.filter(cart=cart).exists())
 
     def test_authenticated_checkout_blocks_already_purchased_products(self):
         self.client.force_login(self.user)

@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from apps.cart.services import clear_cart
 from apps.core.logging import log_event
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.promocodes.services import PromoCodeError
@@ -32,6 +33,11 @@ class CheckoutPageView(TemplateView):
             email=request.user.email if request.user.is_authenticated else "",
         )
         if not checkout_context["cart_items"]:
+            created_public_id = request.GET.get("created")
+            if created_public_id and Order.objects.filter(public_id=created_public_id).exists():
+                self.checkout_context = checkout_context
+                return super().dispatch(request, *args, **kwargs)
+
             log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
         self.checkout_context = checkout_context
@@ -103,6 +109,8 @@ class CheckoutPageView(TemplateView):
             messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
             return redirect("cart")
         enqueue_invoice_creation(order.id)
+        clear_cart(request)
+        clear_checkout_promo_code(request)
         log_event(
             logger,
             logging.INFO,
