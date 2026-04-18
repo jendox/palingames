@@ -1,17 +1,24 @@
 import logging
 
 from django.contrib import messages
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
-from apps.cart.services import get_cart_page_context
 from apps.core.logging import log_event
 from apps.payments.jobs import enqueue_invoice_creation
+from apps.promocodes.services import PromoCodeError
 
 from .forms import CheckoutSubmitForm
 from .models import Order
-from .services import create_order_from_cart
+from .services import (
+    clear_checkout_promo_code,
+    create_order_from_cart,
+    get_checkout_order_context,
+    get_checkout_promo_code,
+    set_checkout_promo_code,
+)
 
 logger = logging.getLogger("apps.checkout")
 
@@ -20,22 +27,35 @@ class CheckoutPageView(TemplateView):
     template_name = "pages/checkout.html"
 
     def dispatch(self, request, *args, **kwargs):
-        cart_context = get_cart_page_context(request)
-        if not cart_context["cart_items"]:
+        checkout_context = get_checkout_order_context(
+            request,
+            email=request.user.email if request.user.is_authenticated else "",
+        )
+        if not checkout_context["cart_items"]:
             log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
-        self.cart_context = cart_context
+        self.checkout_context = checkout_context
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = kwargs.get("checkout_form") or CheckoutSubmitForm(
-            initial={"email": self.request.user.email if self.request.user.is_authenticated else ""},
+            initial={
+                "email": self.request.user.email if self.request.user.is_authenticated else "",
+                "promo_code": get_checkout_promo_code(self.request),
+            },
         )
         checkout_email = form["email"].value() or ""
         checkout_step = 2 if checkout_email else 1
 
-        context.update(self.cart_context)
+        context.update(
+            get_checkout_order_context(
+                self.request,
+                email=checkout_email,
+                promo_message=kwargs.get("promo_message", ""),
+                promo_message_level=kwargs.get("promo_message_level", ""),
+            ),
+        )
         context["checkout_form"] = form
         context["checkout_email"] = checkout_email
         context["checkout_step"] = checkout_step
@@ -67,7 +87,18 @@ class CheckoutPageView(TemplateView):
             return self.render_to_response(context, status=400)
 
         try:
-            order = create_order_from_cart(request=request, email=form.cleaned_data["email"])
+            order = create_order_from_cart(
+                request=request,
+                email=form.cleaned_data["email"],
+                promo_code=get_checkout_promo_code(request) or form.cleaned_data["promo_code"],
+            )
+        except PromoCodeError as exc:
+            context = self.get_context_data(
+                checkout_form=form,
+                promo_message=exc.message,
+                promo_message_level="error",
+            )
+            return self.render_to_response(context, status=400)
         except ValueError:
             messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
             return redirect("cart")
@@ -82,3 +113,39 @@ class CheckoutPageView(TemplateView):
         )
         checkout_url = f"{reverse('checkout')}?created={order.public_id}"
         return redirect(checkout_url)
+
+
+def _checkout_summary_template(request) -> str:
+    if request.POST.get("checkout_variant") == "mobile":
+        return "pages/checkout/_summary_mobile.html"
+    return "pages/checkout/_summary_desktop.html"
+
+
+@require_POST
+def checkout_promo_apply_view(request):
+    raw_code = request.POST.get("promo_code", "")
+    if not raw_code.strip():
+        clear_checkout_promo_code(request)
+        context = get_checkout_order_context(
+            request,
+            email=request.POST.get("email", ""),
+            promo_message="Введите промокод.",
+            promo_message_level="error",
+        )
+        return render(request, _checkout_summary_template(request), context)
+
+    set_checkout_promo_code(request, raw_code)
+    context = get_checkout_order_context(request, email=request.POST.get("email", ""))
+    return render(request, _checkout_summary_template(request), context)
+
+
+@require_POST
+def checkout_promo_remove_view(request):
+    clear_checkout_promo_code(request)
+    context = get_checkout_order_context(
+        request,
+        email=request.POST.get("email", ""),
+        promo_message="Промокод удален.",
+        promo_message_level="success",
+    )
+    return render(request, _checkout_summary_template(request), context)

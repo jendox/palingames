@@ -23,45 +23,7 @@
 
     <form method="post" novalidate>
       {% csrf_token %}
-    <div class="mt-[40px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] pb-[20px] pt-[20px]">
-      <p class="text-[12px] font-bold leading-[12px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
-
-      <div class="mt-[20px] space-y-[20px]">
-        {% for item in cart_items %}
-          <div class="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-[20px]">
-            <img
-              src="{{ item.image_url }}"
-              alt="{{ item.title }}"
-              class="h-[73px] w-[60px] rounded-[4px] object-cover"
-              draggable="false"
-            >
-            <div class="flex min-h-[73px] flex-col justify-center">
-              <p class="min-h-[30px] text-[12px] font-semibold leading-[15px] text-[var(--color-black)]">
-                {{ item.title }}
-              </p>
-              <p class="mt-[7px] text-[10px] leading-[12px] text-[var(--color-black-80)]">
-                {{ item.kind }}
-              </p>
-              <p class="mt-[7px] text-[12px] font-black leading-none text-[var(--color-black)]">
-                {{ item.price }}
-              </p>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-
-      <div class="mt-[20px] flex items-end justify-between gap-[12px] text-[12px] font-normal leading-[16px] text-[var(--color-black-80)]">
-        <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
-        <span class="text-[14px] font-normal leading-[16px] text-[var(--color-black)]">{{ cart_total }}</span>
-      </div>
-
-      <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
-        <div class="flex items-end justify-between gap-[14px]">
-          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
-          <span class="text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">{{ cart_total }}</span>
-        </div>
-      </div>
-    </div>
+    {% include "pages/checkout/_summary_mobile.html" %}
 
     <div class="mt-[30px]">
       <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">

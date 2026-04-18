@@ -123,41 +123,7 @@
       </section>
 
       <aside class="w-full max-w-[595px] justify-self-end pt-[6px]">
-        <div class="w-full rounded-[6px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[55px] pb-[50px] pt-[50px]">
-          <p class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
-
-          <div class="mt-[30px] space-y-[30px]">
-            {% for item in cart_items %}
-              <div class="grid grid-cols-[132px_minmax(0,1fr)] items-center gap-[45px]">
-                <img
-                  src="{{ item.image_url }}"
-                  alt="{{ item.title }}"
-                  class="h-[172px] w-[132px] rounded-[6px] object-cover"
-                  draggable="false"
-                >
-                <div class="flex min-h-[172px] flex-col justify-center">
-                  <p class="min-h-[48px] text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
-                    {{ item.title }}
-                  </p>
-                  <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
-                    <span class="font-semibold">{% trans "Категория:" %}</span>
-                    <span class="font-normal">{{ item.kind }}</span>
-                  </p>
-                  <p class="mt-[30px] text-[20px] font-black leading-none text-[var(--color-black)]">
-                    {{ item.price }}
-                  </p>
-                </div>
-              </div>
-            {% endfor %}
-          </div>
-
-          <div class="mt-[40px] border-t border-[var(--color-grey)] pt-[45px]">
-            <div class="flex items-end justify-between gap-[16px]">
-              <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
-              <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">{{ cart_total }}</span>
-            </div>
-          </div>
-        </div>
+        {% include "pages/checkout/_summary_desktop.html" %}
 
         <p class="mx-auto mt-[45px] max-w-[260px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
           {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный E-mail" %}

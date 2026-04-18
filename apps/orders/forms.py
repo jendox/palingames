@@ -11,3 +11,4 @@ class CheckoutSubmitForm(forms.Form):
             "invalid": _("Введите корректный Email."),
         },
     )
+    promo_code = forms.CharField(label=_("Промокод"), max_length=32, required=False)

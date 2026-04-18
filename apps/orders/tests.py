@@ -12,6 +12,7 @@ from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice
 from apps.payments.tasks import create_invoice_task
 from apps.products.models import Category, Product
+from apps.promocodes.models import PromoCode, PromoCodeRedemption
 from libs.payments.models import CreateInvoiceResult
 
 
@@ -20,8 +21,11 @@ class CheckoutPageViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
+        cls.other_category = Category.objects.create(title="Методические материалы", slug="method-materials")
         cls.product = Product.objects.create(title="Альфа", slug="alpha-checkout", price=Decimal("25.00"))
         cls.product.categories.add(cls.category)
+        cls.other_product = Product.objects.create(title="Методичка", slug="method-checkout", price=Decimal("10.00"))
+        cls.other_product.categories.add(cls.other_category)
         cls.user = get_user_model().objects.create_user(email="test@example.com", password="test-pass-123")
 
     def setUp(self):
@@ -129,6 +133,102 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "Введите корректный Email.", status_code=400)
         self.assertFalse(Order.objects.exists())
+
+    def test_checkout_promo_apply_updates_summary_without_creating_order(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        PromoCode.objects.create(code="review10", discount_percent=10, max_redemptions_per_email=1)
+
+        response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "review10",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Промокод применен.")
+        self.assertContains(response, "22,50 BYN")
+        self.assertFalse(Order.objects.exists())
+
+    def test_checkout_post_applies_category_limited_percent_promo(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id, self.other_product.id]
+        session["checkout_promo_code"] = "EDU10"
+        session.save()
+        promo_code = PromoCode.objects.create(code="EDU10", discount_percent=10, max_redemptions_per_email=1)
+        promo_code.categories.add(self.category)
+
+        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        self.assertEqual(order.subtotal_amount, Decimal("35.00"))
+        self.assertEqual(order.promo_code, promo_code)
+        self.assertEqual(order.promo_code_snapshot, "EDU10")
+        self.assertEqual(order.discount_percent_snapshot, 10)
+        self.assertEqual(order.promo_eligible_amount, Decimal("25.00"))
+        self.assertEqual(order.discount_amount, Decimal("2.50"))
+        self.assertEqual(order.total_amount, Decimal("32.50"))
+        self.assertEqual(Invoice.objects.get(order=order).amount, Decimal("32.50"))
+        redemption = PromoCodeRedemption.objects.get(order=order)
+        self.assertEqual(redemption.discount_amount, Decimal("2.50"))
+
+    def test_checkout_post_rejects_invalid_promo_code(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Промокод недействителен.", status_code=400)
+        self.assertFalse(Order.objects.exists())
+
+    def test_checkout_post_enforces_promo_email_limit(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        promo_code = PromoCode.objects.create(code="ONCE10", discount_percent=10, max_redemptions_per_email=1)
+        previous_order = Order.objects.create(
+            email="guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            subtotal_amount=Decimal("25.00"),
+            discount_amount=Decimal("2.50"),
+            total_amount=Decimal("22.50"),
+            items_count=1,
+        )
+        PromoCodeRedemption.objects.create(
+            promo_code=promo_code,
+            order=previous_order,
+            email="guest@example.com",
+            subtotal_amount=Decimal("25.00"),
+            eligible_amount=Decimal("25.00"),
+            discount_amount=Decimal("2.50"),
+        )
+
+        response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "ONCE10",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Лимит использования промокода исчерпан.", status_code=400)
+        self.assertEqual(Order.objects.count(), 1)
 
     def test_create_invoice_task_is_idempotent_for_existing_pending_invoice(self):
         order = Order.objects.create(

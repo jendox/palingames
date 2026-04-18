@@ -1,0 +1,99 @@
+{% load static i18n %}
+
+<div data-checkout-summary>
+  <div class="w-full rounded-[6px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[55px] pb-[50px] pt-[50px]">
+    <p class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">{% trans "Ваш заказ" %}</p>
+
+    <div class="mt-[30px] space-y-[30px]">
+      {% for item in cart_items %}
+        <div class="grid grid-cols-[132px_minmax(0,1fr)] items-center gap-[45px]">
+          <img
+            src="{{ item.image_url }}"
+            alt="{{ item.title }}"
+            class="h-[172px] w-[132px] rounded-[6px] object-cover"
+            draggable="false"
+          >
+          <div class="flex min-h-[172px] flex-col justify-center">
+            <p class="min-h-[48px] text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
+              {{ item.title }}
+            </p>
+            <p class="mt-[15px] text-[16px] leading-[20px] text-[var(--color-black-80)]">
+              <span class="font-semibold">{% trans "Категория:" %}</span>
+              <span class="font-normal">{{ item.kind }}</span>
+            </p>
+            <p class="mt-[30px] text-[20px] font-black leading-none text-[var(--color-black)]">
+              {% if item.has_discount %}
+                <span class="text-[var(--color-black-80)] line-through">{{ item.price }}</span>
+                <span class="ml-[10px] text-[#D45A5A]">{{ item.discount_price }}</span>
+              {% else %}
+                {{ item.price }}
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-[40px] border-t border-[var(--color-grey)] pt-[45px]">
+      {% if checkout_promo_applied %}
+        <div class="mb-[20px] flex items-end justify-between gap-[16px] text-[18px] leading-[18px]">
+          <span class="font-semibold text-[var(--color-black-80)]">{% trans "Скидка:" %}</span>
+          <span class="font-bold text-[#D45A5A]">-{{ cart_discount }}</span>
+        </div>
+      {% endif %}
+      <div class="flex items-end justify-between gap-[16px]">
+        <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">{% trans "Итого:" %}</span>
+        <span class="text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">
+          {% if checkout_promo_applied %}
+            <span class="text-[var(--color-black-80)] line-through">{{ cart_total_original }}</span>
+            <span class="ml-[12px] text-[#D45A5A]">{{ cart_total }}</span>
+          {% else %}
+            {{ cart_total }}
+          {% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-[25px]">
+    <input type="hidden" name="checkout_variant" value="desktop">
+    <div class="flex items-start gap-[14px]">
+      <input
+        name="{{ checkout_form.promo_code.html_name|default:'promo_code' }}"
+        type="text"
+        value="{{ checkout_promo_code }}"
+        placeholder="{% trans 'Промокод' %}"
+        class="account-input h-[54px] min-w-0 flex-1 rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[20px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+        {% if checkout_promo_applied %}readonly{% endif %}
+      >
+      {% if checkout_promo_applied %}
+        <button
+          type="button"
+          class="btn-purple h-[54px] w-[160px]"
+          hx-post="{% url 'checkout-promo-remove' %}"
+          hx-include="closest form"
+          hx-target="closest [data-checkout-summary]"
+          hx-swap="outerHTML"
+        >
+          {% trans "Удалить" %}
+        </button>
+      {% else %}
+        <button
+          type="button"
+          class="btn-purple h-[54px] w-[160px]"
+          hx-post="{% url 'checkout-promo-apply' %}"
+          hx-include="closest form"
+          hx-target="closest [data-checkout-summary]"
+          hx-swap="outerHTML"
+        >
+          {% trans "Применить" %}
+        </button>
+      {% endif %}
+    </div>
+    {% if checkout_promo_message %}
+      <p class="mt-[10px] text-[12px] leading-[14px] {% if checkout_promo_message_level == 'success' %}text-[var(--color-green)]{% else %}text-[#D45A5A]{% endif %}">
+        {{ checkout_promo_message }}
+      </p>
+    {% endif %}
+  </div>
+</div>

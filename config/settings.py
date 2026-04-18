@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.favorites.apps.FavoritesConfig",
     "apps.orders.apps.OrdersConfig",
     "apps.payments.apps.PaymentsConfig",
+    "apps.promocodes.apps.PromocodesConfig",
 ]
 
 MIDDLEWARE = [

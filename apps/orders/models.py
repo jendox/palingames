@@ -1,5 +1,6 @@
 import secrets
 import uuid
+from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
@@ -52,6 +53,23 @@ class Order(TimeStampedModel):
     email = models.EmailField(_("Email"), max_length=254)
     checkout_type = models.CharField(_("Тип оформления"), max_length=16, choices=CheckoutType.choices)
     subtotal_amount = models.DecimalField(_("Сумма позиций"), max_digits=10, decimal_places=2)
+    promo_code = models.ForeignKey(
+        "promocodes.PromoCode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+        verbose_name=_("Промокод"),
+    )
+    promo_code_snapshot = models.CharField(_("Промокод"), max_length=32, blank=True)
+    discount_percent_snapshot = models.PositiveSmallIntegerField(_("Скидка, %"), null=True, blank=True)
+    promo_eligible_amount = models.DecimalField(
+        _("Сумма подходящих под промокод товаров"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    discount_amount = models.DecimalField(_("Скидка"), max_digits=10, decimal_places=2, default=Decimal("0.00"))
     total_amount = models.DecimalField(_("Итоговая сумма"), max_digits=10, decimal_places=2)
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
     items_count = models.PositiveSmallIntegerField(_("Количество позиций"))
