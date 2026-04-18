@@ -27,6 +27,7 @@ from .services import (
 logger = logging.getLogger("apps.checkout")
 
 CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оформления заказа. Попробуйте позже."
+CHECKOUT_PROMO_RATE_LIMIT_MESSAGE = "Слишком много попыток применения промокода. Попробуйте позже."
 
 
 def _get_client_ip(request: HttpRequest) -> str:
@@ -55,6 +56,30 @@ def _check_checkout_create_rate_limit(*, request: HttpRequest, email: str):
         identifier=f"ip:{ip}",
         limit=settings.CHECKOUT_CREATE_IP_RATE_LIMIT,
         window_seconds=settings.CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS,
+    )
+
+
+def _check_checkout_promo_apply_rate_limit(*, request: HttpRequest, email: str):
+    normalized_email = email.strip().lower()
+    if normalized_email:
+        email_result = check_rate_limit(
+            scope=RateLimitScope.CHECKOUT_PROMO_APPLY,
+            identifier=f"email:{normalized_email}",
+            limit=settings.CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT,
+            window_seconds=settings.CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not email_result.allowed:
+            return email_result
+
+    ip = _get_client_ip(request)
+    if not ip:
+        return None
+
+    return check_rate_limit(
+        scope=RateLimitScope.CHECKOUT_PROMO_APPLY,
+        identifier=f"ip:{ip}",
+        limit=settings.CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT,
+        window_seconds=settings.CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS,
     )
 
 
@@ -189,6 +214,21 @@ def checkout_promo_apply_view(request):
             promo_message_level="error",
         )
         return render(request, _checkout_summary_template(request), context)
+
+    rate_limit = _check_checkout_promo_apply_rate_limit(
+        request=request,
+        email=request.POST.get("email", ""),
+    )
+    if rate_limit is not None and not rate_limit.allowed:
+        context = get_checkout_order_context(
+            request,
+            email=request.POST.get("email", ""),
+            promo_message=CHECKOUT_PROMO_RATE_LIMIT_MESSAGE,
+            promo_message_level="error",
+        )
+        response = render(request, _checkout_summary_template(request), context, status=429)
+        response["Retry-After"] = str(rate_limit.retry_after_seconds)
+        return response
 
     set_checkout_promo_code(request, raw_code)
     context = get_checkout_order_context(request, email=request.POST.get("email", ""))

@@ -328,6 +328,91 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(second_response["Retry-After"], "3600")
         self.assertEqual(Order.objects.count(), 1)
 
+    @override_settings(
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT=1,
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT=100,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_checkout_promo_apply_enforces_email_rate_limit(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing-one",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+
+        second_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing-two",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertContains(
+            second_response,
+            "Слишком много попыток применения промокода. Попробуйте позже.",
+            status_code=429,
+        )
+        self.assertEqual(second_response["Retry-After"], "600")
+        self.assertNotEqual(self.client.session.get("checkout_promo_code"), "MISSING-TWO")
+
+    @override_settings(
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT=100,
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT=1,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_checkout_promo_apply_enforces_ip_rate_limit(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "first@example.com",
+                "promo_code": "missing-one",
+                "checkout_variant": "mobile",
+            },
+            HTTP_HX_REQUEST="true",
+            REMOTE_ADDR="203.0.113.20",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+
+        second_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "second@example.com",
+                "promo_code": "missing-two",
+                "checkout_variant": "mobile",
+            },
+            HTTP_HX_REQUEST="true",
+            REMOTE_ADDR="203.0.113.20",
+        )
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertContains(
+            second_response,
+            "Слишком много попыток применения промокода. Попробуйте позже.",
+            status_code=429,
+        )
+        self.assertEqual(second_response["Retry-After"], "600")
+
     def test_create_invoice_task_is_idempotent_for_existing_pending_invoice(self):
         order = Order.objects.create(
             email="guest@example.com",
