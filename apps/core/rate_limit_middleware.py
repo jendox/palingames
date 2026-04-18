@@ -15,6 +15,8 @@ AUTH_SIGNUP_PATH = "/_allauth/browser/v1/auth/signup"
 AUTH_SIGNUP_RATE_LIMIT_MESSAGE = "Слишком много попыток регистрации. Попробуйте позже."
 AUTH_PASSWORD_RESET_REQUEST_PATH = "/_allauth/browser/v1/auth/password/request"
 AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE = "Слишком много запросов сброса пароля. Попробуйте позже."
+AUTH_PASSWORD_RESET_CONFIRM_PATH = "/_allauth/browser/v1/auth/password/reset"
+AUTH_PASSWORD_RESET_CONFIRM_RATE_LIMIT_MESSAGE = "Слишком много попыток сброса пароля. Попробуйте позже."
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,12 @@ def _get_auth_email(request: HttpRequest) -> str:
     payload = _get_json_body(request)
     email = payload.get("email") or payload.get("login")
     return str(email).strip().lower() if email else ""
+
+
+def _get_auth_key(request: HttpRequest) -> str:
+    payload = _get_json_body(request)
+    key = payload.get("key")
+    return str(key).strip() if key else ""
 
 
 def _rate_limited_response(*, message: str, retry_after_seconds: int) -> JsonResponse:
@@ -132,6 +140,30 @@ def _check_auth_password_reset_request_rate_limit(request: HttpRequest):
     )
 
 
+def _check_auth_password_reset_confirm_rate_limit(request: HttpRequest):
+    key = _get_auth_key(request)
+    if key:
+        key_result = check_rate_limit(
+            scope=RateLimitScope.AUTH_PASSWORD_RESET_CONFIRM,
+            identifier=f"key:{key}",
+            limit=settings.AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT,
+            window_seconds=settings.AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not key_result.allowed:
+            return key_result
+
+    ip = _get_client_ip(request)
+    if not ip:
+        return None
+
+    return check_rate_limit(
+        scope=RateLimitScope.AUTH_PASSWORD_RESET_CONFIRM,
+        identifier=f"ip:{ip}",
+        limit=settings.AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT,
+        window_seconds=settings.AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT_WINDOW_SECONDS,
+    )
+
+
 AUTH_RATE_LIMIT_CONFIGS = {
     AUTH_LOGIN_PATH: AuthRateLimitConfig(
         checker=_check_auth_login_rate_limit,
@@ -144,6 +176,10 @@ AUTH_RATE_LIMIT_CONFIGS = {
     AUTH_PASSWORD_RESET_REQUEST_PATH: AuthRateLimitConfig(
         checker=_check_auth_password_reset_request_rate_limit,
         message=AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE,
+    ),
+    AUTH_PASSWORD_RESET_CONFIRM_PATH: AuthRateLimitConfig(
+        checker=_check_auth_password_reset_confirm_rate_limit,
+        message=AUTH_PASSWORD_RESET_CONFIRM_RATE_LIMIT_MESSAGE,
     ),
 }
 

@@ -273,6 +273,10 @@ class RateLimitTests(SimpleTestCase):
     AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
     AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT=100,
     AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT=1,
+    AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT_WINDOW_SECONDS=600,
+    AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT=100,
+    AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT_WINDOW_SECONDS=600,
 )
 class AuthRateLimitMiddlewareTests(TestCase):
     def setUp(self):
@@ -436,6 +440,68 @@ class AuthRateLimitMiddlewareTests(TestCase):
                 "errors": [
                     {
                         "message": "Слишком много запросов сброса пароля. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    def test_auth_password_reset_confirm_enforces_key_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/password/reset",
+            data=json.dumps({"key": "test-reset-key", "password": "test-password-123"}),
+            content_type="application/json",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/password/reset",
+            data=json.dumps({"key": "test-reset-key", "password": "test-password-123"}),
+            content_type="application/json",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много попыток сброса пароля. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    @override_settings(
+        AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT=100,
+        AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT_WINDOW_SECONDS=600,
+        AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT=1,
+        AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_auth_password_reset_confirm_enforces_ip_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/password/reset",
+            data=json.dumps({"key": "first-test-reset-key", "password": "test-password-123"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.60",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/password/reset",
+            data=json.dumps({"key": "second-test-reset-key", "password": "test-password-123"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.60",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много попыток сброса пароля. Попробуйте позже.",
                         "code": "rate_limited",
                     },
                 ],
