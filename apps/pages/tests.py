@@ -1,13 +1,16 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.cache import caches
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
 from apps.favorites.models import Favorite
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Category, Product
+
+PASSWORD_CHANGE_RATE_LIMIT_MESSAGE = "Слишком много попыток смены пароля. Попробуйте позже."
 
 
 class AccountOrdersDownloadTests(TestCase):
@@ -132,3 +135,68 @@ class AccountFavoritesTabTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "pages/account/desktop/_account_favorites_desktop_results.html")
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "account-password-rate-limit-test-default",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "account-password-rate-limit-test-rate-limit",
+        },
+    },
+    ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT=1,
+    ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT_WINDOW_SECONDS=600,
+    ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT=100,
+    ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+)
+class AccountPasswordChangeRateLimitTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            email="password-limit@example.com",
+            password="test-pass-123",
+        )
+
+    def setUp(self):
+        caches["rate_limit"].clear()
+        self.client.force_login(self.user)
+
+    def _post_password_change(self, *, old_password="wrong-pass", remote_addr="203.0.113.70"):
+        return self.client.post(
+            reverse("account"),
+            data={
+                "old_password": old_password,
+                "new_password1": "new-test-pass-123",
+                "new_password2": "new-test-pass-123",
+            },
+            query_params={"tab": "password"},
+            REMOTE_ADDR=remote_addr,
+        )
+
+    def test_account_password_change_enforces_user_rate_limit(self):
+        first = self._post_password_change()
+        second = self._post_password_change()
+
+        self.assertEqual(first.status_code, 200)
+        self.assertNotContains(first, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
+        self.assertEqual(second.status_code, 200)
+        self.assertContains(second, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
+
+    @override_settings(
+        ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT=100,
+        ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT_WINDOW_SECONDS=600,
+        ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT=1,
+        ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_account_password_change_enforces_ip_rate_limit(self):
+        first = self._post_password_change(old_password="first-wrong-pass")
+        second = self._post_password_change(old_password="second-wrong-pass")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertNotContains(first, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
+        self.assertEqual(second.status_code, 200)
+        self.assertContains(second, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)

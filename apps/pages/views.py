@@ -1,6 +1,7 @@
 from enum import StrEnum
 from urllib.parse import quote
 
+from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -8,11 +9,14 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 
 from apps.access.services import get_user_product_access_ids
+from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_account_favorites_context
 from apps.orders.models import Order
 from apps.products.pricing import format_price
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
+
+ACCOUNT_PASSWORD_CHANGE_RATE_LIMIT_MESSAGE = "Слишком много попыток смены пароля. Попробуйте позже."
 
 
 class AccountTab(StrEnum):
@@ -27,6 +31,13 @@ def _get_active_tab(request) -> AccountTab:
         return AccountTab(request.GET.get("tab"))
     except ValueError:
         return AccountTab.PERSONAL
+
+
+def _get_client_ip(request) -> str:
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded_for:
+        return str(forwarded_for).split(",", maxsplit=1)[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
 
 
 class HomePageView(TemplateView):
@@ -232,6 +243,12 @@ class AccountPageView(TemplateView):
 
     def _password_update(self, request) -> HttpResponse:
         form = AccountPasswordChangeForm(user=request.user, data=request.POST)
+        rate_limit = self._check_password_change_rate_limit(request)
+        if rate_limit is not None and not rate_limit.allowed:
+            form.add_error(None, ACCOUNT_PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
+            context = self.get_context_data(password_form=form)
+            return self.render_to_response(context)
+
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
@@ -243,6 +260,27 @@ class AccountPageView(TemplateView):
 
         context = self.get_context_data(password_form=form)
         return self.render_to_response(context)
+
+    def _check_password_change_rate_limit(self, request):
+        user_result = check_rate_limit(
+            scope=RateLimitScope.ACCOUNT_PASSWORD_CHANGE,
+            identifier=f"user:{request.user.pk}",
+            limit=settings.ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT,
+            window_seconds=settings.ACCOUNT_PASSWORD_CHANGE_USER_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not user_result.allowed:
+            return user_result
+
+        ip = _get_client_ip(request)
+        if not ip:
+            return None
+
+        return check_rate_limit(
+            scope=RateLimitScope.ACCOUNT_PASSWORD_CHANGE,
+            identifier=f"ip:{ip}",
+            limit=settings.ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT,
+            window_seconds=settings.ACCOUNT_PASSWORD_CHANGE_IP_RATE_LIMIT_WINDOW_SECONDS,
+        )
 
     def _default_tab(self, request, *args, **kwargs) -> HttpResponse:
         return self.get(request, *args, **kwargs)
