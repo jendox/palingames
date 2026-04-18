@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
@@ -548,7 +549,7 @@ class OrderModelTests(TestCase):
         self.assertIsNotNone(order.payment_account_no)
         self.assertEqual(len(order.payment_account_no), 16)
         self.assertTrue(order.payment_account_no.startswith(Order.Source.PALINGAMES))
-        self.assertEqual(order.payment_account_no[2:8], order.created_at.strftime("%d%m%y"))
+        self.assertEqual(order.payment_account_no[2:8], timezone.localtime(order.created_at).strftime("%d%m%y"))
         self.assertRegex(order.payment_account_no[8:], r"^[0-9A-Z]{8}$")
 
     def test_payment_account_no_does_not_expose_plain_order_id(self):
