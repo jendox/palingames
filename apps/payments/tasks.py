@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 from celery import shared_task
@@ -76,7 +78,7 @@ def get_express_pay_request_client() -> ExpressPayClient:
     )
 
 
-def _build_invoice_expiration(now) -> tuple[str, timezone.datetime]:
+def _build_invoice_expiration(now) -> tuple[str, datetime]:
     expires_at = now + _invoice_lifetime()
     local_expires_at = expires_at.astimezone(timezone.get_current_timezone())
     return local_expires_at.strftime("%Y%m%d%H%M"), expires_at
@@ -123,7 +125,7 @@ def _get_locked_order_with_invoice(order_id: int) -> Order:
 
 def _get_locked_order_for_invoice_creation(order_id: int) -> Order:
     order = _get_locked_order_with_invoice(order_id)
-    invoice = getattr(order, "invoice", None)
+    invoice: Invoice | None = getattr(order, "invoice", None)
     should_skip = bool(
         invoice
         and invoice.provider_invoice_no
