@@ -26,6 +26,16 @@
     </div>
 
     {% if cart_items %}
+      <div class="mt-[10px] text-right">
+        <a
+          href="#cartClearDialog"
+          data-dialog-open="cartClearDialog"
+          class="inline-flex cursor-pointer text-[12px] font-bold leading-[14px] text-[var(--color-black)] underline underline-offset-[2px]"
+        >
+          {% trans "очистить корзину" %}
+        </a>
+      </div>
+
       <div class="mt-[50px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
         <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">
           {% trans "Ваш заказ" %}
