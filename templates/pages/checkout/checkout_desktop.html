@@ -22,6 +22,7 @@
 
     <form method="post" class="mx-auto mt-[70px] grid max-w-[1440px] grid-cols-[minmax(0,1fr)_minmax(460px,595px)] items-start gap-[72px]" novalidate>
       {% csrf_token %}
+      <input type="hidden" name="{{ checkout_form.checkout_idempotency_key.html_name }}" value="{{ checkout_idempotency_key }}">
       <section class="pt-[4px]">
         <div class="max-w-[535px]">
           <div class="grid grid-cols-[126px_minmax(0,1fr)] items-start gap-x-[25px]">

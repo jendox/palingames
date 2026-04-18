@@ -23,6 +23,7 @@
 
     <form method="post" novalidate>
       {% csrf_token %}
+      <input type="hidden" name="{{ checkout_form.checkout_idempotency_key.html_name }}" value="{{ checkout_idempotency_key }}">
     {% include "pages/checkout/_summary_mobile.html" %}
 
     <div class="mt-[30px]">

@@ -32,6 +32,13 @@ class Order(TimeStampedModel):
         INSTAGRAM = "IG", _("Instagram")
 
     public_id = models.UUIDField(_("Публичный идентификатор"), default=uuid.uuid4, unique=True, editable=False)
+    checkout_idempotency_key = models.UUIDField(
+        _("Ключ идемпотентности оформления"),
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+    )
     payment_account_no = models.CharField(
         _("Номер лицевого счёта для оплаты"),
         max_length=22,

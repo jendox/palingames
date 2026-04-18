@@ -10,6 +10,7 @@ from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
 from apps.orders.models import Order, OrderItem
+from apps.orders.services import CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY
 from apps.payments.models import Invoice
 from apps.payments.tasks import create_invoice_task
 from apps.products.models import Category, Product
@@ -31,7 +32,7 @@ from libs.payments.models import CreateInvoiceResult
         },
     },
 )
-class CheckoutPageViewTests(TestCase):
+class CheckoutTestBase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
@@ -55,6 +56,8 @@ class CheckoutPageViewTests(TestCase):
         )
         self.mock_get_express_pay_request_client.return_value = mock_client
 
+
+class CheckoutPageViewTests(CheckoutTestBase):
     def test_checkout_redirects_to_cart_when_empty(self):
         response = self.client.get(reverse("checkout"))
 
@@ -70,6 +73,8 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["checkout_step"], 1)
         self.assertEqual(response.context["checkout_email"], "")
+        self.assertContains(response, 'name="checkout_idempotency_key"')
+        self.assertTrue(response.context["checkout_idempotency_key"])
 
     def test_authenticated_checkout_prefills_email_and_uses_second_step(self):
         self.client.force_login(self.user)
@@ -105,6 +110,7 @@ class CheckoutPageViewTests(TestCase):
         self.assertIsNotNone(invoice.expires_at)
         self.assertIn(f"created={order.public_id}", response["Location"])
         self.assertEqual(self.client.session.get(SESSION_CART_KEY), [])
+        self.assertNotIn(CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY, self.client.session)
 
         success_response = self.client.get(response["Location"])
 
@@ -437,6 +443,95 @@ class CheckoutPageViewTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(invoice.provider_invoice_no, "76543210")
         self.mock_get_express_pay_request_client.return_value.create_invoice.assert_not_called()
+
+
+class CheckoutIdempotencyTests(CheckoutTestBase):
+    def test_checkout_idempotency_key_reuses_existing_order_after_cart_is_cleared(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        checkout_response = self.client.get(reverse("checkout"))
+        checkout_idempotency_key = checkout_response.context["checkout_idempotency_key"]
+
+        first_response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "checkout_idempotency_key": checkout_idempotency_key,
+            },
+        )
+        second_response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "checkout_idempotency_key": checkout_idempotency_key,
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(first_response["Location"], second_response["Location"])
+        order = Order.objects.get()
+        self.assertEqual(str(order.checkout_idempotency_key), checkout_idempotency_key)
+        self.assertEqual(OrderItem.objects.filter(order=order).count(), 1)
+        self.assertEqual(Invoice.objects.filter(order=order).count(), 1)
+        self.mock_get_express_pay_request_client.return_value.create_invoice.assert_called_once()
+
+    @override_settings(
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT=1,
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_CREATE_IP_RATE_LIMIT=1,
+        CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    def test_checkout_idempotency_key_bypasses_rate_limit_for_existing_order(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        checkout_response = self.client.get(reverse("checkout"))
+        checkout_idempotency_key = checkout_response.context["checkout_idempotency_key"]
+
+        first_response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "checkout_idempotency_key": checkout_idempotency_key,
+            },
+        )
+        second_response = self.client.post(
+            reverse("checkout"),
+            {
+                "email": "guest@example.com",
+                "checkout_idempotency_key": checkout_idempotency_key,
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(Order.objects.count(), 1)
+
+    def test_checkout_idempotency_key_changes_when_cart_changes(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.get(reverse("checkout"))
+        second_response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(
+            first_response.context["checkout_idempotency_key"],
+            second_response.context["checkout_idempotency_key"],
+        )
+
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.other_product.id]
+        session.save()
+
+        third_response = self.client.get(reverse("checkout"))
+
+        self.assertNotEqual(
+            first_response.context["checkout_idempotency_key"],
+            third_response.context["checkout_idempotency_key"],
+        )
 
 
 class OrderModelTests(TestCase):

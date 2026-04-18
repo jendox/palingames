@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class CheckoutSubmitForm(forms.Form):
+    checkout_idempotency_key = forms.UUIDField(required=False, widget=forms.HiddenInput)
     email = forms.EmailField(
         label=_("Email"),
         max_length=254,

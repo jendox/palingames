@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.templatetags.static import static
 
 from apps.access.services import get_user_product_access_ids
@@ -25,6 +27,14 @@ from .models import Order, OrderItem
 
 logger = logging.getLogger("apps.orders")
 CHECKOUT_PROMO_SESSION_KEY = "checkout_promo_code"
+CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY = "checkout_idempotency_key"
+CHECKOUT_CART_FINGERPRINT_SESSION_KEY = "checkout_cart_fingerprint"
+
+
+@dataclass(frozen=True)
+class OrderCreationResult:
+    order: Order
+    created: bool
 
 
 def _get_ordered_cart_products(request) -> list[Product]:
@@ -38,6 +48,40 @@ def _get_ordered_cart_products(request) -> list[Product]:
         .in_bulk(product_ids)
     )
     return [products[product_id] for product_id in product_ids if product_id in products]
+
+
+def _get_checkout_cart_fingerprint(request) -> str:
+    return ",".join(str(product_id) for product_id in get_cart_product_ids(request))
+
+
+def ensure_checkout_idempotency_key(request) -> str:
+    cart_fingerprint = _get_checkout_cart_fingerprint(request)
+    session_key = request.session.get(CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY, "")
+    session_cart_fingerprint = request.session.get(CHECKOUT_CART_FINGERPRINT_SESSION_KEY, "")
+    if session_key and session_cart_fingerprint == cart_fingerprint:
+        return str(session_key)
+
+    checkout_idempotency_key = str(uuid.uuid4())
+    request.session[CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY] = checkout_idempotency_key
+    request.session[CHECKOUT_CART_FINGERPRINT_SESSION_KEY] = cart_fingerprint
+    request.session.modified = True
+    return checkout_idempotency_key
+
+
+def clear_checkout_idempotency_key(request) -> None:
+    removed = False
+    for session_key in (CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY, CHECKOUT_CART_FINGERPRINT_SESSION_KEY):
+        if session_key in request.session:
+            del request.session[session_key]
+            removed = True
+    if removed:
+        request.session.modified = True
+
+
+def get_order_by_checkout_idempotency_key(checkout_idempotency_key) -> Order | None:
+    if not checkout_idempotency_key:
+        return None
+    return Order.objects.filter(checkout_idempotency_key=checkout_idempotency_key).first()
 
 
 def _prepare_order_items(
@@ -193,21 +237,16 @@ def get_checkout_order_context(
     }
 
 
-@transaction.atomic
-def create_order_from_cart(*, request, email: str, promo_code: str = "") -> Order:
-    products = _get_ordered_cart_products(request)
-    checkout_type = (
-        Order.CheckoutType.AUTHENTICATED if request.user.is_authenticated else Order.CheckoutType.GUEST
-    )
-    log_event(
-        logger,
-        logging.INFO,
-        "order.creation.started",
-        cart_items_count=len(products),
-        checkout_type=checkout_type,
-        user_id=request.user.id if request.user.is_authenticated else None,
-    )
-    try:
+def _create_new_order_from_products(
+    *,
+    request,
+    email: str,
+    products: list[Product],
+    promo_code: str,
+    checkout_idempotency_key,
+    checkout_type: str,
+) -> Order:
+    with transaction.atomic():
         if not products:
             msg = "Cannot create an order from an empty cart."
             raise ValueError(msg)
@@ -231,6 +270,7 @@ def create_order_from_cart(*, request, email: str, promo_code: str = "") -> Orde
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
         order = Order.objects.create(
+            checkout_idempotency_key=checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
             email=email,
             source=Order.Source.PALINGAMES,
@@ -252,6 +292,47 @@ def create_order_from_cart(*, request, email: str, promo_code: str = "") -> Orde
         if promo_discount:
             create_promo_code_redemption(order=order, promo_discount=promo_discount)
             clear_checkout_promo_code(request)
+        return order
+
+
+def create_order_from_cart(
+    *,
+    request,
+    email: str,
+    promo_code: str = "",
+    checkout_idempotency_key=None,
+) -> OrderCreationResult:
+    existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)
+    if existing_order is not None:
+        return OrderCreationResult(order=existing_order, created=False)
+
+    products = _get_ordered_cart_products(request)
+    checkout_type = (
+        Order.CheckoutType.AUTHENTICATED if request.user.is_authenticated else Order.CheckoutType.GUEST
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "order.creation.started",
+        cart_items_count=len(products),
+        checkout_type=checkout_type,
+        user_id=request.user.id if request.user.is_authenticated else None,
+    )
+    try:
+        try:
+            order = _create_new_order_from_products(
+                request=request,
+                email=email,
+                products=products,
+                promo_code=promo_code,
+                checkout_idempotency_key=checkout_idempotency_key,
+                checkout_type=checkout_type,
+            )
+        except IntegrityError:
+            existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)
+            if existing_order is not None:
+                return OrderCreationResult(order=existing_order, created=False)
+            raise
     except Exception as exc:
         log_event(
             logger,
@@ -277,4 +358,4 @@ def create_order_from_cart(*, request, email: str, promo_code: str = "") -> Orde
     )
     inc_order_created(checkout_type=order.checkout_type, source=order.source)
 
-    return order
+    return OrderCreationResult(order=order, created=True)

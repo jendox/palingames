@@ -17,10 +17,13 @@ from apps.promocodes.services import PromoCodeError
 from .forms import CheckoutSubmitForm
 from .models import Order
 from .services import (
+    clear_checkout_idempotency_key,
     clear_checkout_promo_code,
     create_order_from_cart,
+    ensure_checkout_idempotency_key,
     get_checkout_order_context,
     get_checkout_promo_code,
+    get_order_by_checkout_idempotency_key,
     set_checkout_promo_code,
 )
 
@@ -28,6 +31,11 @@ logger = logging.getLogger("apps.checkout")
 
 CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оформления заказа. Попробуйте позже."
 CHECKOUT_PROMO_RATE_LIMIT_MESSAGE = "Слишком много попыток применения промокода. Попробуйте позже."
+
+
+def _redirect_to_created_order(order: Order):
+    checkout_url = f"{reverse('checkout')}?created={order.public_id}"
+    return redirect(checkout_url)
 
 
 def _get_client_ip(request: HttpRequest) -> str:
@@ -96,6 +104,10 @@ class CheckoutPageView(TemplateView):
             if created_public_id and Order.objects.filter(public_id=created_public_id).exists():
                 self.checkout_context = checkout_context
                 return super().dispatch(request, *args, **kwargs)
+            checkout_idempotency_key = request.POST.get("checkout_idempotency_key") if request.method == "POST" else ""
+            if get_order_by_checkout_idempotency_key(checkout_idempotency_key):
+                self.checkout_context = checkout_context
+                return super().dispatch(request, *args, **kwargs)
 
             log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
@@ -106,9 +118,13 @@ class CheckoutPageView(TemplateView):
         context = super().get_context_data(**kwargs)
         form = kwargs.get("checkout_form") or CheckoutSubmitForm(
             initial={
+                "checkout_idempotency_key": ensure_checkout_idempotency_key(self.request),
                 "email": self.request.user.email if self.request.user.is_authenticated else "",
                 "promo_code": get_checkout_promo_code(self.request),
             },
+        )
+        checkout_idempotency_key = form["checkout_idempotency_key"].value() or ensure_checkout_idempotency_key(
+            self.request,
         )
         checkout_email = form["email"].value() or ""
         checkout_step = 2 if checkout_email else 1
@@ -122,6 +138,7 @@ class CheckoutPageView(TemplateView):
             ),
         )
         context["checkout_form"] = form
+        context["checkout_idempotency_key"] = checkout_idempotency_key
         context["checkout_email"] = checkout_email
         context["checkout_step"] = checkout_step
         context["checkout_is_authenticated"] = self.request.user.is_authenticated
@@ -152,6 +169,16 @@ class CheckoutPageView(TemplateView):
             context = self.get_context_data(checkout_form=form)
             return self.render_to_response(context, status=400)
 
+        checkout_idempotency_key = form.cleaned_data["checkout_idempotency_key"] or ensure_checkout_idempotency_key(
+            request,
+        )
+        existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)
+        if existing_order is not None:
+            clear_cart(request)
+            clear_checkout_promo_code(request)
+            clear_checkout_idempotency_key(request)
+            return _redirect_to_created_order(existing_order)
+
         rate_limit = _check_checkout_create_rate_limit(
             request=request,
             email=form.cleaned_data["email"],
@@ -166,10 +193,11 @@ class CheckoutPageView(TemplateView):
             return response
 
         try:
-            order = create_order_from_cart(
+            result = create_order_from_cart(
                 request=request,
                 email=form.cleaned_data["email"],
                 promo_code=get_checkout_promo_code(request) or form.cleaned_data["promo_code"],
+                checkout_idempotency_key=checkout_idempotency_key,
             )
         except PromoCodeError as exc:
             context = self.get_context_data(
@@ -181,9 +209,12 @@ class CheckoutPageView(TemplateView):
         except ValueError:
             messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
             return redirect("cart")
-        enqueue_invoice_creation(order.id)
+        order = result.order
+        if result.created:
+            enqueue_invoice_creation(order.id)
         clear_cart(request)
         clear_checkout_promo_code(request)
+        clear_checkout_idempotency_key(request)
         log_event(
             logger,
             logging.INFO,
@@ -191,9 +222,9 @@ class CheckoutPageView(TemplateView):
             order_id=order.id,
             order_public_id=order.public_id,
             checkout_type=order.checkout_type,
+            order_created=result.created,
         )
-        checkout_url = f"{reverse('checkout')}?created={order.public_id}"
-        return redirect(checkout_url)
+        return _redirect_to_created_order(order)
 
 
 def _checkout_summary_template(request) -> str:
