@@ -265,6 +265,10 @@ class RateLimitTests(SimpleTestCase):
     AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
     AUTH_LOGIN_IP_RATE_LIMIT=100,
     AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    AUTH_SIGNUP_EMAIL_RATE_LIMIT=1,
+    AUTH_SIGNUP_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
+    AUTH_SIGNUP_IP_RATE_LIMIT=100,
+    AUTH_SIGNUP_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
 )
 class AuthRateLimitMiddlewareTests(TestCase):
     def setUp(self):
@@ -285,12 +289,87 @@ class AuthRateLimitMiddlewareTests(TestCase):
         self.assertNotEqual(first.status_code, 429)
         self.assertEqual(second.status_code, 429)
         self.assertEqual(second["Retry-After"], "600")
+
+    def test_auth_signup_enforces_email_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": "new@example.com",
+                    "password1": "test-password-123",
+                    "password2": "test-password-123",
+                },
+            ),
+            content_type="application/json",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": "new@example.com",
+                    "password1": "test-password-123",
+                    "password2": "test-password-123",
+                },
+            ),
+            content_type="application/json",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "3600")
         self.assertJSONEqual(
             second.content,
             {
                 "errors": [
                     {
-                        "message": "Слишком много попыток входа. Попробуйте позже.",
+                        "message": "Слишком много попыток регистрации. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    @override_settings(
+        AUTH_SIGNUP_EMAIL_RATE_LIMIT=100,
+        AUTH_SIGNUP_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
+        AUTH_SIGNUP_IP_RATE_LIMIT=1,
+        AUTH_SIGNUP_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    def test_auth_signup_enforces_ip_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": "first-new@example.com",
+                    "password1": "test-password-123",
+                    "password2": "test-password-123",
+                },
+            ),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.40",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": "second-new@example.com",
+                    "password1": "test-password-123",
+                    "password2": "test-password-123",
+                },
+            ),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.40",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "3600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много попыток регистрации. Попробуйте позже.",
                         "code": "rate_limited",
                     },
                 ],
