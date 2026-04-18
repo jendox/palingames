@@ -177,6 +177,14 @@ class CheckoutPageViewTests(TestCase):
         self.assertEqual(Invoice.objects.get(order=order).amount, Decimal("32.50"))
         redemption = PromoCodeRedemption.objects.get(order=order)
         self.assertEqual(redemption.discount_amount, Decimal("2.50"))
+        discounted_item = OrderItem.objects.get(order=order, product=self.product)
+        regular_item = OrderItem.objects.get(order=order, product=self.other_product)
+        self.assertTrue(discounted_item.promo_eligible)
+        self.assertEqual(discounted_item.discount_amount, Decimal("2.50"))
+        self.assertEqual(discounted_item.discounted_line_total_amount, Decimal("22.50"))
+        self.assertFalse(regular_item.promo_eligible)
+        self.assertEqual(regular_item.discount_amount, Decimal("0.00"))
+        self.assertIsNone(regular_item.discounted_line_total_amount)
 
     def test_checkout_post_rejects_invalid_promo_code(self):
         session = self.client.session

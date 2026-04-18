@@ -17,6 +17,9 @@ class OrderItemInline(admin.TabularInline):
         "unit_price_amount",
         "quantity",
         "line_total_amount",
+        "promo_eligible",
+        "discount_amount",
+        "discounted_line_total_amount",
     )
     readonly_fields = fields
     can_delete = False
@@ -152,6 +155,7 @@ class OrderItemAdmin(admin.ModelAdmin):
         "quantity",
         "unit_price_amount",
         "line_total_amount",
+        "discount_amount",
         "created_at",
     )
     list_filter = ("created_at", "order__status")

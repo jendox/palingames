@@ -40,12 +40,23 @@ def _get_ordered_cart_products(request) -> list[Product]:
     return [products[product_id] for product_id in product_ids if product_id in products]
 
 
-def _prepare_order_items(order: Order, products: list[Product]) -> list[OrderItem]:
+def _prepare_order_items(
+    order: Order,
+    products: list[Product],
+    promo_discount: PromoCodeDiscount | None = None,
+) -> list[OrderItem]:
     order_items = []
     for product in products:
         first_category = product.categories.first()
         first_image = next(iter(product.images.all()), None)
         image_url = first_image.image.url if first_image else static("images/example-product-image-1.png")
+        item_discount_amount = Decimal("0.00")
+        discounted_line_total_amount = None
+        promo_eligible = _is_product_eligible_for_discount(product, promo_discount)
+        if promo_discount and promo_eligible:
+            item_discount_amount = calculate_percent_discount(product.price, promo_discount.discount_percent)
+            discounted_line_total_amount = product.price - item_discount_amount
+
         order_items.append(
             OrderItem(
                 order=order,
@@ -55,6 +66,9 @@ def _prepare_order_items(order: Order, products: list[Product]) -> list[OrderIte
                 unit_price_amount=product.price,
                 quantity=1,
                 line_total_amount=product.price,
+                promo_eligible=promo_eligible,
+                discount_amount=item_discount_amount,
+                discounted_line_total_amount=discounted_line_total_amount,
                 product_slug_snapshot=product.slug,
                 product_image_snapshot=image_url,
             ),
@@ -233,7 +247,7 @@ def create_order_from_cart(*, request, email: str, promo_code: str = "") -> Orde
             items_count=len(products),
         )
 
-        order_items = _prepare_order_items(order, products)
+        order_items = _prepare_order_items(order, products, promo_discount)
         OrderItem.objects.bulk_create(order_items)
         if promo_discount:
             create_promo_code_redemption(order=order, promo_discount=promo_discount)

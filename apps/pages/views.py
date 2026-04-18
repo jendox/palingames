@@ -183,6 +183,12 @@ class AccountPageView(TemplateView):
                     "title": item.title_snapshot,
                     "category": item.category_snapshot,
                     "price": format_price(item.line_total_amount, order.currency),
+                    "has_discount": item.promo_eligible and item.discounted_line_total_amount is not None,
+                    "discounted_price": (
+                        format_price(item.discounted_line_total_amount, order.currency)
+                        if item.discounted_line_total_amount is not None
+                        else ""
+                    ),
                     "image_url": item.product_image_snapshot,
                     "download_url": (
                         reverse("product-download", kwargs={"product_id": item.product_id})
@@ -198,6 +204,9 @@ class AccountPageView(TemplateView):
                     "number": order.payment_account_no,
                     "date": order.created_at.strftime("%d.%m.%Y"),
                     "total": format_price(order.total_amount, order.currency),
+                    "has_discount": order.discount_amount > 0 and bool(order.promo_code_snapshot),
+                    "promo_code": order.promo_code_snapshot,
+                    "discount": format_price(order.discount_amount, order.currency),
                     "items_count": order.items_count,
                     "status": meta["label"],
                     "status_classes": meta["classes"],

@@ -45,6 +45,11 @@
                 <p class="mt-[10px] text-[12px] font-bold leading-[14px] text-[var(--color-black)]">
                   {{ order.total }}
                 </p>
+                {% if order.has_discount %}
+                  <p class="mt-[10px] text-[10px] font-semibold leading-[13px] text-[var(--color-black-80)]">
+                    {% blocktrans with code=order.promo_code discount=order.discount %}Промокод {{ code }} · Скидка {{ discount }}{% endblocktrans %}
+                  </p>
+                {% endif %}
               </div>
 
               <span class="shrink-0 text-[12px] font-bold leading-[16px] text-[var(--color-black)] underline underline-offset-[2px]">
@@ -71,7 +76,12 @@
                         {{ item.category }}
                       </p>
                       <p class="mt-[10px] text-[12px] font-black leading-[14px] text-[var(--color-black)]">
-                        {{ item.price }}
+                        {% if item.has_discount %}
+                          <span class="text-[var(--color-black-80)] line-through">{{ item.price }}</span>
+                          <span class="ml-[6px] text-[#D45A5A]">{{ item.discounted_price }}</span>
+                        {% else %}
+                          {{ item.price }}
+                        {% endif %}
                       </p>
                     </div>
                     {% if item.download_url %}

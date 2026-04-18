@@ -119,6 +119,15 @@ class OrderItem(TimeStampedModel):
     unit_price_amount = models.DecimalField(_("Цена за единицу"), max_digits=10, decimal_places=2)
     quantity = models.PositiveSmallIntegerField(_("Количество"), default=1)
     line_total_amount = models.DecimalField(_("Сумма позиции"), max_digits=10, decimal_places=2)
+    promo_eligible = models.BooleanField(_("Применён промокод"), default=False)
+    discount_amount = models.DecimalField(_("Скидка"), max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    discounted_line_total_amount = models.DecimalField(
+        _("Сумма позиции со скидкой"),
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     product_slug_snapshot = models.SlugField(_("Слаг товара"), null=True, blank=True)
     product_image_snapshot = models.URLField(_("Ссылка на изображение"), null=True, blank=True)
 
