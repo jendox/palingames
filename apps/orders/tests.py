@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -16,7 +17,20 @@ from apps.promocodes.models import PromoCode, PromoCodeRedemption
 from libs.payments.models import CreateInvoiceResult
 
 
-@override_settings(CELERY_TASK_ALWAYS_EAGER=True, EXPRESS_PAY_IS_TEST=False)
+@override_settings(
+    CELERY_TASK_ALWAYS_EAGER=True,
+    EXPRESS_PAY_IS_TEST=False,
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "orders-test-default",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "orders-test-rate-limit",
+        },
+    },
+)
 class CheckoutPageViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -29,6 +43,7 @@ class CheckoutPageViewTests(TestCase):
         cls.user = get_user_model().objects.create_user(email="test@example.com", password="test-pass-123")
 
     def setUp(self):
+        caches["rate_limit"].clear()
         self.express_pay_client_patcher = patch("apps.payments.tasks.get_express_pay_request_client")
         self.mock_get_express_pay_request_client = self.express_pay_client_patcher.start()
         self.addCleanup(self.express_pay_client_patcher.stop)
@@ -243,6 +258,74 @@ class CheckoutPageViewTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertContains(response, "Лимит использования промокода исчерпан.", status_code=400)
+        self.assertEqual(Order.objects.count(), 1)
+
+    @override_settings(
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT=1,
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_CREATE_IP_RATE_LIMIT=100,
+        CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    def test_checkout_post_enforces_email_rate_limit(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(first_response.status_code, 302)
+
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.other_product.id]
+        session.save()
+
+        second_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertContains(
+            second_response,
+            "Слишком много попыток оформления заказа. Попробуйте позже.",
+            status_code=429,
+        )
+        self.assertEqual(second_response["Retry-After"], "600")
+        self.assertEqual(Order.objects.count(), 1)
+
+    @override_settings(
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT=100,
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_CREATE_IP_RATE_LIMIT=1,
+        CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    def test_checkout_post_enforces_ip_rate_limit(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(
+            reverse("checkout"),
+            {"email": "first@example.com"},
+            REMOTE_ADDR="203.0.113.10",
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.other_product.id]
+        session.save()
+
+        second_response = self.client.post(
+            reverse("checkout"),
+            {"email": "second@example.com"},
+            REMOTE_ADDR="203.0.113.10",
+        )
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertContains(
+            second_response,
+            "Слишком много попыток оформления заказа. Попробуйте позже.",
+            status_code=429,
+        )
+        self.assertEqual(second_response["Retry-After"], "3600")
         self.assertEqual(Order.objects.count(), 1)
 
     def test_create_invoice_task_is_idempotent_for_existing_pending_invoice(self):

@@ -3,7 +3,7 @@ import logging
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.logging import (
@@ -13,6 +13,7 @@ from apps.core.logging import (
     clear_logging_context,
     set_logging_context,
 )
+from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.sentry import configure_sentry_scope, init_sentry
 from apps.core.tasks import clear_expired_sessions_task
 
@@ -206,3 +207,43 @@ class HealthViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/plain; version=0.0.4; charset=utf-8")
         self.assertEqual(response.content, b"test_metric 1\n")
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-default",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-rate-limit",
+        },
+    },
+)
+class RateLimitTests(SimpleTestCase):
+    def test_check_rate_limit_blocks_after_limit(self):
+        first = check_rate_limit(
+            scope=RateLimitScope.CHECKOUT_CREATE,
+            identifier="user@example.com",
+            limit=2,
+            window_seconds=60,
+        )
+        second = check_rate_limit(
+            scope=RateLimitScope.CHECKOUT_CREATE,
+            identifier="user@example.com",
+            limit=2,
+            window_seconds=60,
+        )
+        third = check_rate_limit(
+            scope=RateLimitScope.CHECKOUT_CREATE,
+            identifier="user@example.com",
+            limit=2,
+            window_seconds=60,
+        )
+
+        self.assertTrue(first.allowed)
+        self.assertTrue(second.allowed)
+        self.assertFalse(third.allowed)
+        self.assertEqual(third.count, 3)
+        self.assertEqual(third.limit, 2)

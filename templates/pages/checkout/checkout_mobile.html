@@ -129,6 +129,11 @@
     >
       {% trans "Оформить заказ" %}
     </button>
+    {% if checkout_error_message %}
+    <p class="mt-[10px] text-center text-[10px] font-bold leading-[13px] text-[#D45A5A]" role="alert">
+      {{ checkout_error_message }}
+    </p>
+    {% endif %}
     </form>
   </div>
 </section>

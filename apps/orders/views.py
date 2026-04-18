@@ -1,6 +1,8 @@
 import logging
 
+from django.conf import settings
 from django.contrib import messages
+from django.http import HttpRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -8,6 +10,7 @@ from django.views.generic import TemplateView
 
 from apps.cart.services import clear_cart
 from apps.core.logging import log_event
+from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.promocodes.services import PromoCodeError
 
@@ -22,6 +25,37 @@ from .services import (
 )
 
 logger = logging.getLogger("apps.checkout")
+
+CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оформления заказа. Попробуйте позже."
+
+
+def _get_client_ip(request: HttpRequest) -> str:
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded_for:
+        return str(forwarded_for).split(",", maxsplit=1)[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def _check_checkout_create_rate_limit(*, request: HttpRequest, email: str):
+    email_result = check_rate_limit(
+        scope=RateLimitScope.CHECKOUT_CREATE,
+        identifier=f"email:{email}",
+        limit=settings.CHECKOUT_CREATE_EMAIL_RATE_LIMIT,
+        window_seconds=settings.CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not email_result.allowed:
+        return email_result
+
+    ip = _get_client_ip(request)
+    if not ip:
+        return email_result
+
+    return check_rate_limit(
+        scope=RateLimitScope.CHECKOUT_CREATE,
+        identifier=f"ip:{ip}",
+        limit=settings.CHECKOUT_CREATE_IP_RATE_LIMIT,
+        window_seconds=settings.CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS,
+    )
 
 
 class CheckoutPageView(TemplateView):
@@ -78,6 +112,7 @@ class CheckoutPageView(TemplateView):
             {"title": "Корзина", "url": reverse("cart")},
             {"title": "Оформление заказа"},
         ]
+        context["checkout_error_message"] = kwargs.get("checkout_error_message", "")
         return context
 
     def post(self, request, *args, **kwargs):
@@ -91,6 +126,19 @@ class CheckoutPageView(TemplateView):
             )
             context = self.get_context_data(checkout_form=form)
             return self.render_to_response(context, status=400)
+
+        rate_limit = _check_checkout_create_rate_limit(
+            request=request,
+            email=form.cleaned_data["email"],
+        )
+        if not rate_limit.allowed:
+            context = self.get_context_data(
+                checkout_form=form,
+                checkout_error_message=CHECKOUT_RATE_LIMIT_MESSAGE,
+            )
+            response = self.render_to_response(context, status=429)
+            response["Retry-After"] = str(rate_limit.retry_after_seconds)
+            return response
 
         try:
             order = create_order_from_cart(

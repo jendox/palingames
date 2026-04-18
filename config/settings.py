@@ -153,6 +153,26 @@ USE_TZ = True
 
 REDIS_URL = env.str("REDIS_URL", default="redis://localhost:6379/0")
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env.str("CACHE_REDIS_URL", default=REDIS_URL),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "palingames",
+    },
+    "rate_limit": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env.str("RATE_LIMIT_REDIS_URL", default=REDIS_URL),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "palingames",
+        "TIMEOUT": None,
+    },
+}
+
 CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default=REDIS_URL)
 CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND", default=REDIS_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -296,3 +316,16 @@ LOGGING = {
         },
     },
 }
+
+# RATE LIMITS
+CHECKOUT_CREATE_EMAIL_RATE_LIMIT = env.int("CHECKOUT_CREATE_EMAIL_RATE_LIMIT", default=5)
+CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS = env.int(
+    "CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS",
+    default=600,
+)
+
+CHECKOUT_CREATE_IP_RATE_LIMIT = env.int("CHECKOUT_CREATE_IP_RATE_LIMIT", default=20)
+CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS = env.int(
+    "CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS",
+    default=3600,
+)
