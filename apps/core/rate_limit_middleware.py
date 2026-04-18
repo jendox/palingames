@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
-from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.rate_limits import RateLimitResult, RateLimitScope, check_rate_limit
 
 AUTH_LOGIN_PATH = "/_allauth/browser/v1/auth/login"
 AUTH_LOGIN_RATE_LIMIT_MESSAGE = "Слишком много попыток входа. Попробуйте позже."
 AUTH_SIGNUP_PATH = "/_allauth/browser/v1/auth/signup"
 AUTH_SIGNUP_RATE_LIMIT_MESSAGE = "Слишком много попыток регистрации. Попробуйте позже."
+AUTH_PASSWORD_RESET_REQUEST_PATH = "/_allauth/browser/v1/auth/password/request"
+AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE = "Слишком много запросов сброса пароля. Попробуйте позже."
+
+
+@dataclass(frozen=True)
+class AuthRateLimitConfig:
+    checker: Callable[[HttpRequest], RateLimitResult | None]
+    message: str
 
 
 def _get_client_ip(request: HttpRequest) -> str:
@@ -98,6 +108,46 @@ def _check_auth_signup_rate_limit(request: HttpRequest):
     )
 
 
+def _check_auth_password_reset_request_rate_limit(request: HttpRequest):
+    email = _get_auth_email(request)
+    if email:
+        email_result = check_rate_limit(
+            scope=RateLimitScope.AUTH_PASSWORD_RESET_REQUEST,
+            identifier=f"email:{email}",
+            limit=settings.AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT,
+            window_seconds=settings.AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not email_result.allowed:
+            return email_result
+
+    ip = _get_client_ip(request)
+    if not ip:
+        return None
+
+    return check_rate_limit(
+        scope=RateLimitScope.AUTH_PASSWORD_RESET_REQUEST,
+        identifier=f"ip:{ip}",
+        limit=settings.AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT,
+        window_seconds=settings.AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT_WINDOW_SECONDS,
+    )
+
+
+AUTH_RATE_LIMIT_CONFIGS = {
+    AUTH_LOGIN_PATH: AuthRateLimitConfig(
+        checker=_check_auth_login_rate_limit,
+        message=AUTH_LOGIN_RATE_LIMIT_MESSAGE,
+    ),
+    AUTH_SIGNUP_PATH: AuthRateLimitConfig(
+        checker=_check_auth_signup_rate_limit,
+        message=AUTH_SIGNUP_RATE_LIMIT_MESSAGE,
+    ),
+    AUTH_PASSWORD_RESET_REQUEST_PATH: AuthRateLimitConfig(
+        checker=_check_auth_password_reset_request_rate_limit,
+        message=AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE,
+    ),
+}
+
+
 class AuthRateLimitMiddleware:
     def __init__(self, get_response) -> None:
         self.get_response = get_response
@@ -106,20 +156,14 @@ class AuthRateLimitMiddleware:
         if request.method != "POST":
             return self.get_response(request)
 
-        if request.path == AUTH_LOGIN_PATH:
-            rate_limit = _check_auth_login_rate_limit(request)
-            if rate_limit is not None and not rate_limit.allowed:
-                return _rate_limited_response(
-                    message=AUTH_LOGIN_RATE_LIMIT_MESSAGE,
-                    retry_after_seconds=rate_limit.retry_after_seconds,
-                )
+        config = AUTH_RATE_LIMIT_CONFIGS.get(request.path)
+        if config is None:
+            return self.get_response(request)
 
-        if request.path == AUTH_SIGNUP_PATH:
-            rate_limit = _check_auth_signup_rate_limit(request)
-            if rate_limit is not None and not rate_limit.allowed:
-                return _rate_limited_response(
-                    message=AUTH_SIGNUP_RATE_LIMIT_MESSAGE,
-                    retry_after_seconds=rate_limit.retry_after_seconds,
-                )
-
+        rate_limit = config.checker(request)
+        if rate_limit is not None and not rate_limit.allowed:
+            return _rate_limited_response(
+                message=config.message,
+                retry_after_seconds=rate_limit.retry_after_seconds,
+            )
         return self.get_response(request)

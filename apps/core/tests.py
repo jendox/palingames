@@ -269,6 +269,10 @@ class RateLimitTests(SimpleTestCase):
     AUTH_SIGNUP_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
     AUTH_SIGNUP_IP_RATE_LIMIT=100,
     AUTH_SIGNUP_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT=1,
+    AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
+    AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT=100,
+    AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
 )
 class AuthRateLimitMiddlewareTests(TestCase):
     def setUp(self):
@@ -370,6 +374,68 @@ class AuthRateLimitMiddlewareTests(TestCase):
                 "errors": [
                     {
                         "message": "Слишком много попыток регистрации. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    def test_auth_password_reset_request_enforces_email_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/password/request",
+            data=json.dumps({"email": "reset@example.com"}),
+            content_type="application/json",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/password/request",
+            data=json.dumps({"email": "reset@example.com"}),
+            content_type="application/json",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "3600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много запросов сброса пароля. Попробуйте позже.",
+                        "code": "rate_limited",
+                    },
+                ],
+            },
+        )
+
+    @override_settings(
+        AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT=100,
+        AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT_WINDOW_SECONDS=3600,
+        AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT=1,
+        AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    def test_auth_password_reset_request_enforces_ip_rate_limit(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/password/request",
+            data=json.dumps({"email": "first-reset@example.com"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.50",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/password/request",
+            data=json.dumps({"email": "second-reset@example.com"}),
+            content_type="application/json",
+            REMOTE_ADDR="203.0.113.50",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "3600")
+        self.assertJSONEqual(
+            second.content,
+            {
+                "errors": [
+                    {
+                        "message": "Слишком много запросов сброса пароля. Попробуйте позже.",
                         "code": "rate_limited",
                     },
                 ],
