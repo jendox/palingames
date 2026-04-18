@@ -2,9 +2,10 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
@@ -402,6 +403,18 @@ class ProductS3ServiceTests(TestCase):
             )
 
 
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "products-test-default",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "products-test-rate-limit",
+        },
+    },
+)
 class ProductDownloadViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -425,6 +438,9 @@ class ProductDownloadViewTests(TestCase):
             items_count=1,
         )
         UserProductAccess.objects.create(user=cls.user, product=cls.product, order=cls.order)
+
+    def setUp(self):
+        caches["rate_limit"].clear()
 
     @patch("apps.products.views.generate_presigned_download_url")
     def test_download_redirects_to_presigned_url(self, mock_generate_presigned_download_url):
@@ -462,6 +478,51 @@ class ProductDownloadViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("/?dialog=login", response["Location"])
+
+    @override_settings(
+        PRODUCT_DOWNLOAD_USER_RATE_LIMIT=1,
+        PRODUCT_DOWNLOAD_USER_RATE_LIMIT_WINDOW_SECONDS=600,
+        PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT=100,
+        PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    @patch("apps.products.views.generate_presigned_download_url")
+    def test_download_enforces_user_rate_limit(self, mock_generate_presigned_download_url):
+        mock_generate_presigned_download_url.return_value = "https://example.com/download"
+        self.client.force_login(self.user)
+        url = reverse("product-download", kwargs={"product_id": self.product.id})
+
+        first_response = self.client.get(url)
+        second_response = self.client.get(url)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 429)
+        self.assertEqual(second_response["Retry-After"], "600")
+        self.assertContains(
+            second_response,
+            "Слишком много запросов на скачивание. Попробуйте позже.",
+            status_code=429,
+        )
+        mock_generate_presigned_download_url.assert_called_once()
+
+    @override_settings(
+        PRODUCT_DOWNLOAD_USER_RATE_LIMIT=100,
+        PRODUCT_DOWNLOAD_USER_RATE_LIMIT_WINDOW_SECONDS=600,
+        PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT=1,
+        PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS=300,
+    )
+    @patch("apps.products.views.generate_presigned_download_url")
+    def test_download_enforces_product_rate_limit(self, mock_generate_presigned_download_url):
+        mock_generate_presigned_download_url.return_value = "https://example.com/download"
+        self.client.force_login(self.user)
+        url = reverse("product-download", kwargs={"product_id": self.product.id})
+
+        first_response = self.client.get(url)
+        second_response = self.client.get(url)
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(second_response.status_code, 429)
+        self.assertEqual(second_response["Retry-After"], "300")
+        mock_generate_presigned_download_url.assert_called_once()
 
 
 class ProductDetailDownloadContextTests(TestCase):

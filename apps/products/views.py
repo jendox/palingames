@@ -1,10 +1,11 @@
 import logging
 from enum import StrEnum
 
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
-from django.http import Http404, HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -15,6 +16,7 @@ from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
+from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_favorite_product_ids
 
 from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
@@ -29,6 +31,8 @@ from .search import (
 from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.products")
+
+PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание. Попробуйте позже."
 
 
 class CatalogView(TemplateView):
@@ -773,6 +777,28 @@ class ProductDownloadView(LoginRequiredMixin, View):
     http_method_names = ["get"]
     login_url = "/?dialog=login"
 
+    def _check_download_rate_limit(self, request, product_id: int):
+        user_result = check_rate_limit(
+            scope=RateLimitScope.PRODUCT_DOWNLOAD,
+            identifier=f"user:{request.user.id}",
+            limit=settings.PRODUCT_DOWNLOAD_USER_RATE_LIMIT,
+            window_seconds=settings.PRODUCT_DOWNLOAD_USER_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not user_result.allowed:
+            return user_result
+
+        return check_rate_limit(
+            scope=RateLimitScope.PRODUCT_DOWNLOAD,
+            identifier=f"user:{request.user.id}:product:{product_id}",
+            limit=settings.PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT,
+            window_seconds=settings.PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS,
+        )
+
+    def _rate_limited_response(self, retry_after_seconds: int):
+        response = HttpResponse(PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE, status=429)
+        response["Retry-After"] = str(retry_after_seconds)
+        return response
+
     def get(self, request, product_id: int, *args, **kwargs):
         if not get_user_product_access_ids(request.user, product_ids=[product_id]):
             log_event(
@@ -785,6 +811,19 @@ class ProductDownloadView(LoginRequiredMixin, View):
             )
             inc_product_download_failed(access_type="user", reason="access_not_found")
             raise Http404("Product download not found")
+
+        rate_limit = self._check_download_rate_limit(request, product_id)
+        if not rate_limit.allowed:
+            log_event(
+                logger,
+                logging.WARNING,
+                "product.download.rate_limited",
+                user_id=request.user.id,
+                product_id=product_id,
+                retry_after_seconds=rate_limit.retry_after_seconds,
+            )
+            inc_product_download_failed(access_type="user", reason="rate_limited")
+            return self._rate_limited_response(rate_limit.retry_after_seconds)
 
         product = Product.objects.filter(id=product_id).prefetch_related("files").first()
         if product is None:

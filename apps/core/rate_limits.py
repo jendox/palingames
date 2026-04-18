@@ -17,6 +17,7 @@ class RateLimitScope(StrEnum):
     AUTH_PASSWORD_RESET_REQUEST = "auth:password_reset_request"
     AUTH_PASSWORD_RESET_CONFIRM = "auth:password_reset_confirm"
     ACCOUNT_PASSWORD_CHANGE = "account:password_change"
+    PRODUCT_DOWNLOAD = "product:download"
 
 
 @dataclass(frozen=True)
