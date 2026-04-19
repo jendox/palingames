@@ -429,6 +429,15 @@ SOCIALACCOUNT_PROVIDERS = {
             },
         ],
     },
+    "yandex": {
+        "APPS": [
+            {
+                "client_id": env.str("YANDEX_OAUTH_CLIENT_ID"),
+                "secret": env.str("YANDEX_OAUTH_CLIENT_SECRET"),
+                "key": "",
+            },
+        ],
+    },
 }
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
