@@ -308,6 +308,20 @@ function setCartState(button, isInCart) {
   }
 }
 
+function syncCatalogMobileListingProductCartState(productId, inCart) {
+  document.querySelectorAll("[data-catalog-mobile-listing]").forEach((listing) => {
+    const state = listing._catalogMobileState;
+    if (!state || !Array.isArray(state.products)) {
+      return;
+    }
+
+    const product = state.products.find((entry) => Number(entry.id) === productId);
+    if (product) {
+      product.is_in_cart = inCart;
+    }
+  });
+}
+
 function getCookie(name) {
   const cookieString = document.cookie || "";
   for (const part of cookieString.split(";")) {
@@ -877,6 +891,16 @@ if (document.readyState === "loading") {
 } else {
   scrollToLocationHash();
 }
+
+document.body.addEventListener("catalog:cart-updated", (event) => {
+  const productId = event.detail?.productId;
+  const inCart = Boolean(event.detail?.inCart);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return;
+  }
+
+  syncCatalogMobileListingProductCartState(productId, inCart);
+});
 
 document.body.addEventListener("htmx:load", () => {
   initCatalogUi(document);
