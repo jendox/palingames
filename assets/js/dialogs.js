@@ -126,6 +126,66 @@
     el.classList.remove("hidden");
   }
 
+  function getCurrentSafePath() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("dialog");
+    url.searchParams.delete("social_error");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    return next.startsWith("/") ? next : "/";
+  }
+
+  function getPostLoginRedirect() {
+    try {
+      const fromSession = sessionStorage.getItem("postLoginRedirect");
+      if (typeof fromSession === "string" && fromSession.startsWith("/")) {
+        return fromSession;
+      }
+    } catch {
+      // ignore
+    }
+
+    const fromWindow = window.__postLoginRedirect;
+    if (typeof fromWindow === "string" && fromWindow.startsWith("/")) {
+      return fromWindow;
+    }
+
+    const fromOpener = lastOpener?.getAttribute?.("data-post-login-redirect");
+    if (typeof fromOpener === "string" && fromOpener.startsWith("/")) {
+      return fromOpener;
+    }
+
+    return getCurrentSafePath();
+  }
+
+  function submitSocialLogin(provider) {
+    if (!provider) return;
+
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "/_allauth/browser/v1/auth/provider/redirect";
+    form.className = "hidden";
+
+    const fields = {
+      provider,
+      process: "login",
+      callback_url: getPostLoginRedirect(),
+    };
+
+    const csrfToken = getCsrfToken();
+    if (csrfToken) fields.csrfmiddlewaretoken = csrfToken;
+
+    for (const [name, value] of Object.entries(fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   function openDialog(dlg, opener) {
     if (!dlg) return;
     lastOpener = opener || null;
@@ -266,6 +326,7 @@
 
     if (dialog === "login") {
       const next = params.get("next");
+      const hasSocialError = params.get("social_error") === "1";
       if (next && typeof next === "string" && next.startsWith("/")) {
         window.__postLoginRedirect = next;
         try {
@@ -274,7 +335,15 @@
           // ignore
         }
       }
-      openDialog(getDialogById("loginDialog"), null);
+      const dlg = getDialogById("loginDialog");
+      openDialog(dlg, null);
+      if (hasSocialError) {
+        showDialogMessage(
+          dlg,
+          "[data-form-errors]",
+          "Не удалось войти через Google. Попробуйте ещё раз или войдите по email.",
+        );
+      }
       cleanUrl();
       return;
     }
@@ -387,6 +456,13 @@
       setTimeout(() => {
         mobileNavItem.classList.remove("is-pending");
       }, 180);
+    }
+
+    const socialLoginLink = e.target.closest?.("[data-social-login-provider]");
+    if (socialLoginLink) {
+      e.preventDefault();
+      submitSocialLogin(socialLoginLink.getAttribute("data-social-login-provider"));
+      return;
     }
 
     const switchBtn = e.target.closest("[data-dialog-switch]");

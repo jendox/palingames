@@ -21,7 +21,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Proxy/HTTPS (Caddy/nginx)
-# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 
@@ -414,3 +414,21 @@ PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS = env.int(
     "PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS",
     default=60,
 )
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APPS": [
+            {
+                "client_id": env.str("GOOGLE_OAUTH_CLIENT_ID"),
+                "secret": env.str("GOOGLE_OAUTH_CLIENT_SECRET"),
+                "key": "",
+                "settings": {
+                    "scope": ["profile", "email"],
+                    "auth_params": {"access_type": "online"},
+                },
+            },
+        ],
+    },
+}
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
