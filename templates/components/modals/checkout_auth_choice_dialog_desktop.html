@@ -6,7 +6,7 @@
 >
   <div class="relative z-10 mx-auto rounded-[30px] bg-[rgba(255,255,255,0.6)] px-[45px] pb-[30px] pt-[30px] backdrop-blur-[3px]">
     <div class="grid grid-cols-2 gap-x-[46px]">
-      <section>
+      <section class="flex h-full flex-col">
         <div class="flex items-start gap-[6px] pt-[8px]">
           <img src="{% static 'images/header/menu_main.svg' %}" alt="" class="mt-[1px] h-[26px] w-[28px]" aria-hidden="true" draggable="false">
           <h2 class="text-[20px] font-bold leading-[24px] text-[var(--color-black)]">
@@ -14,7 +14,7 @@
           </h2>
         </div>
 
-        <p class="mt-[25px] min-h-[100px] text-[16px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
+        <p class="mt-[25px] min-h-[100px] flex-1 text-[16px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
           {% trans "Вы получите" %}
           <span class="font-bold text-[var(--color-pink)]">{% trans "неограниченный доступ" %}</span>
           {% trans "к файлам в личном кабинете, без ограничений по времени и количеству скачиваний." %}
@@ -30,7 +30,7 @@
         </button>
       </section>
 
-      <section>
+      <section class="flex h-full flex-col">
         <div class="flex items-start gap-[6px] pt-[8px]">
           <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="mt-[1px] h-[26px] w-[28px]" aria-hidden="true" draggable="false">
           <h2 class="text-[20px] font-bold leading-[24px] text-[var(--color-black)]">
@@ -38,7 +38,7 @@
           </h2>
         </div>
 
-        <p class="mt-[25px] min-h-[100px] text-[16px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
+        <p class="mt-[25px] min-h-[100px] flex-1 text-[16px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
           {% trans "В этом случае ссылки на скачивание будут отправлены на Ваш Email и будут доступны" %}
           <span class="font-bold text-[var(--color-orange)]">{% trans "ограниченное время и ограниченное количество скачиваний." %}</span>
         </p>
