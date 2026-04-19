@@ -145,7 +145,7 @@
   function formatRetryMessage(message, retryAfterSeconds) {
     const retryAfter = Number.parseInt(String(retryAfterSeconds || ""), 10);
     if (!Number.isInteger(retryAfter) || retryAfter <= 0) {
-      return message;
+      return `${message} Попробуйте позже.`;
     }
 
     const minutes = Math.max(1, Math.ceil(retryAfter / 60));
@@ -184,7 +184,7 @@
 
       const fallbackMessage =
         resp.status === 429
-          ? "Слишком много запросов на скачивание. Попробуйте позже."
+          ? "Слишком много запросов на скачивание."
           : "Не удалось подготовить ссылку на скачивание. Попробуйте позже.";
       const message = typeof payload?.message === "string" ? payload.message : fallbackMessage;
       showPageNotification(

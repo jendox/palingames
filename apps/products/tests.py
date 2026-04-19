@@ -514,7 +514,7 @@ class ProductDownloadViewTests(TestCase):
             second_response.json(),
             {
                 "code": "rate_limited",
-                "message": "Слишком много запросов на скачивание. Попробуйте позже.",
+                "message": "Слишком много запросов на скачивание.",
                 "retry_after_seconds": 600,
             },
         )

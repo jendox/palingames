@@ -32,7 +32,7 @@ from .services.s3 import ProductFileDownloadUrlError, generate_presigned_downloa
 
 logger = logging.getLogger("apps.products")
 
-PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание. Попробуйте позже."
+PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание."
 PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE = "Файл недоступен. Попробуйте позже."
 
 
