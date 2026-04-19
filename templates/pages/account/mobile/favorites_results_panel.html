@@ -20,13 +20,18 @@
     {% endfor %}
   </div>
 
-  <p
-    class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]"
+  <div
+    class="mt-[20px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[16px] py-[18px] text-center"
     data-catalog-mobile-empty
     {% if account_favorites_products %}hidden{% endif %}
   >
-    {% trans "В избранном пока пусто." %}
-  </p>
+    <p class="text-[14px] font-bold leading-[18px] text-[var(--color-black)]">
+      {% trans "В избранном пока пусто." %}
+    </p>
+    <p class="mt-[8px] text-[12px] leading-[16px] text-[var(--color-black-80)]">
+      {% trans "Добавляйте понравившиеся игры в избранное, чтобы быстро вернуться к ним позже." %}
+    </p>
+  </div>
 
   <div class="mt-[22px]">
     {% include "pages/catalog/mobile/pagination.html" with page_obj=account_favorites_page_obj pagination_items=account_favorites_mobile_pagination_items pagination_scroll_anchor="account-favorites-mobile-controls" %}

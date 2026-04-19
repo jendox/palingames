@@ -8,8 +8,13 @@
       {% include "pages/account/desktop/_account_favorites_desktop_results.html" %}
     </div>
   {% else %}
-    <p class="mt-[20px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
-      {% trans "В избранном пока пусто." %}
-    </p>
+    <div class="mt-[50px] max-w-[920px] rounded-[20px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] px-[32px] py-[30px]">
+      <p class="text-[18px] font-bold leading-[24px] text-[var(--color-black)]">
+        {% trans "В избранном пока пусто." %}
+      </p>
+      <p class="mt-[12px] max-w-[540px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
+        {% trans "Добавляйте понравившиеся игры в избранное, чтобы быстро вернуться к ним позже." %}
+      </p>
+    </div>
   {% endif %}
 </section>
