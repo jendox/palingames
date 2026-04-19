@@ -5,6 +5,8 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 
+from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.templatetags.static import static
 
@@ -14,6 +16,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created
 from apps.products.models import Product
 from apps.products.pricing import format_price
+from apps.promocodes.models import PromoCodeRedemption
 from apps.promocodes.services import (
     PromoCodeDiscount,
     PromoCodeError,
@@ -359,3 +362,180 @@ def create_order_from_cart(
     inc_order_created(checkout_type=order.checkout_type, source=order.source)
 
     return OrderCreationResult(order=order, created=True)
+
+
+def _manual_order_clear_totals(order: Order) -> None:
+    PromoCodeRedemption.objects.filter(order=order).delete()
+    order.subtotal_amount = Decimal("0.00")
+    order.discount_amount = Decimal("0.00")
+    order.total_amount = Decimal("0.00")
+    order.items_count = 0
+    order.promo_code = None
+    order.promo_code_snapshot = ""
+    order.discount_percent_snapshot = None
+    order.promo_eligible_amount = Decimal("0.00")
+    order.save(
+        update_fields=[
+            "subtotal_amount",
+            "discount_amount",
+            "total_amount",
+            "items_count",
+            "promo_code",
+            "promo_code_snapshot",
+            "discount_percent_snapshot",
+            "promo_eligible_amount",
+            "updated_at",
+        ],
+    )
+
+
+def _manual_order_validate_items(items: list[OrderItem]) -> None:
+    for item in items:
+        if item.product_id is None:
+            msg = "У каждой позиции должен быть выбран товар."
+            raise ValidationError(msg)
+    currencies = {item.product.currency for item in items}
+    if len(currencies) != 1:
+        msg = "Все товары в заказе должны быть в одной валюте."
+        raise ValidationError(msg)
+
+
+def _manual_order_expanded_products(items: list[OrderItem]) -> list[Product]:
+    expanded: list[Product] = []
+    for item in items:
+        expanded.extend([item.product] * item.quantity)
+    return expanded
+
+
+def _manual_order_resolve_promo(
+    order: Order,
+    expanded_products: list[Product],
+) -> PromoCodeDiscount | None:
+    if not order.promo_code_id:
+        return None
+    try:
+        return calculate_promo_code_discount(
+            code=order.promo_code.code,
+            products=expanded_products,
+            user=order.user if order.user_id else AnonymousUser(),
+            email=order.email,
+            require_email_limits=True,
+        )
+    except PromoCodeError as exc:
+        raise ValidationError(exc.message) from exc
+
+
+def _manual_order_save_line_item(
+    item: OrderItem,
+    promo_discount: PromoCodeDiscount | None,
+) -> tuple[Decimal, Decimal]:
+    product = item.product
+    first_category = product.categories.first()
+    first_image = next(iter(product.images.all()), None)
+    image_url = first_image.image.url if first_image else static("images/example-product-image-1.png")
+    line_subtotal = product.price * item.quantity
+    promo_eligible = _is_product_eligible_for_discount(product, promo_discount)
+    if promo_discount and promo_eligible:
+        unit_discount = calculate_percent_discount(product.price, promo_discount.discount_percent)
+        line_discount = unit_discount * item.quantity
+        discounted_line_total = line_subtotal - line_discount
+    else:
+        line_discount = Decimal("0.00")
+        discounted_line_total = None
+
+    item.title_snapshot = product.title
+    item.category_snapshot = first_category.title if first_category else ""
+    item.unit_price_amount = product.price
+    item.line_total_amount = line_subtotal
+    item.promo_eligible = promo_eligible
+    item.discount_amount = line_discount
+    item.discounted_line_total_amount = discounted_line_total
+    item.product_slug_snapshot = product.slug
+    item.product_image_snapshot = image_url
+    item.save(
+        update_fields=[
+            "title_snapshot",
+            "category_snapshot",
+            "unit_price_amount",
+            "line_total_amount",
+            "promo_eligible",
+            "discount_amount",
+            "discounted_line_total_amount",
+            "product_slug_snapshot",
+            "product_image_snapshot",
+            "updated_at",
+        ],
+    )
+    return line_subtotal, line_discount
+
+
+def _manual_order_apply_promo_to_header(order: Order, promo_discount: PromoCodeDiscount | None) -> None:
+    if promo_discount:
+        order.promo_code = promo_discount.promo_code
+        order.promo_code_snapshot = promo_discount.code
+        order.discount_percent_snapshot = promo_discount.discount_percent
+        order.promo_eligible_amount = promo_discount.eligible_amount
+    else:
+        order.promo_code = None
+        order.promo_code_snapshot = ""
+        order.discount_percent_snapshot = None
+        order.promo_eligible_amount = Decimal("0.00")
+
+
+def recalculate_manual_order_from_items(*, order_id: int) -> None:
+    """
+    After admin edits to order lines or promo, recompute snapshots, per-line discounts and header totals.
+    Only safe for unpaid CREATED orders (manual / off-site flow).
+    """
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_id)
+        if order.status != Order.OrderStatus.CREATED:
+            return
+
+        items = list(
+            order.items.select_related("product")
+            .prefetch_related("product__categories", "product__images")
+            .order_by("pk"),
+        )
+
+        if not items:
+            _manual_order_clear_totals(order)
+            return
+
+        _manual_order_validate_items(items)
+        expanded = _manual_order_expanded_products(items)
+        promo_discount = _manual_order_resolve_promo(order, expanded)
+
+        subtotal = Decimal("0.00")
+        discount_sum = Decimal("0.00")
+        items_count = 0
+        for item in items:
+            line_sub, line_disc = _manual_order_save_line_item(item, promo_discount)
+            subtotal += line_sub
+            discount_sum += line_disc
+            items_count += item.quantity
+
+        order.subtotal_amount = subtotal
+        order.discount_amount = discount_sum
+        order.total_amount = subtotal - discount_sum
+        order.items_count = items_count
+        order.currency = items[0].product.currency
+        _manual_order_apply_promo_to_header(order, promo_discount)
+        order.save(
+            update_fields=[
+                "subtotal_amount",
+                "discount_amount",
+                "total_amount",
+                "items_count",
+                "currency",
+                "promo_code",
+                "promo_code_snapshot",
+                "discount_percent_snapshot",
+                "promo_eligible_amount",
+                "updated_at",
+            ],
+        )
+
+        PromoCodeRedemption.objects.filter(order=order).delete()
+        if promo_discount:
+            create_promo_code_redemption(order=order, promo_discount=promo_discount)

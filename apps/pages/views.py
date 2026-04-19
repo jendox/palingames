@@ -150,12 +150,6 @@ class AccountPageView(TemplateView):
                 "action_label": None,
                 "action_url": None,
             },
-            Order.OrderStatus.PENDING: {
-                "label": "В обработке",
-                "classes": "bg-[rgba(242,171,39,0.14)] text-[var(--color-orange)]",
-                "action_label": None,
-                "action_url": None,
-            },
             Order.OrderStatus.WAITING_FOR_PAYMENT: {
                 "label": "Ожидает оплату",
                 "classes": "bg-[rgba(101,197,194,0.16)] text-[var(--color-turquoise)]",

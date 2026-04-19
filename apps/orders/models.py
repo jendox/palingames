@@ -16,7 +16,6 @@ ACCOUNT_NO_RANDOM_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 class Order(TimeStampedModel):
     class OrderStatus(models.TextChoices):
         CREATED = "CREATED", _("Создан")
-        PENDING = "PENDING", _("В обработке")
         WAITING_FOR_PAYMENT = "WAITING_FOR_PAYMENT", _("Ожидает оплату")
         PAID = "PAID", _("Оплачен")
         CANCELED = "CANCELED", _("Отменён")
@@ -56,7 +55,12 @@ class Order(TimeStampedModel):
     )
     email = models.EmailField(_("Email"), max_length=254)
     checkout_type = models.CharField(_("Тип оформления"), max_length=16, choices=CheckoutType.choices)
-    subtotal_amount = models.DecimalField(_("Сумма позиций"), max_digits=10, decimal_places=2)
+    subtotal_amount = models.DecimalField(
+        _("Сумма позиций"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
     promo_code = models.ForeignKey(
         "promocodes.PromoCode",
         on_delete=models.SET_NULL,
@@ -74,9 +78,14 @@ class Order(TimeStampedModel):
         default=Decimal("0.00"),
     )
     discount_amount = models.DecimalField(_("Скидка"), max_digits=10, decimal_places=2, default=Decimal("0.00"))
-    total_amount = models.DecimalField(_("Итоговая сумма"), max_digits=10, decimal_places=2)
+    total_amount = models.DecimalField(
+        _("Итоговая сумма"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
-    items_count = models.PositiveSmallIntegerField(_("Количество позиций"))
+    items_count = models.PositiveSmallIntegerField(_("Количество позиций"), default=0)
     paid_at = models.DateTimeField(_("Оплачен в"), null=True, blank=True)
     cancelled_at = models.DateTimeField(_("Отменён в"), null=True, blank=True)
     failure_reason = models.CharField(_("Причина ошибки"), max_length=128, null=True, blank=True)
@@ -137,6 +146,35 @@ class OrderItem(TimeStampedModel):
         ordering = ["id"]
         verbose_name = _("Позиция заказа")
         verbose_name_plural = _("Позиции заказа")
+
+    def _hydrate_from_product_if_incomplete(self) -> None:
+        """Admin inline only submits editable fields; readonly prices/snapshots must be filled before INSERT."""
+        if not self.product_id:
+            return
+        if (
+            self.unit_price_amount is not None
+            and self.line_total_amount is not None
+            and self.title_snapshot
+        ):
+            return
+        product = (
+            Product.objects.prefetch_related("categories")
+            .filter(pk=self.product_id)
+            .first()
+        )
+        if product is None:
+            return
+        qty = self.quantity if self.quantity else 1
+        if not self.title_snapshot:
+            self.title_snapshot = product.title
+        first_category = product.categories.first()
+        self.category_snapshot = first_category.title if first_category else ""
+        self.unit_price_amount = product.price
+        self.line_total_amount = product.price * qty
+
+    def save(self, *args, **kwargs):
+        self._hydrate_from_product_if_incomplete()
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.title_snapshot} × {self.quantity}"

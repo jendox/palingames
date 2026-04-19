@@ -24,12 +24,10 @@ class InvoiceInline(admin.StackedInline):
         "created_at",
         "updated_at",
     )
-    readonly_fields = (
-        "created_at",
-        "updated_at",
-        "raw_create_response",
-        "raw_last_status_response",
-    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class PaymentEventInline(admin.TabularInline):
