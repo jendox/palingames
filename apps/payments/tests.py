@@ -68,6 +68,7 @@ class ExpressPayNotificationViewTests(TestCase):
         account_no=None,
         status=3,
         payment_no=555001,
+        amount="25,00",
     ):
         data = json.dumps(
             {
@@ -76,7 +77,7 @@ class ExpressPayNotificationViewTests(TestCase):
                 "AccountNo": account_no or self.order.payment_account_no,
                 "InvoiceNo": invoice_no,
                 "PaymentNo": payment_no,
-                "Amount": "25,00",
+                "Amount": amount,
                 "Currency": "933",
                 "Created": "20260322153000",
             },
@@ -221,6 +222,23 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.content.decode(), "FAILED | Invoice not found")
 
+    def test_notification_rejects_amount_mismatch(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(amount="1,00"),
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content.decode(), "FAILED | Payment data mismatch")
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(self.invoice.amount, Decimal("25.00"))
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertEqual(PaymentEvent.objects.count(), 0)
+        self.assertFalse(GuestAccess.objects.exists())
+
     def test_notification_accepts_direct_json_payload_without_data_wrapper(self):
         payload = {
             "CmdType": 3,
@@ -346,6 +364,7 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         account_number=None,
         payment_no=770011,
         transaction_id="txn-100500",
+        amount="25,00",
     ):
         data = json.dumps(
             {
@@ -353,7 +372,7 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
                 "ServiceId": 12345,
                 "AccountNumber": account_number or self.order.payment_account_no,
                 "PaymentNo": payment_no,
-                "Amount": "25,00",
+                "Amount": amount,
                 "TransferAmount": "24,50",
                 "Currency": 933,
                 "TransactionId": transaction_id,
@@ -489,6 +508,23 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.content.decode(), "FAILED | Order not found")
+
+    def test_settlement_notification_rejects_amount_mismatch(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.settlement_url,
+                data=self._build_epos_payload(amount="1,00"),
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content.decode(), "FAILED | Payment data mismatch")
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(self.invoice.amount, Decimal("25.00"))
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertEqual(PaymentEvent.objects.count(), 0)
+        self.assertFalse(GuestAccess.objects.exists())
 
     def test_settlement_notification_ignores_erip_cmd_type_for_now(self):
         data = json.dumps(

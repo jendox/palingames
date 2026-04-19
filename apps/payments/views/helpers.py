@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha1
 from http import HTTPStatus
@@ -11,6 +12,13 @@ from apps.payments.services import apply_invoice_status_update
 from libs.express_pay import ExpressPayClient, ExpressPaySignatureError
 from libs.express_pay.models import ExpressPayConfig
 from libs.payments import WebhookSignatureVerification
+from libs.payments.models import InvoiceStatus
+
+MONEY_QUANT = Decimal("0.01")
+
+
+class PaymentNotificationMismatch(Exception):
+    pass
 
 
 @lru_cache(maxsize=8)
@@ -144,6 +152,75 @@ def normalize_currency_code(value, fallback: int) -> int:
     if normalized.isdigit():
         return int(normalized)
     return fallback
+
+
+def normalize_payment_amount(value) -> Decimal | None:
+    if value is None:
+        return None
+    return Decimal(value).quantize(MONEY_QUANT)
+
+
+def get_invoice_payment_account_no(invoice: Invoice) -> str | None:
+    if invoice.order_id:
+        return invoice.order.payment_account_no
+    if invoice.custom_game_request_id:
+        return invoice.custom_game_request.payment_account_no
+    return None
+
+
+def get_invoice_target_amount(invoice: Invoice) -> Decimal | None:
+    if invoice.order_id:
+        return invoice.order.total_amount
+    if invoice.custom_game_request_id:
+        return invoice.custom_game_request.quoted_price
+    return None
+
+
+def validate_invoice_payment_account_no(invoice: Invoice, account_no: str | None) -> None:
+    expected_account_no = get_invoice_payment_account_no(invoice)
+    if expected_account_no and account_no != expected_account_no:
+        raise PaymentNotificationMismatch("account_no")
+
+
+def validate_invoice_provider_invoice_no(invoice: Invoice, invoice_no) -> None:
+    if invoice_no is not None and invoice.provider_invoice_no and str(invoice_no) != str(invoice.provider_invoice_no):
+        raise PaymentNotificationMismatch("invoice_no")
+
+
+def validate_invoice_payment_amount(invoice: Invoice, amount, *, is_paid: bool) -> None:
+    if amount is None:
+        if is_paid:
+            raise PaymentNotificationMismatch("amount_missing")
+        return
+
+    normalized_amount = normalize_payment_amount(amount)
+    invoice_amount = normalize_payment_amount(invoice.amount)
+    if normalized_amount != invoice_amount:
+        raise PaymentNotificationMismatch("amount")
+
+    target_amount = get_invoice_target_amount(invoice)
+    if target_amount is not None and invoice_amount != normalize_payment_amount(target_amount):
+        raise PaymentNotificationMismatch("target_amount")
+
+
+def validate_invoice_payment_currency(invoice: Invoice, currency) -> None:
+    if currency is not None and normalize_currency_code(currency, invoice.currency) != invoice.currency:
+        raise PaymentNotificationMismatch("currency")
+
+
+def validate_invoice_payment_payload(
+    invoice: Invoice,
+    *,
+    account_no: str | None,
+    invoice_no=None,
+    amount=None,
+    currency=None,
+    provider_status: int | None = None,
+) -> None:
+    validate_invoice_payment_account_no(invoice, account_no)
+    validate_invoice_provider_invoice_no(invoice, invoice_no)
+    validate_invoice_payment_amount(invoice, amount, is_paid=provider_status == InvoiceStatus.PAID)
+    validate_invoice_payment_currency(invoice, currency)
 
 
 def apply_invoice_notification(invoice: Invoice, notification) -> None:

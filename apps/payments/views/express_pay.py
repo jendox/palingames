@@ -34,8 +34,10 @@ from libs.express_pay.models import (
     ExpressPayERIPSettlementNotification,
     ExpressPayWebhookNotification,
 )
+from libs.payments.models import InvoiceStatus
 
 from .helpers import (
+    PaymentNotificationMismatch,
     apply_invoice_notification,
     build_payment_event_key,
     build_settlement_event_key,
@@ -43,6 +45,7 @@ from .helpers import (
     normalize_currency_code,
     parse_express_pay_payload,
     success_response,
+    validate_invoice_payment_payload,
     verify_webhook_signature,
 )
 
@@ -84,7 +87,7 @@ def save_invoice_target(invoice: Invoice) -> None:
 class ExpressPayNotificationView(View):
     http_method_names = ["post"]
 
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:  # noqa: PLR0911
         provider = PaymentProvider.EXPRESS_PAY.value
         log_event(
             logger,
@@ -159,6 +162,20 @@ class ExpressPayNotificationView(View):
                 provider_invoice_no=str(notification.invoice_no) if notification.invoice_no is not None else None,
             )
             return HttpResponse("FAILED | Invoice not found", status=HTTPStatus.NOT_FOUND)
+        except PaymentNotificationMismatch as exc:
+            inc_payment_webhook_rejected(provider=provider, reason="payment_data_mismatch")
+            log_event(
+                logger,
+                logging.WARNING,
+                "payment.notification.rejected",
+                provider=provider,
+                reason="payment_data_mismatch",
+                mismatch=str(exc),
+                cmd_type=cmd_type,
+                provider_invoice_no=str(notification.invoice_no) if notification.invoice_no is not None else None,
+                account_no=notification.account_no,
+            )
+            return HttpResponse("FAILED | Payment data mismatch", status=HTTPStatus.BAD_REQUEST)
 
         log_event(
             logger,
@@ -187,6 +204,14 @@ class ExpressPayNotificationView(View):
             )
         )
         lock_invoice_target(invoice)
+        validate_invoice_payment_payload(
+            invoice,
+            account_no=notification.account_no,
+            invoice_no=notification.invoice_no,
+            amount=notification.amount,
+            currency=notification.currency,
+            provider_status=notification.status,
+        )
 
         provider_event_key = build_payment_event_key(notification)
         payment_event, created = PaymentEvent.objects.get_or_create(
@@ -314,6 +339,18 @@ class ExpressPaySettlementNotificationView(View):
                 cmd_type=cmd_type,
             )
             return HttpResponse("FAILED | Order not found", status=HTTPStatus.NOT_FOUND)
+        except PaymentNotificationMismatch as exc:
+            inc_payment_webhook_rejected(provider=provider, reason="payment_data_mismatch")
+            log_event(
+                logger,
+                logging.WARNING,
+                "payment.settlement_notification.rejected",
+                provider=provider,
+                reason="payment_data_mismatch",
+                mismatch=str(exc),
+                cmd_type=cmd_type,
+            )
+            return HttpResponse("FAILED | Payment data mismatch", status=HTTPStatus.BAD_REQUEST)
 
     def _handle_cmd_type(self, request: HttpRequest, cmd_type: int) -> HttpResponse:
         if cmd_type == ExpressPayCommandType.EPOS_SETTLEMENT:
@@ -367,6 +404,13 @@ class ExpressPaySettlementNotificationView(View):
             )
         )
         lock_invoice_target(invoice)
+        validate_invoice_payment_payload(
+            invoice,
+            account_no=notification.account_number,
+            amount=notification.amount,
+            currency=notification.currency,
+            provider_status=InvoiceStatus.PAID,
+        )
         event_at = normalize_notification_datetime(notification.date_result_utc or notification.created_at)
         provider_event_key = build_settlement_event_key(notification)
 
