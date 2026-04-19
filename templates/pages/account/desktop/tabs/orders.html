@@ -17,6 +17,11 @@
                   {{ order.status }}
                 </span>
               </div>
+              {% if order.status_failure_hint %}
+                <p class="mt-[8px] max-w-[640px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+                  {{ order.status_failure_hint }}
+                </p>
+              {% endif %}
               <div class="mt-[10px] flex flex-wrap items-center gap-x-[22px] gap-y-[8px] text-[14px] font-normal leading-[18px] text-[var(--color-black-80)]">
                 <span>{% trans "от" %} {{ order.date }}</span>
                 <span>{% blocktrans with count=order.items_count %}Товаров: {{ count }}{% endblocktrans %}</span>

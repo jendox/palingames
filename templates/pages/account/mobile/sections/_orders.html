@@ -36,6 +36,11 @@
                     {{ order.status }}
                   </span>
                 </div>
+                {% if order.status_failure_hint %}
+                  <p class="mt-[6px] text-[10px] leading-[14px] text-[var(--color-black-80)]">
+                    {{ order.status_failure_hint }}
+                  </p>
+                {% endif %}
 
                 <div class="mt-[8px] flex flex-wrap items-center gap-x-[14px] gap-y-[6px] text-[10px] leading-[14px] text-[var(--color-black-80)]">
                   <span>{% trans "от" %} {{ order.date }}</span>

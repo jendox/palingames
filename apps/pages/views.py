@@ -11,6 +11,7 @@ from django.views.generic import TemplateView
 from apps.access.services import get_user_product_access_ids
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_account_favorites_context
+from apps.orders.failure_reasons import format_order_failure_reason_label
 from apps.orders.models import Order
 from apps.products.pricing import format_price
 
@@ -210,6 +211,10 @@ class AccountPageView(TemplateView):
                 for item in order.items.all()
             ]
 
+            status_failure_hint = ""
+            if order.status == Order.OrderStatus.FAILED:
+                status_failure_hint = format_order_failure_reason_label(order.failure_reason)
+
             result.append(
                 {
                     "number": order.payment_account_no,
@@ -225,6 +230,7 @@ class AccountPageView(TemplateView):
                     "action_url": meta["action_url"],
                     "is_paid": order.status == Order.OrderStatus.PAID,
                     "invoice_status": invoice.status if invoice else None,
+                    "status_failure_hint": status_failure_hint,
                     "items": items,
                 },
             )

@@ -296,3 +296,4 @@ pyrightconfig.json
 tags_fixture.json
 media/
 fixtures/
+.cursor/

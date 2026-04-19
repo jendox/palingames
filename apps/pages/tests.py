@@ -101,6 +101,79 @@ class AccountOrdersDownloadTests(TestCase):
         self.assertEqual(order_item["discounted_price"], "17,10 BYN")
         self.assertContains(response, "Промокод EDU10 · Скидка 1,90 BYN")
 
+    def test_account_orders_failed_status_includes_failure_hint(self):
+        failed_order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.FAILED,
+            failure_reason="invoice_expired",
+            subtotal_amount=Decimal("19.00"),
+            total_amount=Decimal("19.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=failed_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("account"), {"tab": "orders"})
+
+        self.assertEqual(response.status_code, 200)
+        order_ctx = next(
+            item for item in response.context["account_orders"] if item["number"] == failed_order.payment_account_no
+        )
+        self.assertIn("Срок оплаты", order_ctx["status_failure_hint"])
+        self.assertContains(response, order_ctx["status_failure_hint"])
+
+        paid_ctx = next(
+            item for item in response.context["account_orders"] if item["number"] == self.order.payment_account_no
+        )
+        self.assertEqual(paid_ctx["status_failure_hint"], "")
+
+    def test_account_orders_failed_unknown_reason_uses_fallback_hint(self):
+        failed_order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.FAILED,
+            failure_reason="some_future_code",
+            subtotal_amount=Decimal("19.00"),
+            total_amount=Decimal("19.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=failed_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("account"), {"tab": "orders"})
+
+        self.assertEqual(response.status_code, 200)
+        order_ctx = next(
+            item for item in response.context["account_orders"] if item["number"] == failed_order.payment_account_no
+        )
+        self.assertIn("Не удалось завершить оплату", order_ctx["status_failure_hint"])
+        self.assertContains(response, order_ctx["status_failure_hint"])
+
 
 class AccountFavoritesTabTests(TestCase):
     @classmethod
