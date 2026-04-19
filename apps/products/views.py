@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
-from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import Http404, JsonResponse
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -33,6 +33,7 @@ from .services.s3 import ProductFileDownloadUrlError, generate_presigned_downloa
 logger = logging.getLogger("apps.products")
 
 PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание. Попробуйте позже."
+PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE = "Файл недоступен. Попробуйте позже."
 
 
 class CatalogView(TemplateView):
@@ -794,9 +795,33 @@ class ProductDownloadView(LoginRequiredMixin, View):
             window_seconds=settings.PRODUCT_DOWNLOAD_PRODUCT_RATE_LIMIT_WINDOW_SECONDS,
         )
 
+    def _json_error_response(
+        self,
+        *,
+        code: str,
+        message: str,
+        status: int,
+        retry_after_seconds: int | None = None,
+    ):
+        payload = {
+            "code": code,
+            "message": message,
+        }
+        if retry_after_seconds is not None:
+            payload["retry_after_seconds"] = retry_after_seconds
+
+        response = JsonResponse(payload, status=status)
+        if retry_after_seconds is not None:
+            response["Retry-After"] = str(retry_after_seconds)
+        return response
+
     def _rate_limited_response(self, retry_after_seconds: int):
-        response = HttpResponse(PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE, status=429)
-        response["Retry-After"] = str(retry_after_seconds)
+        response = self._json_error_response(
+            code="rate_limited",
+            message=PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE,
+            status=429,
+            retry_after_seconds=retry_after_seconds,
+        )
         return response
 
     def get(self, request, product_id: int, *args, **kwargs):
@@ -810,7 +835,11 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 reason="access_not_found",
             )
             inc_product_download_failed(access_type="user", reason="access_not_found")
-            raise Http404("Product download not found")
+            return self._json_error_response(
+                code="not_found",
+                message=PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE,
+                status=404,
+            )
 
         rate_limit = self._check_download_rate_limit(request, product_id)
         if not rate_limit.allowed:
@@ -828,7 +857,11 @@ class ProductDownloadView(LoginRequiredMixin, View):
         product = Product.objects.filter(id=product_id).prefetch_related("files").first()
         if product is None:
             inc_product_download_failed(access_type="user", reason="product_not_found")
-            raise Http404("Product download not found")
+            return self._json_error_response(
+                code="not_found",
+                message=PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE,
+                status=404,
+            )
 
         product_file = next((item for item in product.files.all() if item.is_active), None)
         if product_file is None:
@@ -841,7 +874,11 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 reason="active_file_not_found",
             )
             inc_product_download_failed(access_type="user", reason="active_file_not_found")
-            raise Http404("Product download not found")
+            return self._json_error_response(
+                code="not_found",
+                message=PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE,
+                status=404,
+            )
 
         try:
             download_url = generate_presigned_download_url(
@@ -860,7 +897,11 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 error_type=type(exc).__name__,
             )
             inc_product_download_failed(access_type="user", reason="download_unavailable")
-            raise Http404("Product download not found") from exc
+            return self._json_error_response(
+                code="download_unavailable",
+                message=PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE,
+                status=503,
+            )
 
         log_event(
             logger,
@@ -871,4 +912,4 @@ class ProductDownloadView(LoginRequiredMixin, View):
             file_key=product_file.file_key,
         )
         inc_product_download_redirect(access_type="user")
-        return HttpResponseRedirect(download_url)
+        return JsonResponse({"download_url": download_url})

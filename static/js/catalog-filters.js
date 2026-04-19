@@ -773,7 +773,11 @@ function initCatalogProductCards(root = document) {
 
       if (button.dataset.isPurchased === "true") {
         const downloadUrl = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
-        window.location.href = downloadUrl;
+        if (window.PaliGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
+          window.PaliGamesDownloads.start(downloadUrl, button);
+        } else {
+          window.location.href = downloadUrl;
+        }
         return;
       }
 
@@ -785,7 +789,12 @@ function initCatalogProductCards(root = document) {
         if (payload.already_purchased) {
           button.dataset.isPurchased = "true";
           setCartState(button, false);
-          window.location.href = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
+          const downloadUrl = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
+          if (window.PaliGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
+            window.PaliGamesDownloads.start(downloadUrl, button);
+          } else {
+            window.location.href = downloadUrl;
+          }
           return;
         }
         setCartState(button, Boolean(payload.in_cart));

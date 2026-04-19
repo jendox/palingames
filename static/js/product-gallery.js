@@ -428,7 +428,12 @@ function initProductCartButtons() {
 
     button.addEventListener("click", async () => {
       if (button.dataset.isPurchased === "true") {
-        window.location.href = button.dataset.productDownloadUrl || "/account/?tab=orders";
+        const downloadUrl = button.dataset.productDownloadUrl || "/account/?tab=orders";
+        if (window.PaliGamesDownloads?.start && button.dataset.productDownloadUrl) {
+          window.PaliGamesDownloads.start(downloadUrl, button);
+        } else {
+          window.location.href = downloadUrl;
+        }
         return;
       }
 
@@ -459,7 +464,12 @@ function initProductCartButtons() {
             label.textContent = "Скачать";
           }
           button.setAttribute("aria-label", "Скачать");
-          window.location.href = button.dataset.productDownloadUrl || "/account/?tab=orders";
+          const downloadUrl = button.dataset.productDownloadUrl || "/account/?tab=orders";
+          if (window.PaliGamesDownloads?.start && button.dataset.productDownloadUrl) {
+            window.PaliGamesDownloads.start(downloadUrl, button);
+          } else {
+            window.location.href = downloadUrl;
+          }
           return;
         }
         const isInCart = Boolean(payload.in_cart);

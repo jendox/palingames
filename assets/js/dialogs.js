@@ -126,6 +126,85 @@
     el.classList.remove("hidden");
   }
 
+  function showPageNotification(message) {
+    const notification = document.querySelector("[data-page-notification]");
+    const messageEl = notification?.querySelector?.("[data-page-notification-message]");
+    if (!notification || !messageEl) {
+      window.alert(message);
+      return;
+    }
+
+    messageEl.textContent = message;
+    notification.classList.remove("hidden");
+  }
+
+  function hidePageNotification() {
+    document.querySelector("[data-page-notification]")?.classList.add("hidden");
+  }
+
+  function formatRetryMessage(message, retryAfterSeconds) {
+    const retryAfter = Number.parseInt(String(retryAfterSeconds || ""), 10);
+    if (!Number.isInteger(retryAfter) || retryAfter <= 0) {
+      return message;
+    }
+
+    const minutes = Math.max(1, Math.ceil(retryAfter / 60));
+    return `${message} Попробуйте через ${minutes} мин.`;
+  }
+
+  async function startProductDownload(downloadUrl, trigger) {
+    if (!downloadUrl) return;
+    if (trigger instanceof HTMLElement && trigger.dataset.downloadPending === "true") return;
+
+    if (trigger instanceof HTMLElement) {
+      trigger.dataset.downloadPending = "true";
+      trigger.setAttribute("aria-busy", "true");
+    }
+
+    try {
+      const resp = await fetch(downloadUrl, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      const payload = await resp.json().catch(() => null);
+
+      if (resp.redirected && resp.url.includes("dialog=login")) {
+        window.location.assign(resp.url);
+        return;
+      }
+
+      if (resp.ok && payload?.download_url) {
+        window.location.assign(payload.download_url);
+        return;
+      }
+
+      const fallbackMessage =
+        resp.status === 429
+          ? "Слишком много запросов на скачивание. Попробуйте позже."
+          : "Не удалось подготовить ссылку на скачивание. Попробуйте позже.";
+      const message = typeof payload?.message === "string" ? payload.message : fallbackMessage;
+      showPageNotification(
+        formatRetryMessage(message, payload?.retry_after_seconds || resp.headers.get("Retry-After")),
+      );
+    } catch {
+      showPageNotification("Не удалось подготовить ссылку на скачивание. Проверьте соединение и попробуйте ещё раз.");
+    } finally {
+      if (trigger instanceof HTMLElement) {
+        trigger.dataset.downloadPending = "false";
+        trigger.removeAttribute("aria-busy");
+      }
+    }
+  }
+
+  window.PaliGamesDownloads = {
+    start: startProductDownload,
+    showNotification: showPageNotification,
+  };
+
   function getCurrentSafePath() {
     const url = new URL(window.location.href);
     url.searchParams.delete("dialog");
@@ -428,6 +507,20 @@
   });
 
   document.addEventListener("click", (e) => {
+    const notificationClose = e.target.closest?.("[data-page-notification-close]");
+    if (notificationClose) {
+      e.preventDefault();
+      hidePageNotification();
+      return;
+    }
+
+    const downloadLink = e.target.closest?.("a[data-product-download-link]");
+    if (downloadLink) {
+      e.preventDefault();
+      startProductDownload(downloadLink.getAttribute("href"), downloadLink);
+      return;
+    }
+
     const mobileNavItem = e.target.closest?.("[data-mobile-nav-item]");
     if (mobileNavItem && mobileNavItem.closest?.("[data-mobile-bottom-nav]")) {
       mobileNavItem.classList.add("is-pending");

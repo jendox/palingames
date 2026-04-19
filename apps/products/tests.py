@@ -443,14 +443,14 @@ class ProductDownloadViewTests(TestCase):
         caches["rate_limit"].clear()
 
     @patch("apps.products.views.generate_presigned_download_url")
-    def test_download_redirects_to_presigned_url(self, mock_generate_presigned_download_url):
+    def test_download_returns_presigned_url_json(self, mock_generate_presigned_download_url):
         mock_generate_presigned_download_url.return_value = "https://example.com/download"
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
 
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "https://example.com/download")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"download_url": "https://example.com/download"})
         mock_generate_presigned_download_url.assert_called_once_with(
             file_key=self.active_file.file_key,
             original_filename=self.active_file.original_filename,
@@ -463,6 +463,7 @@ class ProductDownloadViewTests(TestCase):
         response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
 
         self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["code"], "not_found")
 
     def test_download_returns_404_without_active_file(self):
         self.active_file.is_active = False
@@ -472,6 +473,17 @@ class ProductDownloadViewTests(TestCase):
         response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
 
         self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["code"], "not_found")
+
+    @patch("apps.products.views.generate_presigned_download_url")
+    def test_download_returns_503_when_presigned_url_generation_fails(self, mock_generate_presigned_download_url):
+        mock_generate_presigned_download_url.side_effect = ProductFileDownloadUrlError("boom")
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "download_unavailable")
 
     def test_download_redirects_anonymous_user_to_login(self):
         response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))
@@ -494,13 +506,17 @@ class ProductDownloadViewTests(TestCase):
         first_response = self.client.get(url)
         second_response = self.client.get(url)
 
-        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(first_response.json(), {"download_url": "https://example.com/download"})
         self.assertEqual(second_response.status_code, 429)
         self.assertEqual(second_response["Retry-After"], "600")
-        self.assertContains(
-            second_response,
-            "Слишком много запросов на скачивание. Попробуйте позже.",
-            status_code=429,
+        self.assertEqual(
+            second_response.json(),
+            {
+                "code": "rate_limited",
+                "message": "Слишком много запросов на скачивание. Попробуйте позже.",
+                "retry_after_seconds": 600,
+            },
         )
         mock_generate_presigned_download_url.assert_called_once()
 
@@ -519,9 +535,11 @@ class ProductDownloadViewTests(TestCase):
         first_response = self.client.get(url)
         second_response = self.client.get(url)
 
-        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 429)
         self.assertEqual(second_response["Retry-After"], "300")
+        self.assertEqual(second_response.json()["code"], "rate_limited")
+        self.assertEqual(second_response.json()["retry_after_seconds"], 300)
         mock_generate_presigned_download_url.assert_called_once()
 
 
@@ -553,3 +571,4 @@ class ProductDetailDownloadContextTests(TestCase):
             response.context["product_download_url"],
             reverse("product-download", kwargs={"product_id": self.product.id}),
         )
+        self.assertContains(response, "data-product-download-link")

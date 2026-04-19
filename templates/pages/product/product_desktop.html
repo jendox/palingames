@@ -153,6 +153,7 @@
             data-in-cart="{% if product_is_in_cart %}true{% else %}false{% endif %}"
             data-is-purchased="{% if product_is_purchased %}true{% else %}false{% endif %}"
             data-product-download-url="{{ product_download_url }}"
+            data-product-download-link
             data-product-added-dialog="productAddedDialog"
             aria-label="{% if product_is_purchased %}{% trans 'Скачать' %}{% else %}{% trans 'Купить' %}{% endif %}"
           >
