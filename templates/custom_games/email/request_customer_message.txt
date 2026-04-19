@@ -1,0 +1,17 @@
+Здравствуйте, {{ request.contact_name }}!
+
+Мы получили вашу заявку на игру {{ request.payment_account_no }}.
+
+Идея:
+{{ request.idea }}
+
+Для кого:
+{{ request.audience }}
+
+Сроки и формат:
+{{ request.timing }}
+
+Мы посмотрим детали и свяжемся с вами по этому email.
+
+PaliGames
+{{ site_base_url }}

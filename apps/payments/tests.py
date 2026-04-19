@@ -7,14 +7,17 @@ from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from apps.access.models import GuestAccess, GuestAccessEmailOutbox, UserProductAccess
+from apps.access.models import GuestAccess, UserProductAccess
+from apps.custom_games.models import CustomGameRequest
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import GUEST_ORDER_DOWNLOAD
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
-from apps.payments.tasks import sync_waiting_invoice_statuses_task
+from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
-from libs.payments.models import InvoiceStatus, InvoiceStatusResult
+from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStatusResult
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
@@ -157,8 +160,8 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(self.order.payment_account_no, mail.outbox[0].subject)
-        outbox = GuestAccessEmailOutbox.objects.get(order=self.order)
-        self.assertEqual(outbox.status, GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT)
+        outbox = NotificationOutbox.objects.get(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
 
     def test_notification_is_idempotent_for_same_notification(self):
         payload = self._build_request_payload()
@@ -197,7 +200,10 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.token_hash, first_token_hash)
-        self.assertEqual(GuestAccessEmailOutbox.objects.filter(order=self.order).count(), 1)
+        self.assertEqual(
+            NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
+            1,
+        )
         self.assertEqual(len(mail.outbox), 1)
 
     def test_notification_rejects_invalid_signature(self):
@@ -440,7 +446,10 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.token_hash, first_token_hash)
-        self.assertEqual(GuestAccessEmailOutbox.objects.filter(order=self.order).count(), 1)
+        self.assertEqual(
+            NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
+            1,
+        )
         self.assertEqual(len(mail.outbox), 1)
 
     def test_settlement_notification_normalizes_provider_account_prefix(self):
@@ -607,6 +616,27 @@ class InvoiceStatusSyncTaskTests(TestCase):
         )
         return order, invoice
 
+    def _create_waiting_custom_game_invoice(self, *, account_suffix: str) -> tuple[CustomGameRequest, Invoice]:
+        custom_game_request = CustomGameRequest.objects.create(
+            contact_name="Анна",
+            contact_email="custom@example.com",
+            idea="Нужна игра про космос для детей с заданиями на внимание.",
+            audience="Дети 6-8 лет",
+            timing="За две недели",
+            quoted_price=Decimal("80.00"),
+            status=CustomGameRequest.Status.WAITING_FOR_PAYMENT,
+            payment_account_no=f"PG250326{account_suffix}",
+        )
+        invoice = Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no=account_suffix,
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url=f"https://example.com/pay/{account_suffix}",
+            amount=Decimal("80.00"),
+            currency=933,
+        )
+        return custom_game_request, invoice
+
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_sync_waiting_invoice_statuses_marks_paid_order_and_grants_access(self, mock_get_client):
         order, invoice = self._create_waiting_invoice(account_suffix="12345678", user=self.user)
@@ -627,6 +657,52 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(order.status, Order.OrderStatus.PAID)
         self.assertIsNotNone(invoice.last_status_check_at)
         self.assertTrue(UserProductAccess.objects.filter(user=self.user, product=self.product, order=order).exists())
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_sync_waiting_invoice_statuses_marks_custom_game_request_delivered(self, mock_get_client):
+        custom_game_request, invoice = self._create_waiting_custom_game_invoice(account_suffix="56789012")
+        mock_client = Mock()
+        mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
+        mock_get_client.return_value = mock_client
+
+        summary = sync_waiting_invoice_statuses_task()
+
+        invoice.refresh_from_db()
+        custom_game_request.refresh_from_db()
+
+        self.assertEqual(summary["selected"], 1)
+        self.assertEqual(summary["paid"], 1)
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.DELIVERED)
+        self.assertIsNotNone(custom_game_request.delivered_at)
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_create_invoice_task_creates_custom_game_request_invoice(self, mock_get_client):
+        custom_game_request = CustomGameRequest.objects.create(
+            contact_name="Анна",
+            contact_email="custom@example.com",
+            idea="Нужна игра про космос для детей с заданиями на внимание.",
+            audience="Дети 6-8 лет",
+            timing="За две недели",
+            quoted_price=Decimal("80.00"),
+            status=CustomGameRequest.Status.READY,
+        )
+        mock_client = Mock()
+        mock_client.create_invoice.return_value = CreateInvoiceResult(
+            invoice_no=87654321,
+            invoice_url="https://example.com/pay/87654321",
+        )
+        mock_get_client.return_value = mock_client
+
+        create_invoice_task(custom_game_request.id, "custom_game_request")
+
+        invoice = Invoice.objects.get(custom_game_request=custom_game_request)
+        custom_game_request.refresh_from_db()
+
+        self.assertEqual(invoice.provider_invoice_no, "87654321")
+        self.assertEqual(invoice.amount, Decimal("80.00"))
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
+        mock_client.create_invoice.assert_called_once()
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_sync_waiting_invoice_statuses_marks_expired_invoice(self, mock_get_client):

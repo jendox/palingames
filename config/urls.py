@@ -14,6 +14,7 @@ urlpatterns = [
     path("", include("apps.favorites.urls")),
     path("", include("apps.orders.urls")),
     path("", include("apps.payments.urls")),
+    path("", include("apps.custom_games.urls")),
     path("", include("apps.pages.urls")),
 ]
 

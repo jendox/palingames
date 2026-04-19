@@ -4,18 +4,54 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.access.services import (
-    create_guest_access_email_outbox_for_order,
+    create_guest_access_notification_for_order,
     grant_user_product_accesses,
 )
-from apps.access.tasks import send_guest_access_email_outbox_task
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_paid, inc_order_paid_duplicate
+from apps.custom_games.models import CustomGameRequest
+from apps.custom_games.services import send_custom_game_download_link
+from apps.notifications.services import enqueue_notification_outbox
 from apps.orders.models import Order
 from libs.payments.models import InvoiceStatus
 
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
+
+
+def _send_custom_game_download_link_safely(
+    custom_game_request: CustomGameRequest,
+    invoice: Invoice,
+    source: str,
+) -> None:
+    try:
+        download_token = send_custom_game_download_link(custom_game_request=custom_game_request)
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_request.download_email.failed",
+            exc_info=True,
+            source=source,
+            custom_game_request_id=custom_game_request.id,
+            custom_game_request_public_id=str(custom_game_request.public_id),
+            invoice_id=invoice.id,
+            provider_invoice_no=invoice.provider_invoice_no,
+        )
+        return
+
+    log_event(
+        logger,
+        logging.INFO,
+        "custom_game_request.download_email.queued",
+        source=source,
+        custom_game_request_id=custom_game_request.id,
+        custom_game_request_public_id=str(custom_game_request.public_id),
+        invoice_id=invoice.id,
+        provider_invoice_no=invoice.provider_invoice_no,
+        download_token_id=download_token.id,
+    )
 
 
 def map_invoice_status(provider_status: int | None) -> str | None:
@@ -86,12 +122,10 @@ def mark_order_paid(
         if order.checkout_type == Order.CheckoutType.AUTHENTICATED:
             grant_user_product_accesses(order)
         elif order.checkout_type == Order.CheckoutType.GUEST:
-            guest_access_email_outbox = create_guest_access_email_outbox_for_order(order)
+            guest_access_email_outbox = create_guest_access_notification_for_order(order)
             if guest_access_email_outbox:
                 guest_access_payloads = [{}] * order.items_count
-                transaction.on_commit(
-                    lambda: send_guest_access_email_outbox_task.delay(guest_access_email_outbox.id),
-                )
+                enqueue_notification_outbox(guest_access_email_outbox)
         log_event(
             logger,
             logging.INFO,
@@ -121,6 +155,76 @@ def mark_order_paid(
             user_id=order.user_id,
         )
         inc_order_paid_duplicate(checkout_type=order.checkout_type, source=order.source)
+
+
+def mark_custom_game_request_paid(
+    custom_game_request: CustomGameRequest,
+    invoice: Invoice,
+    *,
+    paid_at=None,
+    source: str,
+    persist: bool = True,
+) -> None:
+    paid_at = paid_at or timezone.now()
+    already_delivered = custom_game_request.status == CustomGameRequest.Status.DELIVERED
+
+    invoice.status = Invoice.InvoiceStatus.PAID
+    invoice.paid_at = paid_at
+    invoice.cancelled_at = None
+
+    custom_game_request.status = CustomGameRequest.Status.DELIVERED
+    custom_game_request.delivered_at = paid_at
+    custom_game_request.cancelled_at = None
+
+    if persist:
+        invoice.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "updated_at",
+            ],
+        )
+        custom_game_request.save(
+            update_fields=[
+                "status",
+                "delivered_at",
+                "cancelled_at",
+                "updated_at",
+            ],
+        )
+
+    if not already_delivered:
+        transaction.on_commit(
+            lambda: _send_custom_game_download_link_safely(custom_game_request, invoice, source),
+        )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "custom_game_request.paid.duplicate" if already_delivered else "custom_game_request.paid",
+        source=source,
+        custom_game_request_id=custom_game_request.id,
+        custom_game_request_public_id=str(custom_game_request.public_id),
+        invoice_id=invoice.id,
+        provider_invoice_no=invoice.provider_invoice_no,
+        user_id=custom_game_request.user_id,
+    )
+
+
+def apply_payable_status_from_invoice_status(
+    invoice: Invoice,
+    normalized_status: str | None,
+    event_at,
+    *,
+    source: str,
+) -> None:
+    if invoice.order_id:
+        apply_order_status_from_invoice_status(invoice, normalized_status, event_at, source=source)
+        return
+
+    if invoice.custom_game_request_id:
+        apply_custom_game_request_status_from_invoice_status(invoice, normalized_status, event_at, source=source)
 
 
 def apply_order_status_from_invoice_status(
@@ -167,6 +271,80 @@ def apply_order_status_from_invoice_status(
         invoice.order.failure_reason = None
 
 
+def apply_custom_game_request_status_from_invoice_status(
+    invoice: Invoice,
+    normalized_status: str | None,
+    event_at,
+    *,
+    source: str,
+) -> None:
+    custom_game_request = invoice.custom_game_request
+    if normalized_status == Invoice.InvoiceStatus.PAID:
+        mark_custom_game_request_paid(
+            custom_game_request,
+            invoice,
+            paid_at=event_at,
+            source=source,
+            persist=False,
+        )
+        return
+
+    if normalized_status == Invoice.InvoiceStatus.CANCELED:
+        invoice.paid_at = None
+        invoice.cancelled_at = event_at or timezone.now()
+        custom_game_request.status = CustomGameRequest.Status.CANCELLED
+        custom_game_request.cancelled_at = invoice.cancelled_at
+        return
+
+    if normalized_status == Invoice.InvoiceStatus.EXPIRED:
+        invoice.paid_at = None
+        invoice.cancelled_at = None
+        custom_game_request.status = CustomGameRequest.Status.PAYMENT_EXPIRED
+        custom_game_request.cancelled_at = None
+        return
+
+    if normalized_status == Invoice.InvoiceStatus.PENDING:
+        invoice.paid_at = None
+        invoice.cancelled_at = None
+        custom_game_request.status = CustomGameRequest.Status.WAITING_FOR_PAYMENT
+        custom_game_request.cancelled_at = None
+
+
+def save_invoice_and_target(invoice: Invoice) -> None:
+    invoice.save(
+        update_fields=[
+            "provider",
+            "status",
+            "amount",
+            "currency",
+            "paid_at",
+            "cancelled_at",
+            "last_status_check_at",
+            "raw_last_status_response",
+            "updated_at",
+        ],
+    )
+    if invoice.order_id:
+        invoice.order.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "failure_reason",
+                "updated_at",
+            ],
+        )
+    elif invoice.custom_game_request_id:
+        invoice.custom_game_request.save(
+            update_fields=[
+                "status",
+                "delivered_at",
+                "cancelled_at",
+                "updated_at",
+            ],
+        )
+
+
 def apply_invoice_status_update(
     invoice: Invoice,
     *,
@@ -190,7 +368,7 @@ def apply_invoice_status_update(
     if normalized_status is not None:
         invoice.status = normalized_status
 
-    apply_order_status_from_invoice_status(
+    apply_payable_status_from_invoice_status(
         invoice,
         normalized_status,
         normalized_event_at,
@@ -198,27 +376,6 @@ def apply_invoice_status_update(
     )
 
     if persist:
-        invoice.save(
-            update_fields=[
-                "provider",
-                "status",
-                "amount",
-                "currency",
-                "paid_at",
-                "cancelled_at",
-                "last_status_check_at",
-                "raw_last_status_response",
-                "updated_at",
-            ],
-        )
-        invoice.order.save(
-            update_fields=[
-                "status",
-                "paid_at",
-                "cancelled_at",
-                "failure_reason",
-                "updated_at",
-            ],
-        )
+        save_invoice_and_target(invoice)
 
     return normalized_status

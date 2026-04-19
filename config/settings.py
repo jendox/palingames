@@ -57,7 +57,9 @@ INSTALLED_APPS = [
     "apps.favorites.apps.FavoritesConfig",
     "apps.orders.apps.OrdersConfig",
     "apps.payments.apps.PaymentsConfig",
+    "apps.notifications.apps.NotificationsConfig",
     "apps.promocodes.apps.PromocodesConfig",
+    "apps.custom_games.apps.CustomGamesConfig",
 ]
 
 MIDDLEWARE = [
@@ -278,6 +280,7 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "localhost"  # или 'mailhog' при использовании Docker
 EMAIL_PORT = 25
 DEFAULT_FROM_EMAIL = "noreply@palingames.by"
+CUSTOM_GAME_ADMIN_EMAILS = env.list("CUSTOM_GAME_ADMIN_EMAILS", default=[])
 
 TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind.css"

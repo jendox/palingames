@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
-from django.http import Http404, JsonResponse
+from django.http import JsonResponse
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext as _

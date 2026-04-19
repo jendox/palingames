@@ -90,12 +90,13 @@ function initCustomGameScope(scope) {
   });
 
   form.addEventListener("submit", (event) => {
-    event.preventDefault();
     const lastBlock = scope.querySelector(`[data-custom-game-step-block="${stepCount}"]`);
     if (!validateStepBlock(lastBlock)) {
+      event.preventDefault();
       return;
     }
     if (!form.checkValidity()) {
+      event.preventDefault();
       form.reportValidity();
     }
   });

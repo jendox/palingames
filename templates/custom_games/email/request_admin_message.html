@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+  <body style="margin:0;background:#ffffff;color:#201b1b;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;">
+            <tr>
+              <td style="padding-bottom:24px;">
+                <img src="{{ logo_url }}" alt="PaliGames" width="160" style="display:block;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:24px;line-height:30px;font-weight:700;padding-bottom:14px;">
+                Новая заявка на игру {{ request.payment_account_no }}
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:15px;line-height:22px;padding-bottom:18px;">
+                <strong>Имя:</strong> {{ request.contact_name }}<br>
+                <strong>Email:</strong> {{ request.contact_email }}<br>
+                <strong>Телефон:</strong> {{ request.contact_phone|default:"не указан" }}
+              </td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e8dede;border-radius:8px;padding:18px;">
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Идея:</strong><br>{{ request.idea|linebreaksbr }}</p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Для кого:</strong><br>{{ request.audience|linebreaksbr }}</p>
+                <p style="margin:0;font-size:14px;line-height:20px;"><strong>Сроки и формат:</strong><br>{{ request.timing|linebreaksbr }}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:22px;">
+                <a href="{{ admin_url }}" style="display:inline-block;border-radius:8px;background:#d7437b;color:#ffffff;font-size:14px;font-weight:700;line-height:18px;padding:12px 18px;text-decoration:none;">
+                  Открыть заявку
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

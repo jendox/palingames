@@ -8,6 +8,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import GUEST_ORDER_DOWNLOAD
 from apps.orders.models import Order
 from apps.products.models import Product, ProductFile
 from apps.products.services.s3 import ProductFileDownloadUrlError
@@ -19,7 +21,7 @@ from .email_outbox import (
     process_guest_access_email_outbox,
 )
 from .emails import send_guest_order_download_email
-from .models import GuestAccess, GuestAccessEmailOutbox
+from .models import GuestAccess
 from .services import create_guest_access, mark_guest_access_used, release_guest_access_use, resolve_guest_access
 
 
@@ -367,7 +369,8 @@ class GuestAccessEmailOutboxTests(TestCase):
 
         outbox = create_guest_access_email_outbox(order=order, guest_access_payloads=payload)
 
-        self.assertEqual(outbox.status, GuestAccessEmailOutbox.GuestAccessEmailStatus.PENDING)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(outbox.notification_type, GUEST_ORDER_DOWNLOAD)
         self.assertNotIn(b"token-abc", outbox.payload_encrypted)
         self.assertEqual(decrypt_outbox_payload(outbox.payload_encrypted), payload)
 
@@ -397,7 +400,7 @@ class GuestAccessEmailOutboxTests(TestCase):
         outbox.refresh_from_db()
 
         self.assertTrue(processed)
-        self.assertEqual(outbox.status, GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         self.assertEqual(outbox.attempts, 1)
         self.assertIsNotNone(outbox.sent_at)
         self.assertEqual(len(mail.outbox), 1)
@@ -429,7 +432,7 @@ class GuestAccessEmailOutboxTests(TestCase):
         outbox.refresh_from_db()
 
         self.assertFalse(processed_again)
-        self.assertEqual(outbox.status, GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         self.assertEqual(outbox.attempts, 1)
         self.assertEqual(len(mail.outbox), 1)
 
@@ -441,27 +444,27 @@ class GuestAccessEmailOutboxTests(TestCase):
             total_amount="10.00",
             items_count=1,
         )
-        old_sent = GuestAccessEmailOutbox.objects.create(
-            order=order,
-            email=order.email,
+        old_sent = NotificationOutbox.objects.create(
+            notification_type=GUEST_ORDER_DOWNLOAD,
+            recipient=order.email,
             payload_encrypted=b"encrypted-1",
-            status=GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT,
+            status=NotificationOutbox.Status.SENT,
             sent_at=timezone.now() - timedelta(days=40),
         )
-        old_failed = GuestAccessEmailOutbox.objects.create(
-            order=order,
-            email=order.email,
+        old_failed = NotificationOutbox.objects.create(
+            notification_type=GUEST_ORDER_DOWNLOAD,
+            recipient=order.email,
             payload_encrypted=b"encrypted-2",
-            status=GuestAccessEmailOutbox.GuestAccessEmailStatus.FAILED,
+            status=NotificationOutbox.Status.FAILED,
         )
-        GuestAccessEmailOutbox.objects.filter(pk=old_failed.pk).update(
+        NotificationOutbox.objects.filter(pk=old_failed.pk).update(
             updated_at=timezone.now() - timedelta(days=100),
         )
-        fresh_sent = GuestAccessEmailOutbox.objects.create(
-            order=order,
-            email=order.email,
+        fresh_sent = NotificationOutbox.objects.create(
+            notification_type=GUEST_ORDER_DOWNLOAD,
+            recipient=order.email,
             payload_encrypted=b"encrypted-3",
-            status=GuestAccessEmailOutbox.GuestAccessEmailStatus.SENT,
+            status=NotificationOutbox.Status.SENT,
             sent_at=timezone.now() - timedelta(days=5),
         )
 
@@ -472,6 +475,6 @@ class GuestAccessEmailOutboxTests(TestCase):
 
         self.assertEqual(result["sent_deleted"], 1)
         self.assertEqual(result["failed_deleted"], 1)
-        self.assertFalse(GuestAccessEmailOutbox.objects.filter(pk=old_sent.pk).exists())
-        self.assertFalse(GuestAccessEmailOutbox.objects.filter(pk=old_failed.pk).exists())
-        self.assertTrue(GuestAccessEmailOutbox.objects.filter(pk=fresh_sent.pk).exists())
+        self.assertFalse(NotificationOutbox.objects.filter(pk=old_sent.pk).exists())
+        self.assertFalse(NotificationOutbox.objects.filter(pk=old_failed.pk).exists())
+        self.assertTrue(NotificationOutbox.objects.filter(pk=fresh_sent.pk).exists())

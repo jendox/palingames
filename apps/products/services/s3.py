@@ -112,6 +112,11 @@ def build_product_file_key(*, product_slug: str, filename: str) -> str:
     return f"{product_slug}/{uuid4().hex}{extension}"
 
 
+def build_custom_game_file_key(*, payment_account_no: str, filename: str) -> str:
+    extension = Path(filename).suffix.lower()
+    return f"custom-games/{payment_account_no}/{uuid4().hex}{extension}"
+
+
 def _calculate_sha256(uploaded_file: UploadedFile) -> str:
     digest = hashlib.sha256()
     for chunk in uploaded_file.chunks():
@@ -192,6 +197,69 @@ def upload_product_file(*, product_slug: str, uploaded_file: UploadedFile) -> di
         "product_file.upload.success",
         bucket_name=settings.S3_BUCKET_NAME,
         product_slug=product_slug,
+        file_key=file_key,
+        original_filename=uploaded_file.name,
+        mime_type=mime_type,
+        size_bytes=uploaded_file.size,
+    )
+
+    return {
+        "file_key": file_key,
+        "original_filename": Path(uploaded_file.name).name,
+        "mime_type": mime_type,
+        "size_bytes": uploaded_file.size,
+        "checksum_sha256": checksum_sha256,
+    }
+
+
+def upload_custom_game_file(*, payment_account_no: str, uploaded_file: UploadedFile) -> dict[str, str | int]:
+    file_key = build_custom_game_file_key(payment_account_no=payment_account_no, filename=uploaded_file.name)
+    mime_type = uploaded_file.content_type or _guess_content_type(uploaded_file.name)
+    checksum_sha256 = _calculate_sha256(uploaded_file)
+
+    log_event(
+        logger,
+        logging.INFO,
+        "custom_game_file.upload.started",
+        bucket_name=settings.S3_BUCKET_NAME,
+        payment_account_no=payment_account_no,
+        file_key=file_key,
+        original_filename=uploaded_file.name,
+        mime_type=mime_type,
+        size_bytes=uploaded_file.size,
+    )
+
+    try:
+        get_s3_client().upload_fileobj(
+            Fileobj=uploaded_file,
+            Bucket=settings.S3_BUCKET_NAME,
+            Key=file_key,
+            ExtraArgs={
+                "ContentType": mime_type,
+            },
+        )
+    except (ClientError, BotoCoreError, OSError, ValueError) as exc:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_file.upload.failed",
+            exc_info=exc,
+            bucket_name=settings.S3_BUCKET_NAME,
+            payment_account_no=payment_account_no,
+            file_key=file_key,
+            original_filename=uploaded_file.name,
+            mime_type=mime_type,
+            size_bytes=uploaded_file.size,
+            error_type=type(exc).__name__,
+        )
+        raise ProductFileUploadError("Failed to upload custom game file to object storage") from exc
+
+    log_event(
+        logger,
+        logging.INFO,
+        "custom_game_file.upload.success",
+        bucket_name=settings.S3_BUCKET_NAME,
+        payment_account_no=payment_account_no,
         file_key=file_key,
         original_filename=uploaded_file.name,
         mime_type=mime_type,

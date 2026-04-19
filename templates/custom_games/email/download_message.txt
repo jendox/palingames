@@ -1,0 +1,10 @@
+Здравствуйте!
+
+Ваша игра на заказ №{{ request.payment_account_no }} готова.
+
+Ссылка на скачивание:
+{{ download_url }}
+
+Ссылка действует {{ custom_game_download_expire_hours }} часа(ов) и может быть использована до {{ custom_game_download_max_downloads }} раз.
+
+Команда PaliGames

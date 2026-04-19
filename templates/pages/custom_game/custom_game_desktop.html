@@ -20,7 +20,7 @@
       {% trans "Игра на заказ" %}
     </h1>
 
-    <form class="mx-auto mt-[60px] max-w-[880px]" method="post" data-custom-game-form novalidate>
+    <form class="mx-auto mt-[60px] max-w-[880px]" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
       {% csrf_token %}
 
       <div class="grid grid-cols-[106px_minmax(0,1fr)] items-start gap-x-[25px]" data-custom-game-step-block="1">
@@ -52,7 +52,7 @@
             class="account-input mt-[16px] min-h-[120px] w-full max-w-[560px] resize-y rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] py-[14px] text-[16px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Например: настольная игра про космос для детей 5–7 лет...' %}"
             autocomplete="off"
-          ></textarea>
+          >{{ form.idea.value|default_if_none:"" }}</textarea>
           <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
             {% trans "Далее" %}
           </button>
@@ -94,6 +94,7 @@
             class="account-input mt-[16px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Например: 6–8 лет, группа до 10 детей' %}"
             autocomplete="off"
+            value="{{ form.audience.value|default_if_none:'' }}"
           >
           <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
             {% trans "Далее" %}
@@ -136,6 +137,7 @@
             class="account-input mt-[16px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Например: к 1 сентября, PDF для печати А4' %}"
             autocomplete="off"
+            value="{{ form.timing.value|default_if_none:'' }}"
           >
           <button type="button" class="btn-primary btn-primary--h40 mt-[20px] min-w-[180px] px-[24px] text-[14px] font-bold" data-custom-game-next>
             {% trans "Далее" %}
@@ -178,6 +180,7 @@
             class="account-input mt-[14px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Имя' %}"
             autocomplete="name"
+            value="{{ form.contact_name.value|default_if_none:'' }}"
           >
           <label class="sr-only" for="custom-game-email-desktop">{% trans "Email" %}</label>
           <input
@@ -188,6 +191,7 @@
             class="account-input mt-[12px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Электронная почта' %}"
             autocomplete="email"
+            value="{{ form.contact_email.value|default_if_none:'' }}"
           >
           <label class="sr-only" for="custom-game-phone-desktop">{% trans "Телефон" %}</label>
           <input
@@ -197,6 +201,7 @@
             class="account-input mt-[12px] h-[54px] w-full max-w-[560px] rounded-[10px] border border-[#C6C0C0] bg-[var(--color-white)] px-[18px] text-[18px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
             placeholder="{% trans 'Телефон (необязательно)' %}"
             autocomplete="tel"
+            value="{{ form.contact_phone.value|default_if_none:'' }}"
           >
           <button type="submit" class="btn-primary mt-[24px] min-w-[260px] px-[28px] text-[18px] font-bold">
             {% trans "Отправить заявку" %}

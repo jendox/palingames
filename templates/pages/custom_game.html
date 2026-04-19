@@ -11,6 +11,16 @@
 
 {% block content %}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
+  {% if messages or form.errors %}
+    <div class="mx-auto max-w-[880px] px-5 pt-6">
+      {% include "base/_messages.html" %}
+      {% if form.errors %}
+        <div class="mb-6 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[14px] font-bold leading-[20px] text-red-800">
+          Проверьте поля формы и попробуйте ещё раз.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
   <div class="min-[1024px]:hidden">
     {% include "pages/custom_game/custom_game_mobile.html" %}
   </div>

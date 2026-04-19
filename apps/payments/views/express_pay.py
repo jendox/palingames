@@ -3,6 +3,7 @@ import logging
 from http import HTTPStatus
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -17,9 +18,15 @@ from apps.core.metrics import (
     inc_payment_webhook_received,
     inc_payment_webhook_rejected,
 )
+from apps.custom_games.models import CustomGameRequest
 from apps.orders.models import Order
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
-from apps.payments.services import map_invoice_status, mark_order_paid, normalize_notification_datetime
+from apps.payments.services import (
+    map_invoice_status,
+    mark_custom_game_request_paid,
+    mark_order_paid,
+    normalize_notification_datetime,
+)
 from libs.express_pay import ExpressPaySignatureError
 from libs.express_pay.models import (
     ExpressPayCommandType,
@@ -40,6 +47,37 @@ from .helpers import (
 )
 
 logger = logging.getLogger("apps.payments")
+
+
+def lock_invoice_target(invoice: Invoice) -> None:
+    if invoice.order_id:
+        invoice.order = Order.objects.select_for_update().get(pk=invoice.order_id)
+    elif invoice.custom_game_request_id:
+        invoice.custom_game_request = CustomGameRequest.objects.select_for_update().get(
+            pk=invoice.custom_game_request_id,
+        )
+
+
+def save_invoice_target(invoice: Invoice) -> None:
+    if invoice.order_id:
+        invoice.order.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "failure_reason",
+                "updated_at",
+            ],
+        )
+    elif invoice.custom_game_request_id:
+        invoice.custom_game_request.save(
+            update_fields=[
+                "status",
+                "delivered_at",
+                "cancelled_at",
+                "updated_at",
+            ],
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -128,21 +166,27 @@ class ExpressPayNotificationView(View):
             "payment.notification.processed",
             provider=provider,
             cmd_type=cmd_type,
-            order_id=invoice.order_id,
+            target_type=invoice.target_kind,
+            target_id=invoice.target.id,
             invoice_id=invoice.id,
             provider_invoice_no=invoice.provider_invoice_no,
             invoice_status=invoice.status,
-            order_status=invoice.order.status,
+            target_status=invoice.target.status,
         )
         return success_response()
 
     @transaction.atomic
     def _process_status_change(self, notification: ExpressPayWebhookNotification) -> Invoice:
-        invoice = Invoice.objects.select_for_update().get(
-            provider_invoice_no=str(notification.invoice_no),
-            order__payment_account_no=notification.account_no,
+        invoice = (
+            Invoice.objects.select_for_update(of=("self",))
+            .select_related("order", "custom_game_request")
+            .get(
+                Q(order__payment_account_no=notification.account_no)
+                | Q(custom_game_request__payment_account_no=notification.account_no),
+                provider_invoice_no=str(notification.invoice_no),
+            )
         )
-        invoice.order = Order.objects.select_for_update().get(pk=invoice.order_id)
+        lock_invoice_target(invoice)
 
         provider_event_key = build_payment_event_key(notification)
         payment_event, created = PaymentEvent.objects.get_or_create(
@@ -189,15 +233,7 @@ class ExpressPayNotificationView(View):
                     "updated_at",
                 ],
             )
-            invoice.order.save(
-                update_fields=[
-                    "status",
-                    "paid_at",
-                    "cancelled_at",
-                    "failure_reason",
-                    "updated_at",
-                ],
-            )
+            save_invoice_target(invoice)
             payment_event.is_processed = True
             payment_event.processed_at = timezone.now()
             payment_event.save(update_fields=["is_processed", "processed_at", "updated_at"])
@@ -266,7 +302,7 @@ class ExpressPaySettlementNotificationView(View):
                 cmd_type=cmd_type,
             )
             return HttpResponse("FAILED | Invalid payload", status=HTTPStatus.BAD_REQUEST)
-        except Order.DoesNotExist as exc:
+        except Invoice.DoesNotExist as exc:
             inc_payment_webhook_failed(provider=provider, reason="order_not_found")
             log_event(
                 logger,
@@ -289,11 +325,12 @@ class ExpressPaySettlementNotificationView(View):
                 "payment.settlement_notification.processed",
                 provider=PaymentProvider.EXPRESS_PAY.value,
                 cmd_type=cmd_type,
-                order_id=invoice.order_id,
+                target_type=invoice.target_kind,
+                target_id=invoice.target.id,
                 invoice_id=invoice.id,
                 provider_invoice_no=invoice.provider_invoice_no,
                 invoice_status=invoice.status,
-                order_status=invoice.order.status,
+                target_status=invoice.target.status,
             )
             return success_response()
 
@@ -321,11 +358,15 @@ class ExpressPaySettlementNotificationView(View):
 
     @transaction.atomic
     def _process_epos_notification(self, notification: ExpressPayEPOSSettlementNotification) -> Invoice:
-        order = Order.objects.select_for_update().get(
-            payment_account_no=notification.account_number,
+        invoice = (
+            Invoice.objects.select_for_update(of=("self",))
+            .select_related("order", "custom_game_request")
+            .get(
+                Q(order__payment_account_no=notification.account_number)
+                | Q(custom_game_request__payment_account_no=notification.account_number),
+            )
         )
-        invoice = Invoice.objects.select_for_update().get(order=order)
-        order.invoice = invoice
+        lock_invoice_target(invoice)
         event_at = normalize_notification_datetime(notification.date_result_utc or notification.created_at)
         provider_event_key = build_settlement_event_key(notification)
 
@@ -365,13 +406,22 @@ class ExpressPaySettlementNotificationView(View):
             invoice.currency = normalize_currency_code(notification.currency, invoice.currency)
             invoice.last_status_check_at = timezone.now()
             invoice.raw_last_status_response = payment_event.payload
-            mark_order_paid(
-                order,
-                invoice,
-                paid_at=event_at,
-                source="settlement",
-                persist=False,
-            )
+            if invoice.order_id:
+                mark_order_paid(
+                    invoice.order,
+                    invoice,
+                    paid_at=event_at,
+                    source="settlement",
+                    persist=False,
+                )
+            elif invoice.custom_game_request_id:
+                mark_custom_game_request_paid(
+                    invoice.custom_game_request,
+                    invoice,
+                    paid_at=event_at,
+                    source="settlement",
+                    persist=False,
+                )
             invoice.save(
                 update_fields=[
                     "status",
@@ -384,15 +434,7 @@ class ExpressPaySettlementNotificationView(View):
                     "updated_at",
                 ],
             )
-            order.save(
-                update_fields=[
-                    "status",
-                    "paid_at",
-                    "cancelled_at",
-                    "failure_reason",
-                    "updated_at",
-                ],
-            )
+            save_invoice_target(invoice)
 
             payment_event.is_processed = True
             payment_event.processed_at = timezone.now()

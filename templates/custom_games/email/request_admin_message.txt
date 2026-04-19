@@ -1,0 +1,17 @@
+Новая заявка на игру {{ request.payment_account_no }}
+
+Имя: {{ request.contact_name }}
+Email: {{ request.contact_email }}
+Телефон: {{ request.contact_phone|default:"не указан" }}
+
+Идея:
+{{ request.idea }}
+
+Для кого:
+{{ request.audience }}
+
+Сроки и формат:
+{{ request.timing }}
+
+Открыть в админке:
+{{ admin_url }}

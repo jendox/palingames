@@ -93,7 +93,7 @@ def grant_guest_product_accesses(order: Order) -> list[dict]:
     return guest_access_payloads
 
 
-def create_guest_access_email_outbox_for_order(order: Order):
+def create_guest_access_notification_for_order(order: Order):
     guest_access_payloads = grant_guest_product_accesses(order)
     if not guest_access_payloads:
         return None
@@ -101,6 +101,10 @@ def create_guest_access_email_outbox_for_order(order: Order):
         order=order,
         guest_access_payloads=guest_access_payloads,
     )
+
+
+def create_guest_access_email_outbox_for_order(order: Order):
+    return create_guest_access_notification_for_order(order)
 
 
 def create_guest_access(

@@ -1,4 +1,3 @@
-import secrets
 import uuid
 from decimal import Decimal
 
@@ -6,7 +5,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models import TimeStampedModel
+from apps.core import payment_account_numbers
+from apps.core.models import OrderSource, TimeStampedModel
 from apps.products.models import Currency, Product
 from config import settings
 
@@ -26,10 +26,7 @@ class Order(TimeStampedModel):
         AUTHENTICATED = "AUTHENTICATED", _("Авторизованный")
         GUEST = "GUEST", _("Гостевой")
 
-    class Source(models.TextChoices):
-        PALINGAMES = "PG", _("Сайт PaliGames")
-        TELEGRAM = "TG", _("Telegram")
-        INSTAGRAM = "IG", _("Instagram")
+    Source = OrderSource
 
     public_id = models.UUIDField(_("Публичный идентификатор"), default=uuid.uuid4, unique=True, editable=False)
     checkout_idempotency_key = models.UUIDField(
@@ -91,16 +88,17 @@ class Order(TimeStampedModel):
 
     @classmethod
     def generate_payment_account_no(cls, source: str, order_date=None) -> str:
-        order_date = order_date or timezone.now()
-        local_order_date = order_date.astimezone(timezone.get_current_timezone())
-        for _attempt in range(10):
-            token = "".join(secrets.choice(ACCOUNT_NO_RANDOM_ALPHABET) for _index in range(8))
-            payment_account_no = f"{source}{local_order_date:%d%m%y}{token}"
-            if not cls.objects.filter(payment_account_no=payment_account_no).exists():
-                return payment_account_no
+        return payment_account_numbers.generate_payment_account_no(
+            source=source,
+            account_date=order_date,
+            exists=lambda account_no: payment_account_numbers.payment_account_no_exists(
+                account_no,
+                model_labels=("orders.Order", "custom_games.CustomGameRequest"),
+            ),
+        )
 
-        msg = "Unable to generate a unique payment account number."
-        raise RuntimeError(msg)
+    def __str__(self) -> str:
+        return f"#{self.id} · {self.email} · {self.get_status_display()}"
 
     def build_payment_account_no(self) -> str:
         return self.generate_payment_account_no(self.source, self.created_at or timezone.now())
@@ -113,9 +111,6 @@ class Order(TimeStampedModel):
             type(self).objects.filter(pk=self.pk, payment_account_no__isnull=True).update(
                 payment_account_no=self.payment_account_no,
             )
-
-    def __str__(self) -> str:
-        return f"#{self.id} · {self.email} · {self.get_status_display()}"
 
 
 class OrderItem(TimeStampedModel):

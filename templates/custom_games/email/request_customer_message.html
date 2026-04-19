@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+  <body style="margin:0;background:#ffffff;color:#201b1b;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;">
+            <tr>
+              <td style="padding-bottom:24px;">
+                <img src="{{ logo_url }}" alt="PaliGames" width="160" style="display:block;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:24px;line-height:30px;font-weight:700;padding-bottom:14px;">
+                Заявка {{ request.payment_account_no }} получена
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:16px;line-height:24px;padding-bottom:18px;">
+                Здравствуйте, {{ request.contact_name }}! Мы посмотрим детали и свяжемся с вами по этому email.
+              </td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e8dede;border-radius:8px;padding:18px;">
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Идея:</strong><br>{{ request.idea|linebreaksbr }}</p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Для кого:</strong><br>{{ request.audience|linebreaksbr }}</p>
+                <p style="margin:0;font-size:14px;line-height:20px;"><strong>Сроки и формат:</strong><br>{{ request.timing|linebreaksbr }}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;line-height:20px;color:#6d6464;padding-top:22px;">
+                PaliGames · <a href="{{ site_base_url }}" style="color:#d7437b;">{{ site_base_url }}</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

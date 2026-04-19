@@ -1,7 +1,9 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
+from apps.custom_games.models import CustomGameRequest
 from apps.orders.models import Order
 from apps.products.models import Currency
 
@@ -18,7 +20,22 @@ class Invoice(TimeStampedModel):
         CANCELED = "CANCELED", _("Отменён")
         REFUNDED = "REFUNDED", _("Возвращён")
 
-    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="invoice", verbose_name=_("Заказ"))
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.PROTECT,
+        related_name="invoice",
+        verbose_name=_("Заказ"),
+        null=True,
+        blank=True,
+    )
+    custom_game_request = models.OneToOneField(
+        CustomGameRequest,
+        on_delete=models.PROTECT,
+        related_name="invoice",
+        verbose_name=_("Игра на заказ"),
+        null=True,
+        blank=True,
+    )
     provider = models.CharField(
         _("Провайдер"),
         max_length=32,
@@ -47,9 +64,30 @@ class Invoice(TimeStampedModel):
         ordering = ["-created_at", "-id"]
         verbose_name = _("Инвойс")
         verbose_name_plural = _("Инвойсы")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(order__isnull=False, custom_game_request__isnull=True)
+                    | Q(order__isnull=True, custom_game_request__isnull=False)
+                ),
+                name="payments_invoice_exactly_one_target",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"#{self.id} · {self.provider} · {self.get_status_display()}"
+
+    @property
+    def target(self):
+        return self.order or self.custom_game_request
+
+    @property
+    def target_kind(self) -> str:
+        if self.order_id:
+            return "order"
+        if self.custom_game_request_id:
+            return "custom_game_request"
+        return "unknown"
 
 
 class PaymentEvent(TimeStampedModel):

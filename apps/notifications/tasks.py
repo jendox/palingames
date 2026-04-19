@@ -3,11 +3,10 @@ import logging
 from celery import shared_task
 
 from apps.core.logging import log_event
-from apps.notifications.services import process_notification_outbox
 
-from .email_outbox import cleanup_old_guest_access_email_outboxes
+from .services import cleanup_old_notification_outboxes, process_notification_outbox
 
-logger = logging.getLogger("apps.access.tasks")
+logger = logging.getLogger("apps.notifications.tasks")
 
 
 @shared_task(
@@ -17,11 +16,11 @@ logger = logging.getLogger("apps.access.tasks")
     retry_jitter=True,
     retry_kwargs={"max_retries": 5},
 )
-def send_guest_access_email_outbox_task(self, outbox_id: int) -> None:
+def send_notification_outbox_task(self, outbox_id: int) -> None:
     log_event(
         logger,
         logging.INFO,
-        "guest_access.email_outbox.task.started",
+        "notification.outbox.task.started",
         outbox_id=outbox_id,
         task_id=self.request.id,
     )
@@ -29,11 +28,11 @@ def send_guest_access_email_outbox_task(self, outbox_id: int) -> None:
 
 
 @shared_task(bind=True)
-def cleanup_guest_access_email_outbox_task(self) -> dict[str, int]:
+def cleanup_notification_outbox_task(self) -> dict[str, int]:
     log_event(
         logger,
         logging.INFO,
-        "guest_access.email_outbox.cleanup.started",
+        "notification.outbox.cleanup.started",
         task_id=self.request.id,
     )
-    return cleanup_old_guest_access_email_outboxes()
+    return cleanup_old_notification_outboxes()

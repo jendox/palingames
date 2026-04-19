@@ -102,39 +102,3 @@ class GuestAccess(TimeStampedModel):
     @property
     def is_active(self) -> bool:
         return not self.is_expired and self.has_remaining_downloads and not self.is_revoked
-
-
-class GuestAccessEmailOutbox(TimeStampedModel):
-    class GuestAccessEmailStatus(models.TextChoices):
-        PENDING = "PENDING", _("Ожидает отправки")
-        PROCESSING = "PROCESSING", _("Отправка")
-        SENT = "SENT", _("Отправлено")
-        FAILED = "FAILED", _("Ошибка")
-
-    order = models.ForeignKey(
-        "orders.Order",
-        on_delete=models.CASCADE,
-        related_name="guest_access_email_outboxes",
-        verbose_name=_("Заказ"),
-    )
-    email = models.EmailField(_("Email"), db_index=True)
-    payload_encrypted = models.BinaryField(_("Зашифрованное содержимое"))
-    status = models.CharField(
-        _("Статус"),
-        choices=GuestAccessEmailStatus.choices,
-        max_length=16,
-        default=GuestAccessEmailStatus.PENDING,
-        db_index=True,
-    )
-    attempts = models.PositiveSmallIntegerField(_("Количество попыток"), default=0)
-    last_error = models.CharField(_("Последняя ошибка"), max_length=512, null=True, blank=True)
-    last_attempt_at = models.DateTimeField(_("Последняя попытка"), null=True, blank=True)
-    sent_at = models.DateTimeField(_("Отправлено"), null=True, blank=True)
-
-    class Meta:
-        ordering = ["-created_at", "-id"]
-        verbose_name = _("Письмо с гостевыми ссылками")
-        verbose_name_plural = _("Письма с гостевыми ссылками")
-
-    def __str__(self) -> str:
-        return f"Guest email #{self.id} → {self.email}"

@@ -15,7 +15,7 @@
       {% trans "Игра на заказ" %}
     </h1>
 
-    <form class="mt-[35px]" method="post" data-custom-game-form novalidate>
+    <form class="mt-[35px]" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
       {% csrf_token %}
 
       <div data-custom-game-step-block="1">
@@ -51,7 +51,7 @@
           class="account-input account-input-thin mt-[14px] min-h-[100px] w-full resize-y rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] py-[10px] text-[14px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Например: настольная игра про космос для детей 5–7 лет...' %}"
           autocomplete="off"
-        ></textarea>
+        >{{ form.idea.value|default_if_none:"" }}</textarea>
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
         </button>
@@ -93,6 +93,7 @@
           class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Например: 6–8 лет, группа до 10 детей' %}"
           autocomplete="off"
+          value="{{ form.audience.value|default_if_none:'' }}"
         >
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
@@ -135,6 +136,7 @@
           class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Например: к 1 сентября, PDF для печати А4' %}"
           autocomplete="off"
+          value="{{ form.timing.value|default_if_none:'' }}"
         >
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
@@ -177,6 +179,7 @@
           class="account-input account-input-thin mt-[12px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Имя' %}"
           autocomplete="name"
+          value="{{ form.contact_name.value|default_if_none:'' }}"
         >
         <label class="sr-only" for="custom-game-email-mobile">{% trans "Email" %}</label>
         <input
@@ -187,6 +190,7 @@
           class="account-input account-input-thin mt-[10px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Электронная почта' %}"
           autocomplete="email"
+          value="{{ form.contact_email.value|default_if_none:'' }}"
         >
         <label class="sr-only" for="custom-game-phone-mobile">{% trans "Телефон" %}</label>
         <input
@@ -196,6 +200,7 @@
           class="account-input account-input-thin mt-[10px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Телефон (необязательно)' %}"
           autocomplete="tel"
+          value="{{ form.contact_phone.value|default_if_none:'' }}"
         >
         <p class="mx-auto mt-[24px] max-w-[280px] text-center text-[10px] font-normal leading-[14px] text-[var(--color-black-80)]">
           {% trans "Нажимая кнопку, вы соглашаетесь с обработкой данных для связи по заявке." %}

@@ -5,6 +5,7 @@ from .models import Invoice, PaymentEvent
 
 class InvoiceInline(admin.StackedInline):
     model = Invoice
+    fk_name = "order"
     extra = 0
     can_delete = False
     fields = (
@@ -56,6 +57,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "order",
+        "custom_game_request",
         "provider",
         "provider_invoice_no",
         "status",
@@ -66,8 +68,15 @@ class InvoiceAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("provider", "status", "currency", "created_at", "paid_at", "cancelled_at")
-    search_fields = ("provider_invoice_no", "order__email", "order__public_id")
-    autocomplete_fields = ("order",)
+    search_fields = (
+        "provider_invoice_no",
+        "order__email",
+        "order__public_id",
+        "custom_game_request__contact_email",
+        "custom_game_request__public_id",
+        "custom_game_request__payment_account_no",
+    )
+    autocomplete_fields = ("order", "custom_game_request")
     readonly_fields = ("created_at", "updated_at", "raw_create_response", "raw_last_status_response")
     inlines = (PaymentEventInline,)
     ordering = ("-created_at", "-id")
@@ -88,7 +97,14 @@ class PaymentEventAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("provider", "invoice_status", "is_processed", "currency", "created_at", "processed_at")
-    search_fields = ("provider_event_key", "provider_payment_no", "provider_invoice_no", "invoice__order__email")
+    search_fields = (
+        "provider_event_key",
+        "provider_payment_no",
+        "provider_invoice_no",
+        "invoice__order__email",
+        "invoice__custom_game_request__contact_email",
+        "invoice__custom_game_request__payment_account_no",
+    )
     autocomplete_fields = ("invoice",)
     readonly_fields = ("created_at", "updated_at", "payload", "processed_at", "processing_error")
     ordering = ("-created_at", "-id")

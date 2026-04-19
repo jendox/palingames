@@ -3,7 +3,6 @@ from urllib.parse import parse_qs, urlparse
 from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
 
-
 SOCIALACCOUNT_TEST_PROVIDERS = {
     "google": {
         "APPS": [
