@@ -78,6 +78,9 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         "cancelled_at",
         "admin_actions",
         "files_summary",
+        "idea",
+        "audience",
+        "timing",
     )
     inlines = (CustomGameInvoiceInline,)
     actions = ("mark_in_progress", "mark_ready")
