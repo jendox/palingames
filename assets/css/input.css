@@ -1,4 +1,5 @@
 @import "./fonts.css";
+@import "./custom_game.css";
 @import "tailwindcss";
 
 @layer base {
