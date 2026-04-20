@@ -1,8 +1,39 @@
 .custom-game-desktop {
     position: relative;
-    overflow: hidden;
-    min-height: 1320px;
+    overflow-x: visible;
+    overflow-y: visible;
     background: var(--color-white);
+  }
+
+  .custom-game-desktop__layout {
+    display: grid;
+    /* Min width on col 1 keeps the star rail inside the viewport (66px rail + bubble offset) */
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 1500px) minmax(32px, 1fr);
+    align-items: start;
+    width: 100%;
+    padding-inline: max(clamp(32px, 7vw, 80px), env(safe-area-inset-left))
+      max(clamp(24px, 6vw, 80px), env(safe-area-inset-right));
+    box-sizing: border-box;
+  }
+
+  .custom-game-desktop__stars-rail {
+    grid-column: 1;
+    justify-self: end;
+    position: sticky;
+    top: 70px;
+    z-index: 2;
+    margin-top: 70px;
+    padding-right: clamp(12px, 2.5vw, 28px);
+    pointer-events: none;
+    user-select: none;
+    min-width: 0;
+  }
+
+  .custom-game-desktop__body {
+    grid-column: 2;
+    position: relative;
+    width: 100%;
+    min-width: 0;
   }
 
   .custom-game-desktop__decor {
@@ -114,6 +145,10 @@
     align-items: center;
     min-height: 72px;
     margin-bottom: 85px;
+  }
+
+  .custom-game-step[data-custom-game-step-block="5"] .custom-game-step__header {
+    margin-bottom: 100px;
   }
 
   .custom-game-step__plane {
@@ -313,17 +348,15 @@
 
   .custom-game-desktop__submit-plane {
     position: absolute;
-    left: -238px;
-    top: 0;
+    left: -213px;
+    top: -25px;
     width: 330px;
     height: 285px;
     object-fit: contain;
   }
 
   .custom-game-desktop__side-stars {
-    position: absolute;
-    left: max(40px, calc(50% - 722px));
-    top: 70px;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
