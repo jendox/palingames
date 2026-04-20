@@ -19,7 +19,8 @@ from apps.core.metrics import inc_product_download_failed, inc_product_download_
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_favorite_product_ids
 
-from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme
+from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme, \
+    ReviewStatus
 from .pricing import format_price
 from .search import (
     MIN_QUERY_LEN,
@@ -709,7 +710,7 @@ class ProductDetailView(DetailView):
         Prefetch("images", queryset=ProductImage.objects.order_by("order")),
         Prefetch(
             "reviews",
-            queryset=Review.objects.filter(is_published=True).select_related("user"),
+            queryset=Review.objects.filter(status=ReviewStatus.PUBLISHED).select_related("user"),
             to_attr="published_reviews_list",
         ),
     )

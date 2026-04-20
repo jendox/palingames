@@ -16,7 +16,7 @@ from .models import (
     ProductImage,
     Review,
     SubType,
-    Theme,
+    Theme, ReviewStatus,
 )
 from .services.s3 import delete_product_file, upload_product_file
 
@@ -161,7 +161,7 @@ class ProductAdmin(admin.ModelAdmin):
                 _images_count=Count("images", distinct=True),
                 _published_reviews_count=Count(
                     "reviews",
-                    filter=Q(reviews__is_published=True),
+                    filter=Q(reviews__status=ReviewStatus.PUBLISHED),
                     distinct=True,
                 ),
             )
@@ -177,7 +177,7 @@ class ProductAdmin(admin.ModelAdmin):
 
     @admin.display(description=_("Опублик. отзывов"), ordering="_published_reviews_count")
     def published_reviews_count(self, obj):
-        return getattr(obj, "_published_reviews_count", obj.reviews.filter(is_published=True).count())
+        return getattr(obj, "_published_reviews_count", obj.reviews.filter(status=ReviewStatus.PUBLISHED).count())
 
     @admin.display(description=_("Средний рейтинг"))
     def average_rating_display(self, obj):
@@ -303,10 +303,10 @@ class ProductFileAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("product", "user", "rating", "is_published", "created_at")
-    list_filter = ("is_published", "rating", "created_at")
+    list_display = ("product", "user", "rating", "status", "created_at")
+    list_filter = ("status", "rating", "created_at")
     search_fields = ("product__title", "user__email", "user__username", "comment")
     autocomplete_fields = ("product", "user")
     readonly_fields = ("created_at", "updated_at")
-    list_editable = ("is_published",)
+    list_editable = ("status",)
     ordering = ("-created_at",)

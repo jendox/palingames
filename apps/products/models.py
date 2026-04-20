@@ -1,4 +1,5 @@
 import markdown
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg, Q
@@ -8,7 +9,6 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
-from config import settings
 
 
 class Currency(models.IntegerChoices):
@@ -139,12 +139,12 @@ class Product(TimeStampedModel):
 
     @property
     def average_rating(self) -> float:
-        avg = self.reviews.filter(is_published=True).aggregate(Avg("rating"))["rating__avg"]
+        avg = self.reviews.published_only().aggregate(Avg("rating"))["rating__avg"]
         return round(avg, 1) if avg else 0.0
 
     @property
     def published_reviews(self) -> models.QuerySet:
-        return self.reviews.filter(is_published=True)
+        return self.reviews.published_only()
 
 
 def product_image_upload_to(instance, filename):
@@ -187,18 +187,87 @@ class ProductFile(TimeStampedModel):
         return self.original_filename or self.file_key
 
 
+class ReviewStatus(models.TextChoices):
+    PENDING = "PENDING", _("На модерации")
+    PUBLISHED = "PUBLISHED", _("Опубликован")
+    REJECTED = "REJECTED", _("Отклонён")
+
+
+class ReviewQuerySet(models.QuerySet):
+    def published_only(self):
+        return self.filter(status=ReviewStatus.PUBLISHED)
+
+
+class ReviewManager(models.Manager.from_queryset(ReviewQuerySet)):
+    pass
+
+
 class Review(TimeStampedModel):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reviews")
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        verbose_name=_("Продукт"),
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        verbose_name=_("Пользователь"),
+    )
     rating = models.PositiveSmallIntegerField(_("Рейтинг"), validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(_("Комментарий"))
-    is_published = models.BooleanField(_("Опубликовано"), default=False)
+    status = models.CharField(
+        _("Статус"),
+        max_length=16,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.PENDING,
+        db_index=True,
+    )
+    rejection_reason = models.TextField(_("Причина отклонения (для пользователя)"), blank=True)
+    moderated_at = models.DateTimeField(_("Обработан в"), null=True, blank=True)
+    rejection_notified_at = models.DateTimeField(
+        _("Пользователь уведомлён об отклонении в"),
+        null=True,
+        blank=True,
+    )
+
+    objects = ReviewManager()
 
     class Meta:
         verbose_name = _("Отзыв")
         verbose_name_plural = _("Отзывы")
         ordering = ["-created_at"]
-        unique_together = ("product", "user")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product", "user"),
+                name="review_unique_per_product_user",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.user} - {self.rating}⭐ - {self.product}"
+
+    @property
+    def is_public_on_storefront(self) -> bool:
+        return self.status == ReviewStatus.PUBLISHED
+
+    @property
+    def is_waiting_moderation(self) -> bool:
+        return self.status == ReviewStatus.PENDING
+
+    @property
+    def is_rejected(self) -> bool:
+        return self.status == ReviewStatus.REJECTED
+
+    @property
+    def allows_resubmit(self) -> bool:
+        return self.status == ReviewStatus.REJECTED
+
+    @property
+    def customer_should_see_pending_message(self) -> bool:
+        return self.status == ReviewStatus.PENDING
+
+    @property
+    def customer_should_see_published_copy(self) -> bool:
+        return self.status == ReviewStatus.PUBLISHED
