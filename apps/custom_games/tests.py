@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.models import OrderSource
-from apps.custom_games.forms import CustomGameRequestForm
+from apps.custom_games.forms import AUDIENCE_OTHER, AUDIENCE_PRESET_67, CustomGameRequestForm
 from apps.custom_games.models import CustomGameFile, CustomGameRequest
 from apps.custom_games.services import create_custom_game_download_token, send_custom_game_download_link
 from apps.notifications.models import NotificationOutbox
@@ -20,29 +20,49 @@ from apps.notifications.types import CUSTOM_GAME_DOWNLOAD
 from apps.products.models import Currency
 from apps.products.services.s3 import upload_custom_game_file
 
-CUSTOM_GAME_FORM_DATA = {
-    "idea": "Нужна игра про космос для детей с заданиями на внимание.",
+CUSTOM_GAME_MODEL_DATA = {
+    "subject": "Космос",
     "audience": "Дети 6-8 лет, группа до 10 человек",
-    "timing": "PDF для печати, желательно за две недели",
+    "page_count": "8",
+    "idea": "Нужна игра про космос для детей с заданиями на внимание.",
     "contact_name": "Анна",
     "contact_email": "anna@example.com",
-    "contact_phone": "+375291234567",
+}
+
+CUSTOM_GAME_POST_DATA = {
+    "subject": "Космос",
+    "audience_preset": AUDIENCE_PRESET_67,
+    "audience_other": "",
+    "page_count": "8",
+    "idea": "Нужна игра про космос для детей с заданиями на внимание.",
+    "contact_name": "Анна",
+    "contact_email": "anna@example.com",
 }
 
 
 class CustomGameRequestFormTests(TestCase):
-    def test_form_validates_idea_min_length(self):
-        data = {**CUSTOM_GAME_FORM_DATA, "idea": "Коротко"}
-
+    def test_form_accepts_empty_idea(self):
+        data = {**CUSTOM_GAME_POST_DATA, "idea": ""}
         form = CustomGameRequestForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["idea"], "")
 
+    def test_audience_other_required_when_preset_is_other(self):
+        data = {**CUSTOM_GAME_POST_DATA, "audience_preset": AUDIENCE_OTHER, "audience_other": ""}
+        form = CustomGameRequestForm(data=data)
         self.assertFalse(form.is_valid())
-        self.assertIn("idea", form.errors)
+        self.assertIn("audience_other", form.errors)
+
+    def test_audience_other_stored_when_preset_is_other(self):
+        data = {**CUSTOM_GAME_POST_DATA, "audience_preset": AUDIENCE_OTHER, "audience_other": "5 лет, особый случай"}
+        form = CustomGameRequestForm(data=data)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["audience"], "5 лет, особый случай")
 
 
 class CustomGameRequestModelTests(TestCase):
     def test_request_generates_payment_account_no(self):
-        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_FORM_DATA)
+        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
 
         self.assertIsNotNone(custom_game_request.payment_account_no)
         self.assertEqual(len(custom_game_request.payment_account_no), 16)
@@ -53,7 +73,7 @@ class CustomGameRequestModelTests(TestCase):
         )
 
     def test_mark_in_progress_requires_price_and_deadline(self):
-        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_FORM_DATA)
+        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
 
         with self.assertRaises(ValidationError):
             custom_game_request.mark_in_progress()
@@ -67,7 +87,7 @@ class CustomGameRequestModelTests(TestCase):
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.IN_PROGRESS)
 
     def test_in_progress_status_requires_price_and_deadline_on_model_validation(self):
-        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_FORM_DATA)
+        custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
         custom_game_request.status = CustomGameRequest.Status.IN_PROGRESS
 
         with self.assertRaises(ValidationError) as exc:
@@ -82,7 +102,7 @@ class CustomGameRequestModelTests(TestCase):
 
     def test_mark_ready_requires_active_file(self):
         custom_game_request = CustomGameRequest.objects.create(
-            **CUSTOM_GAME_FORM_DATA,
+            **CUSTOM_GAME_MODEL_DATA,
             quoted_price=Decimal("100.00"),
             deadline=timezone.localdate() + timedelta(days=7),
             status=CustomGameRequest.Status.IN_PROGRESS,
@@ -104,7 +124,7 @@ class CustomGameRequestModelTests(TestCase):
 
     def test_ready_status_requires_active_file_on_model_validation(self):
         custom_game_request = CustomGameRequest.objects.create(
-            **CUSTOM_GAME_FORM_DATA,
+            **CUSTOM_GAME_MODEL_DATA,
             quoted_price=Decimal("100.00"),
             deadline=timezone.localdate() + timedelta(days=7),
             status=CustomGameRequest.Status.IN_PROGRESS,
@@ -154,7 +174,7 @@ class CustomGameDownloadTests(TestCase):
     )
     def test_send_custom_game_download_link_creates_token_and_email(self):
         custom_game_request = CustomGameRequest.objects.create(
-            **CUSTOM_GAME_FORM_DATA,
+            **CUSTOM_GAME_MODEL_DATA,
             status=CustomGameRequest.Status.DELIVERED,
         )
         CustomGameFile.objects.create(
@@ -183,7 +203,7 @@ class CustomGameDownloadTests(TestCase):
     @patch("apps.custom_games.views.generate_presigned_download_url", return_value="https://storage.example/file.zip")
     def test_download_view_redirects_and_marks_token_used(self, mock_generate_url):
         custom_game_request = CustomGameRequest.objects.create(
-            **CUSTOM_GAME_FORM_DATA,
+            **CUSTOM_GAME_MODEL_DATA,
             status=CustomGameRequest.Status.DELIVERED,
         )
         CustomGameFile.objects.create(
@@ -211,7 +231,7 @@ class CustomGamePageTests(TestCase):
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
     )
     def test_guest_can_submit_custom_game_request(self):
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_FORM_DATA)
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA)
 
         self.assertRedirects(response, reverse("custom-game"))
         custom_game_request = CustomGameRequest.objects.get()
@@ -229,7 +249,7 @@ class CustomGamePageTests(TestCase):
         user = get_user_model().objects.create_user(email="user@example.com", password="test-pass-123")
         self.client.force_login(user)
 
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_FORM_DATA)
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA)
 
         self.assertRedirects(response, reverse("custom-game"))
         custom_game_request = CustomGameRequest.objects.get()
@@ -237,7 +257,13 @@ class CustomGamePageTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
     def test_invalid_post_does_not_create_request(self):
-        response = self.client.post(reverse("custom-game"), data={**CUSTOM_GAME_FORM_DATA, "contact_email": "bad"})
+        response = self.client.post(reverse("custom-game"), data={**CUSTOM_GAME_POST_DATA, "contact_email": "bad"})
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(CustomGameRequest.objects.exists())
+
+    def test_get_prefills_contact_email_for_authenticated_user(self):
+        user = get_user_model().objects.create_user(email="user@example.com", password="test-pass-123")
+        self.client.force_login(user)
+        response = self.client.get(reverse("custom-game"))
+        self.assertEqual(response.context["form"].initial.get("contact_email"), "user@example.com")

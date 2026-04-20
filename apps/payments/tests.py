@@ -656,9 +656,10 @@ class InvoiceStatusSyncTaskTests(TestCase):
         custom_game_request = CustomGameRequest.objects.create(
             contact_name="Анна",
             contact_email="custom@example.com",
+            subject="Космос",
             idea="Нужна игра про космос для детей с заданиями на внимание.",
             audience="Дети 6-8 лет",
-            timing="За две недели",
+            page_count="8",
             quoted_price=Decimal("80.00"),
             status=CustomGameRequest.Status.WAITING_FOR_PAYMENT,
             payment_account_no=f"PG250326{account_suffix}",
@@ -717,9 +718,10 @@ class InvoiceStatusSyncTaskTests(TestCase):
         custom_game_request = CustomGameRequest.objects.create(
             contact_name="Анна",
             contact_email="custom@example.com",
+            subject="Космос",
             idea="Нужна игра про космос для детей с заданиями на внимание.",
             audience="Дети 6-8 лет",
-            timing="За две недели",
+            page_count="8",
             quoted_price=Decimal("80.00"),
             status=CustomGameRequest.Status.READY,
         )

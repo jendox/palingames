@@ -10,6 +10,10 @@ from apps.core.models import OrderSource, TimeStampedModel
 from apps.products.models import Currency
 from config import settings
 
+CUSTOM_GAME_SUBJECT_MAX_LENGTH = 200
+CUSTOM_GAME_AUDIENCE_MAX_LENGTH = 160
+CUSTOM_GAME_PAGE_COUNT_MAX_LENGTH = 64
+
 
 class CustomGameRequest(TimeStampedModel):
     class Status(models.TextChoices):
@@ -53,11 +57,11 @@ class CustomGameRequest(TimeStampedModel):
 
     contact_name = models.CharField(_("Имя"), max_length=120)
     contact_email = models.EmailField(_("Имейл"))
-    contact_phone = models.CharField(_("Телефон"), max_length=64, null=True, blank=True)
 
-    idea = models.TextField(_("Идея игры"))
-    audience = models.TextField(_("Аудитория"))
-    timing = models.TextField(_("Срок изготовления"))
+    subject = models.CharField(_("Название игры"), max_length=CUSTOM_GAME_SUBJECT_MAX_LENGTH)
+    audience = models.CharField(_("Возраст"), max_length=CUSTOM_GAME_AUDIENCE_MAX_LENGTH)
+    page_count = models.CharField(_("Количество страниц"), max_length=CUSTOM_GAME_PAGE_COUNT_MAX_LENGTH)
+    idea = models.TextField(_("Пожелания к содержанию"), blank=True)
 
     quoted_price = models.DecimalField(_("Цена"), max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)

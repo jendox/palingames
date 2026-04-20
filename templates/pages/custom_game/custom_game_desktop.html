@@ -131,10 +131,7 @@
 
       <form class="custom-game-desktop__form" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
         {% csrf_token %}
-        <input type="hidden" name="contact_name" value="{% trans 'Заявка с формы игры на заказ' %}">
-        <input type="hidden" name="contact_phone" value="">
-        <input type="hidden" name="idea" value="{{ form.idea.value|default_if_none:'' }}" data-custom-game-desktop-idea>
-        <input type="hidden" name="timing" value="{{ form.timing.value|default_if_none:'' }}" data-custom-game-desktop-timing>
+        <input type="hidden" name="contact_name" value="{% trans 'Заявка с формы игры на заказ' %}" maxlength="120">
 
         <div class="custom-game-step custom-game-step--compact" data-custom-game-step-block="1">
           <div class="custom-game-step__header">
@@ -151,11 +148,15 @@
             name="contact_email"
             type="email"
             required
+            maxlength="{{ form.fields.contact_email.max_length }}"
             class="custom-game-desktop__input"
             placeholder="{% trans 'example@mail.com' %}"
             autocomplete="email"
             value="{{ form.contact_email.value|default_if_none:'' }}"
           >
+          {% if form.contact_email.errors %}
+            <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.contact_email.errors|striptags }}</p>
+          {% endif %}
         </div>
 
         <div class="custom-game-step custom-game-step--compact" data-custom-game-step-block="2">
@@ -167,18 +168,21 @@
             </h2>
             <p class="custom-game-step__hint">{% trans "Напишите" %} <strong>{% trans "название игры" %}</strong></p>
           </div>
-          <label class="custom-game-desktop__label" for="custom-game-idea-desktop">{% trans "Тема" %}</label>
+          <label class="custom-game-desktop__label" for="custom-game-subject-desktop">{% trans "Название" %}</label>
           <input
-            id="custom-game-idea-desktop"
-            name="custom_topic"
+            id="custom-game-subject-desktop"
+            name="subject"
             type="text"
             required
-            minlength="20"
+            maxlength="{{ form.fields.subject.max_length }}"
             class="custom-game-desktop__input"
             placeholder="{% trans 'Например: игра про космос для детей 5-7 лет' %}"
             autocomplete="off"
-            value="{{ form.idea.value|default_if_none:'' }}"
+            value="{{ form.subject.value|default_if_none:'' }}"
           >
+          {% if form.subject.errors %}
+            <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.subject.errors|striptags }}</p>
+          {% endif %}
         </div>
 
         <div class="custom-game-step" data-custom-game-step-block="3">
@@ -191,36 +195,39 @@
             <p class="custom-game-step__hint">{% trans "Выберите" %} <strong>{% trans "возраст ребенка" %}</strong></p>
           </div>
           <div class="custom-game-desktop__age-row" role="radiogroup" aria-label="{% trans 'Возраст ребенка' %}">
-            <label class="custom-game-desktop__age-option">
-              <input type="radio" name="audience" value="{% trans '2-3 года' %}" required {% if form.audience.value == "2-3 года" %}checked{% endif %}>
-              <span>{% trans "2-3 года" %}</span>
-            </label>
-            <label class="custom-game-desktop__age-option">
-              <input type="radio" name="audience" value="{% trans '4-5 лет' %}" {% if form.audience.value == "4-5 лет" %}checked{% endif %}>
-              <span>{% trans "4-5 лет" %}</span>
-            </label>
-            <label class="custom-game-desktop__age-option">
-              <input type="radio" name="audience" value="{% trans '6-7 лет' %}" {% if form.audience.value == "6-7 лет" %}checked{% endif %}>
-              <span>{% trans "6-7 лет" %}</span>
-            </label>
-            <label class="custom-game-desktop__age-option">
-              <input type="radio" name="audience" value="{% trans 'Другой' %}" data-custom-game-age-other-radio {% if form.audience.value and form.audience.value != "2-3 года" and form.audience.value != "4-5 лет" and form.audience.value != "6-7 лет" %}checked{% endif %}>
-              <span>{% trans "Другой" %}</span>
-            </label>
+            {% for val, lbl in form.audience_preset.field.choices %}
+              <label class="custom-game-desktop__age-option">
+                <input
+                  type="radio"
+                  name="audience_preset"
+                  value="{{ val }}"
+                  {% if forloop.first %}required{% endif %}
+                  {% if form.audience_preset.value == val %}checked{% endif %}
+                >
+                <span>{{ lbl }}</span>
+              </label>
+            {% endfor %}
           </div>
-          <div class="custom-game-desktop__age-other" data-custom-game-age-other-block>
+          {% if form.audience_preset.errors %}
+            <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.audience_preset.errors|striptags }}</p>
+          {% endif %}
+          <div class="custom-game-desktop__age-other{% if form.audience_preset.value != 'other' %} hidden{% endif %}" data-custom-game-audience-other-block>
             <label class="custom-game-desktop__age-other-label" for="custom-game-age-other-desktop">
               {% trans "Чтобы мы сделали игру подходящей именно для Вашего ребенка" %}
             </label>
             <input
               id="custom-game-age-other-desktop"
-              name="custom_age_other"
+              name="audience_other"
               type="text"
+              maxlength="{{ form.fields.audience_other.max_length }}"
               class="custom-game-desktop__input"
               placeholder="{% trans 'Например: 5 лет , задержка речевого развития, интерес ц цифрам.' %}"
               autocomplete="off"
-              value="{% if form.audience.value and form.audience.value != '2-3 года' and form.audience.value != '4-5 лет' and form.audience.value != '6-7 лет' and form.audience.value != 'Другой' %}{{ form.audience.value }}{% endif %}"
+              value="{{ form.audience_other.value|default_if_none:'' }}"
             >
+            {% if form.audience_other.errors %}
+              <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.audience_other.errors|striptags }}</p>
+            {% endif %}
           </div>
         </div>
 
@@ -233,17 +240,21 @@
             </h2>
             <p class="custom-game-step__hint">{% trans "Укажите" %} <strong>{% trans "количество страниц" %}</strong></p>
           </div>
-          <label class="custom-game-desktop__label" for="custom-game-timing-desktop">{% trans "Количество страниц" %}</label>
+          <label class="custom-game-desktop__label" for="custom-game-page-count-desktop">{% trans "Количество страниц" %}</label>
           <input
-            id="custom-game-timing-desktop"
-            name="custom_pages"
+            id="custom-game-page-count-desktop"
+            name="page_count"
             type="text"
             required
+            maxlength="{{ form.fields.page_count.max_length }}"
             class="custom-game-desktop__input"
             placeholder="{% trans '2-10 страниц' %}"
             autocomplete="off"
-            value="{{ form.timing.value|default_if_none:'' }}"
+            value="{{ form.page_count.value|default_if_none:'' }}"
           >
+          {% if form.page_count.errors %}
+            <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.page_count.errors|striptags }}</p>
+          {% endif %}
         </div>
 
         <div class="custom-game-step" data-custom-game-step-block="5">
@@ -258,11 +269,14 @@
           <label class="sr-only" for="custom-game-notes-desktop">{% trans "Пожелания" %}</label>
           <textarea
             id="custom-game-notes-desktop"
-            name="custom_details"
+            name="idea"
             rows="4"
             class="custom-game-desktop__textarea"
             placeholder="{% trans 'Поле формата А4, фон - кормушка на дереве. На фоне изображены силуэты зимующих птиц (6). На отдельном листе изображения птиц' %}"
-          ></textarea>
+          >{{ form.idea.value|default_if_none:'' }}</textarea>
+          {% if form.idea.errors %}
+            <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.idea.errors|striptags }}</p>
+          {% endif %}
           <div class="custom-game-desktop__submit">
             <img src="{% static 'images/custom/airplane-2.svg' %}" alt="" class="custom-game-desktop__submit-plane" draggable="false" aria-hidden="true">
             <button type="submit" class="btn-primary">
@@ -274,50 +288,3 @@
     </div>
   </div>
 </section>
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const desktopForm = document.querySelector(".custom-game-desktop [data-custom-game-form]");
-    if (!(desktopForm instanceof HTMLFormElement)) {
-      return;
-    }
-
-    const otherRadio = desktopForm.querySelector("[data-custom-game-age-other-radio]");
-    const otherBlock = desktopForm.querySelector("[data-custom-game-age-other-block]");
-    const otherInput = desktopForm.querySelector('[name="custom_age_other"]');
-
-    const syncOtherAge = () => {
-      const isOther = otherRadio instanceof HTMLInputElement && otherRadio.checked;
-      if (otherBlock instanceof HTMLElement) {
-        otherBlock.classList.toggle("is-visible", isOther);
-      }
-      if (otherInput instanceof HTMLInputElement) {
-        otherInput.required = isOther;
-      }
-    };
-
-    desktopForm.querySelectorAll('[name="audience"]').forEach((field) => {
-      field.addEventListener("change", syncOtherAge);
-    });
-    syncOtherAge();
-
-    desktopForm.addEventListener("submit", () => {
-      const topic = desktopForm.querySelector('[name="custom_topic"]')?.value?.trim() ?? "";
-      const details = desktopForm.querySelector('[name="custom_details"]')?.value?.trim() ?? "";
-      const pages = desktopForm.querySelector('[name="custom_pages"]')?.value?.trim() ?? "";
-      const ideaField = desktopForm.querySelector("[data-custom-game-desktop-idea]");
-      const timingField = desktopForm.querySelector("[data-custom-game-desktop-timing]");
-      const otherAge = otherInput instanceof HTMLInputElement ? otherInput.value.trim() : "";
-
-      if (ideaField instanceof HTMLInputElement) {
-        ideaField.value = details ? `${topic}\n\n${details}` : topic;
-      }
-      if (timingField instanceof HTMLInputElement) {
-        timingField.value = pages;
-      }
-      if (otherRadio instanceof HTMLInputElement && otherRadio.checked) {
-        otherRadio.value = otherAge || "Другой";
-      }
-    });
-  });
-</script>

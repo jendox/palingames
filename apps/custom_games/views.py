@@ -27,6 +27,15 @@ class CustomGamePageView(FormView):
     form_class = CustomGameRequestForm
     success_url = reverse_lazy("custom-game")
 
+    def get_initial(self):
+        initial = super().get_initial()
+        user = self.request.user
+        if user.is_authenticated:
+            email = getattr(user, "email", "") or ""
+            if email:
+                initial.setdefault("contact_email", email)
+        return initial
+
     def form_valid(self, form):
         custom_game_request = create_custom_game_request(form=form, user=self.request.user)
         messages.success(

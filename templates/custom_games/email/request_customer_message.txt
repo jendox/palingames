@@ -2,14 +2,17 @@
 
 Мы получили вашу заявку на игру {{ request.payment_account_no }}.
 
-Идея:
-{{ request.idea }}
+Название игры:
+{{ request.subject }}
 
-Для кого:
+Возраст:
 {{ request.audience }}
 
-Сроки и формат:
-{{ request.timing }}
+Количество страниц:
+{{ request.page_count }}
+
+Пожелания к содержанию:
+{% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
 
 Мы посмотрим детали и свяжемся с вами по этому email.
 

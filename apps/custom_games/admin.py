@@ -64,7 +64,7 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         "payment_account_no",
         "contact_name",
         "contact_email",
-        "contact_phone",
+        "subject",
         "idea",
     )
     autocomplete_fields = ("user",)
@@ -78,9 +78,10 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         "cancelled_at",
         "admin_actions",
         "files_summary",
+        "subject",
         "idea",
         "audience",
-        "timing",
+        "page_count",
     )
     inlines = (CustomGameInvoiceInline,)
     actions = ("mark_in_progress", "mark_ready")
@@ -98,7 +99,6 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
                     "user",
                     "contact_name",
                     "contact_email",
-                    "contact_phone",
                     "admin_actions",
                 ),
             },
@@ -107,9 +107,10 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
             _("Заявка"),
             {
                 "fields": (
-                    "idea",
+                    "subject",
                     "audience",
-                    "timing",
+                    "page_count",
+                    "idea",
                 ),
             },
         ),

@@ -34,24 +34,27 @@
             <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-white)]" data-custom-game-digit>1</span>
           </div>
           <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Идея игры" %}</h2>
+            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">Email</h2>
           </div>
         </div>
-
         <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Расскажите, о какой игре вы мечтаете: тема, сюжет, персонажи или задачи для детей." %}
+          {% trans "Укажите адрес, чтобы мы могли ответить по заявке." %}
         </p>
-        <label class="sr-only" for="custom-game-idea-mobile">{% trans "Описание идеи" %}</label>
-        <textarea
-          id="custom-game-idea-mobile"
-          name="idea"
+        <label class="sr-only" for="custom-game-email-mobile">Email</label>
+        <input
+          id="custom-game-email-mobile"
+          name="contact_email"
+          type="email"
           required
-          minlength="20"
-          rows="5"
-          class="account-input account-input-thin mt-[14px] min-h-[100px] w-full resize-y rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] py-[10px] text-[14px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Например: настольная игра про космос для детей 5–7 лет...' %}"
-          autocomplete="off"
-        >{{ form.idea.value|default_if_none:"" }}</textarea>
+          maxlength="{{ form.fields.contact_email.max_length }}"
+          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+          placeholder="{% trans 'Электронная почта' %}"
+          autocomplete="email"
+          value="{{ form.contact_email.value|default_if_none:'' }}"
+        >
+        {% if form.contact_email.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.contact_email.errors|striptags }}</p>
+        {% endif %}
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
         </button>
@@ -77,24 +80,27 @@
             <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>2</span>
           </div>
           <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Для кого игра" %}</h2>
+            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Название игры" %}</h2>
           </div>
         </div>
-
         <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Возраст детей, состав группы, количество игроков." %}
+          {% trans "Коротко опишите тему или название, как вы её видите." %}
         </p>
-        <label class="sr-only" for="custom-game-audience-mobile">{% trans "Аудитория" %}</label>
+        <label class="sr-only" for="custom-game-subject-mobile">{% trans "Название" %}</label>
         <input
-          id="custom-game-audience-mobile"
-          name="audience"
+          id="custom-game-subject-mobile"
+          name="subject"
           type="text"
           required
+          maxlength="{{ form.fields.subject.max_length }}"
           class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Например: 6–8 лет, группа до 10 детей' %}"
+          placeholder="{% trans 'Например: космическое приключение' %}"
           autocomplete="off"
-          value="{{ form.audience.value|default_if_none:'' }}"
+          value="{{ form.subject.value|default_if_none:'' }}"
         >
+        {% if form.subject.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.subject.errors|striptags }}</p>
+        {% endif %}
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
         </button>
@@ -120,24 +126,46 @@
             <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>3</span>
           </div>
           <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Сроки и формат" %}</h2>
+            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Возраст" %}</h2>
           </div>
         </div>
-
         <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Когда нужна готовая игра и в каком виде: печать, PDF, онлайн." %}
+          {% trans "Выберите возраст ребёнка или укажите свой вариант." %}
         </p>
-        <label class="sr-only" for="custom-game-timing-mobile">{% trans "Сроки" %}</label>
-        <input
-          id="custom-game-timing-mobile"
-          name="timing"
-          type="text"
-          required
-          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Например: к 1 сентября, PDF для печати А4' %}"
-          autocomplete="off"
-          value="{{ form.timing.value|default_if_none:'' }}"
-        >
+        <div class="mt-[14px] flex flex-col gap-[10px]" role="radiogroup" aria-label="{% trans 'Возраст ребенка' %}">
+          {% for val, lbl in form.audience_preset.field.choices %}
+            <label class="flex cursor-pointer items-center gap-[10px] text-[14px] text-[var(--color-black)]">
+              <input
+                type="radio"
+                name="audience_preset"
+                value="{{ val }}"
+                {% if forloop.first %}required{% endif %}
+                {% if form.audience_preset.value == val %}checked{% endif %}
+                class="h-[18px] w-[18px] shrink-0 accent-[var(--color-pink)]"
+              >
+              <span>{{ lbl }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        {% if form.audience_preset.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_preset.errors|striptags }}</p>
+        {% endif %}
+        <div class="mt-[10px]{% if form.audience_preset.value != 'other' %} hidden{% endif %}" data-custom-game-audience-other-block>
+          <label class="sr-only" for="custom-game-age-other-mobile">{% trans "Уточните возраст" %}</label>
+          <input
+            id="custom-game-age-other-mobile"
+            name="audience_other"
+            type="text"
+            maxlength="{{ form.fields.audience_other.max_length }}"
+            class="account-input account-input-thin h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+            placeholder="{% trans 'Например: 5 лет, особенности развития' %}"
+            autocomplete="off"
+            value="{{ form.audience_other.value|default_if_none:'' }}"
+          >
+          {% if form.audience_other.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_other.errors|striptags }}</p>
+          {% endif %}
+        </div>
         <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
           {% trans "Далее" %}
         </button>
@@ -163,45 +191,85 @@
             <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>4</span>
           </div>
           <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Контакты" %}</h2>
+            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Количество страниц" %}</h2>
           </div>
         </div>
-
         <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Как с вами связаться для уточнения деталей." %}
+          {% trans "Сколько страниц вы хотите получить в материале." %}
         </p>
+        <label class="sr-only" for="custom-game-page-count-mobile">{% trans "Количество страниц" %}</label>
+        <input
+          id="custom-game-page-count-mobile"
+          name="page_count"
+          type="text"
+          required
+          maxlength="{{ form.fields.page_count.max_length }}"
+          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+          placeholder="{% trans 'Например: 6–8' %}"
+          autocomplete="off"
+          value="{{ form.page_count.value|default_if_none:'' }}"
+        >
+        {% if form.page_count.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.page_count.errors|striptags }}</p>
+        {% endif %}
+        <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
+          {% trans "Далее" %}
+        </button>
+      </div>
+
+      <div class="flex h-[56px] w-full items-center justify-end pr-[12px]">
+        <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[52px] w-auto rotate-180 object-contain" draggable="false" aria-hidden="true">
+      </div>
+
+      <div data-custom-game-step-block="5">
+        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
+          <div class="relative h-[64px] w-[64px] shrink-0">
+            <img
+              src="{% static 'images/custom/star-1-inactive.svg' %}"
+              alt=""
+              class="h-[64px] w-[64px] object-contain"
+              aria-hidden="true"
+              data-custom-game-star
+              data-step="5"
+              data-active-src="{% static 'images/custom/star-1.svg' %}"
+              data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
+            >
+            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>5</span>
+          </div>
+          <div class="min-w-0 pt-[8px]">
+            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Пожелания и контакты" %}</h2>
+          </div>
+        </div>
+        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
+          {% trans "Дополнительные пожелания к содержанию и ваше имя для обращения." %}
+        </p>
+        <label class="sr-only" for="custom-game-idea-mobile">{% trans "Пожелания к содержанию" %}</label>
+        <textarea
+          id="custom-game-idea-mobile"
+          name="idea"
+          rows="4"
+          class="account-input account-input-thin mt-[14px] min-h-[100px] w-full resize-y rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] py-[10px] text-[14px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
+          placeholder="{% trans 'Необязательно: детали о заданиях, оформлении, персонажах…' %}"
+          autocomplete="off"
+        >{{ form.idea.value|default_if_none:'' }}</textarea>
+        {% if form.idea.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.idea.errors|striptags }}</p>
+        {% endif %}
         <label class="sr-only" for="custom-game-name-mobile">{% trans "Имя" %}</label>
         <input
           id="custom-game-name-mobile"
           name="contact_name"
           type="text"
           required
+          maxlength="120"
           class="account-input account-input-thin mt-[12px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
           placeholder="{% trans 'Имя' %}"
           autocomplete="name"
           value="{{ form.contact_name.value|default_if_none:'' }}"
         >
-        <label class="sr-only" for="custom-game-email-mobile">{% trans "Email" %}</label>
-        <input
-          id="custom-game-email-mobile"
-          name="contact_email"
-          type="email"
-          required
-          class="account-input account-input-thin mt-[10px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Электронная почта' %}"
-          autocomplete="email"
-          value="{{ form.contact_email.value|default_if_none:'' }}"
-        >
-        <label class="sr-only" for="custom-game-phone-mobile">{% trans "Телефон" %}</label>
-        <input
-          id="custom-game-phone-mobile"
-          name="contact_phone"
-          type="tel"
-          class="account-input account-input-thin mt-[10px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Телефон (необязательно)' %}"
-          autocomplete="tel"
-          value="{{ form.contact_phone.value|default_if_none:'' }}"
-        >
+        {% if form.contact_name.errors %}
+          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.contact_name.errors|striptags }}</p>
+        {% endif %}
         <p class="mx-auto mt-[24px] max-w-[280px] text-center text-[10px] font-normal leading-[14px] text-[var(--color-black-80)]">
           {% trans "Нажимая кнопку, вы соглашаетесь с обработкой данных для связи по заявке." %}
         </p>

@@ -2,16 +2,18 @@
 
 Имя: {{ request.contact_name }}
 Email: {{ request.contact_email }}
-Телефон: {{ request.contact_phone|default:"не указан" }}
 
-Идея:
-{{ request.idea }}
+Название игры:
+{{ request.subject }}
 
-Для кого:
+Возраст:
 {{ request.audience }}
 
-Сроки и формат:
-{{ request.timing }}
+Количество страниц:
+{{ request.page_count }}
+
+Пожелания к содержанию:
+{% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
 
 Открыть в админке:
 {{ admin_url }}

@@ -22,9 +22,10 @@
             </tr>
             <tr>
               <td style="border:1px solid #e8dede;border-radius:8px;padding:18px;">
-                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Идея:</strong><br>{{ request.idea|linebreaksbr }}</p>
-                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Для кого:</strong><br>{{ request.audience|linebreaksbr }}</p>
-                <p style="margin:0;font-size:14px;line-height:20px;"><strong>Сроки и формат:</strong><br>{{ request.timing|linebreaksbr }}</p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Название игры:</strong><br>{{ request.subject|linebreaksbr }}</p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Возраст:</strong><br>{{ request.audience|linebreaksbr }}</p>
+                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Количество страниц:</strong><br>{{ request.page_count|linebreaksbr }}</p>
+                <p style="margin:0;font-size:14px;line-height:20px;"><strong>Пожелания к содержанию:</strong><br>{% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
               </td>
             </tr>
             <tr>

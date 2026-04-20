@@ -69,18 +69,6 @@ class PaymentPageView(TemplateView):
         return context
 
 
-class CustomGamePageView(TemplateView):
-    template_name = "pages/custom_game.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["breadcrumbs"] = [
-            {"title": "Главная", "url": reverse("home")},
-            {"title": "Игра на заказ"},
-        ]
-        return context
-
-
 class AccountPageView(TemplateView):
     template_name = "pages/account.html"
     tab_templates = {

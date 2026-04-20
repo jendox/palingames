@@ -99,6 +99,27 @@ function initCustomGameScope(scope) {
     });
   });
 
+  const AUDIENCE_OTHER_VALUE = "other";
+  const audiencePresetFields = form.querySelectorAll('[name="audience_preset"]');
+  const audienceOtherInput = form.querySelector('[name="audience_other"]');
+  const audienceOtherBlock = form.querySelector("[data-custom-game-audience-other-block]");
+
+  const syncAudienceOther = () => {
+    const selected = form.querySelector('[name="audience_preset"]:checked');
+    const isOther = selected?.value === AUDIENCE_OTHER_VALUE;
+    if (audienceOtherInput instanceof HTMLInputElement) {
+      audienceOtherInput.required = Boolean(isOther);
+    }
+    if (audienceOtherBlock instanceof HTMLElement) {
+      audienceOtherBlock.classList.toggle("hidden", !isOther);
+    }
+  };
+
+  audiencePresetFields.forEach((field) => {
+    field.addEventListener("change", syncAudienceOther);
+  });
+  syncAudienceOther();
+
   form.addEventListener("submit", (event) => {
     const lastBlock = scope.querySelector(`[data-custom-game-step-block="${stepCount}"]`);
     if (!validateStepBlock(lastBlock)) {

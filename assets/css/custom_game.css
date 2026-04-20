@@ -274,12 +274,11 @@
   }
 
   .custom-game-desktop__age-other {
-    display: none;
     margin-top: 30px;
   }
 
-  .custom-game-desktop__age-other.is-visible {
-    display: block;
+  .custom-game-desktop__age-other.hidden {
+    display: none;
   }
 
   .custom-game-desktop__age-other-label {
