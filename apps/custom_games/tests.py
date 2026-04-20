@@ -231,15 +231,17 @@ class CustomGamePageTests(TestCase):
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
     )
     def test_guest_can_submit_custom_game_request(self):
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA)
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
 
-        self.assertRedirects(response, reverse("custom-game"))
+        self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
         self.assertIsNone(custom_game_request.user)
         self.assertEqual(custom_game_request.contact_email, "anna@example.com")
         self.assertEqual(len(mail.outbox), 2)
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[1].subject)
+        self.assertContains(response, 'data-checkout-order-created="true"')
+        self.assertContains(response, custom_game_request.payment_account_no)
 
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
@@ -249,12 +251,14 @@ class CustomGamePageTests(TestCase):
         user = get_user_model().objects.create_user(email="user@example.com", password="test-pass-123")
         self.client.force_login(user)
 
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA)
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
 
-        self.assertRedirects(response, reverse("custom-game"))
+        self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
         self.assertEqual(custom_game_request.user, user)
         self.assertEqual(len(mail.outbox), 1)
+        self.assertContains(response, 'data-checkout-order-created="true"')
+        self.assertContains(response, custom_game_request.payment_account_no)
 
     def test_invalid_post_does_not_create_request(self):
         response = self.client.post(reverse("custom-game"), data={**CUSTOM_GAME_POST_DATA, "contact_email": "bad"})

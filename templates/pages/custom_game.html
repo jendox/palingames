@@ -5,6 +5,7 @@
 
 {% block head %}
   <script src="{% static 'js/custom-game.js' %}" defer></script>
+  <script src="{% static 'js/order-created-dialog.js' %}" defer></script>
 {% endblock %}
 
 {% block main_class %}w-full px-0 py-0{% endblock %}
@@ -28,5 +29,6 @@
   <div class="hidden min-[1024px]:block">
     {% include "pages/custom_game/custom_game_desktop.html" %}
   </div>
+  {% include "components/modals/checkout_order_created_dialog.html" %}
   {% include "components/dividers/clouds.html" %}
 {% endblock %}

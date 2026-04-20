@@ -24,15 +24,33 @@
     </p>
 
     <p class="mt-[10px] text-[10px] leading-[14px] text-[var(--color-black)]">
-      {% trans "Номер заказа" %} <span class="font-bold">№ {{ checkout_created_order.payment_account_no|default:"PG220326A7K9M2QF" }}</span>
+      {% trans "Номер заказа" %}
+      <span class="font-bold">
+        №
+        {% if custom_game_created_request %}
+          {{ custom_game_created_request.payment_account_no }}
+        {% elif checkout_created_order %}
+          {{ checkout_created_order.payment_account_no }}
+        {% endif %}
+      </span>
     </p>
 
-    <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
-      {% trans "Мы отправили письмо с деталями для оплаты на Вашу электронную почту. Проверьте почтовый ящик, включая папку “Спам”." %}
-    </p>
+    {% if custom_game_created_request %}
+      <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
+        {% trans "Мы отправили письмо с описанием заказа на Вашу электронную почту. Пожалуйста, проверьте почтовый ящик (включая папку “Спам”)." %}
+      </p>
 
-    <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
-      {% trans "После оплаты материалы будут доступны для скачивания." %}
-    </p>
+      <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
+        {% trans "Мы свяжемся с Вами для уточнения деталей заказа." %}
+      </p>
+    {% else %}
+      <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
+        {% trans "Мы отправили письмо с деталями для оплаты на Вашу электронную почту. Проверьте почтовый ящик, включая папку “Спам”." %}
+      </p>
+
+      <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
+        {% trans "После оплаты материалы будут доступны для скачивания." %}
+      </p>
+    {% endif %}
   </div>
 </div>

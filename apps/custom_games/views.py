@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from django.contrib import messages
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
@@ -11,6 +10,7 @@ from django.views.generic.edit import FormView
 
 from apps.core.logging import log_event
 from apps.custom_games.forms import CustomGameRequestForm
+from apps.custom_games.models import CustomGameRequest
 from apps.custom_games.services import (
     create_custom_game_request,
     mark_custom_game_download_token_used,
@@ -38,10 +38,7 @@ class CustomGamePageView(FormView):
 
     def form_valid(self, form):
         custom_game_request = create_custom_game_request(form=form, user=self.request.user)
-        messages.success(
-            self.request,
-            f"Заявка {custom_game_request.payment_account_no} отправлена. Мы свяжемся с вами после просмотра деталей.",
-        )
+        self.request.session["custom_game_created_request_id"] = custom_game_request.pk
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
@@ -50,6 +47,13 @@ class CustomGamePageView(FormView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Игра на заказ"},
         ]
+        context["checkout_created_order"] = None
+        context["checkout_success_redirect_url"] = ""
+        created_id = self.request.session.pop("custom_game_created_request_id", None)
+        if created_id is not None:
+            context["custom_game_created_request"] = CustomGameRequest.objects.filter(pk=created_id).first()
+        else:
+            context["custom_game_created_request"] = None
         return context
 
 
