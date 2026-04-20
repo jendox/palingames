@@ -508,15 +508,46 @@
 .custom-game-mobile__progress {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   width: 100%;
   margin: 50px 0 0;
   padding: 0 4px;
-  gap: 6px;
+  gap: 0;
 }
 
-.custom-game-mobile__progress-segment {
+.custom-game-mobile__progress-segment--star {
   flex: 0 0 auto;
+}
+
+.custom-game-mobile__progress-segment--bubbles {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.custom-game-mobile__progress-segment--bubbles-nudge-up {
+  transform: translateY(-10px);
+}
+
+.custom-game-mobile__progress-segment--bubbles-nudge-down {
+  transform: translateY(10px);
+}
+
+.custom-game-mobile__progress-bubbles-img {
+  display: block;
+  width: 15px;
+  height: auto;
+  object-fit: contain;
+  transform: rotate(270deg);
+  transform-origin: center center;
+}
+
+.custom-game-mobile__progress-segment--bubbles-mirror .custom-game-mobile__progress-bubbles-img {
+  transform: rotate(270deg) scaleX(-1);
 }
 
 .custom-game-mobile__star-cell {
@@ -545,20 +576,20 @@
   object-fit: contain;
 }
 
-/* 1, 3, 5 — только зеркало; 2 и 4 — зеркало + 45° против часовой */
-.custom-game-mobile__progress-segment:nth-child(odd) .custom-game-mobile__star-icon {
+/* Звёзды 1, 3, 5 — только зеркало; 2 и 4 — зеркало + 45° против часовой (классы вместо nth-child из‑за вставки пузырей) */
+.custom-game-mobile__progress-segment--star-up .custom-game-mobile__star-icon {
   transform: scaleX(-1);
 }
 
-.custom-game-mobile__progress-segment:nth-child(odd) .custom-game-mobile__star-ray {
+.custom-game-mobile__progress-segment--star-up .custom-game-mobile__star-ray {
   transform: translate(calc(-50% - 23px), calc(-50% - 23px)) scaleX(-1);
 }
 
-.custom-game-mobile__progress-segment:nth-child(even) .custom-game-mobile__star-icon {
+.custom-game-mobile__progress-segment--star-down .custom-game-mobile__star-icon {
   transform: scaleX(-1) rotate(-45deg);
 }
 
-.custom-game-mobile__progress-segment:nth-child(even) .custom-game-mobile__star-ray {
+.custom-game-mobile__progress-segment--star-down .custom-game-mobile__star-ray {
   transform: translate(calc(-50% - 25px), calc(-50% + 23px)) scaleX(-1) rotate(90deg);
 }
 
