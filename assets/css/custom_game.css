@@ -545,6 +545,23 @@
   object-fit: contain;
 }
 
+/* 1, 3, 5 — только зеркало; 2 и 4 — зеркало + 45° против часовой */
+.custom-game-mobile__progress-segment:nth-child(odd) .custom-game-mobile__star-icon {
+  transform: scaleX(-1);
+}
+
+.custom-game-mobile__progress-segment:nth-child(odd) .custom-game-mobile__star-ray {
+  transform: translate(calc(-50% - 23px), calc(-50% - 23px)) scaleX(-1);
+}
+
+.custom-game-mobile__progress-segment:nth-child(even) .custom-game-mobile__star-icon {
+  transform: scaleX(-1) rotate(-45deg);
+}
+
+.custom-game-mobile__progress-segment:nth-child(even) .custom-game-mobile__star-ray {
+  transform: translate(calc(-50% - 25px), calc(-50% + 23px)) scaleX(-1) rotate(90deg);
+}
+
 .custom-game-mobile__star-digit {
   position: absolute;
   inset: 0;
