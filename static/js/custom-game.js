@@ -14,7 +14,10 @@ function initCustomGameScope(scope) {
   }
 
   let activeStep = 1;
-  const stepCount = stars.length;
+  const stepCount = Math.max(
+    ...stars.map((icon) => Number(icon.dataset.step)).filter((step) => !Number.isNaN(step)),
+    1,
+  );
 
   const setActiveStep = (step) => {
     activeStep = Math.min(Math.max(1, step), stepCount);
@@ -27,7 +30,8 @@ function initCustomGameScope(scope) {
       if (Number.isNaN(step)) {
         return;
       }
-      const isActive = step <= activeStep;
+      const mode = icon.dataset.customGameStarMode;
+      const isActive = mode === "current" ? step === activeStep : step <= activeStep;
       const activeSrc = icon.dataset.activeSrc;
       const inactiveSrc = icon.dataset.inactiveSrc;
       if (activeSrc && inactiveSrc && icon instanceof HTMLImageElement) {
@@ -36,8 +40,14 @@ function initCustomGameScope(scope) {
 
       const digit = icon.parentElement?.querySelector("[data-custom-game-digit]");
       if (digit instanceof HTMLElement) {
-        digit.classList.toggle("text-[var(--color-white)]", isActive);
-        digit.classList.toggle("text-[var(--color-black)]", !isActive);
+        if (digit.dataset.activeColor || digit.dataset.inactiveColor) {
+          digit.style.color = isActive
+            ? (digit.dataset.activeColor || "")
+            : (digit.dataset.inactiveColor || "");
+        } else {
+          digit.classList.toggle("text-[var(--color-white)]", isActive);
+          digit.classList.toggle("text-[var(--color-black)]", !isActive);
+        }
       }
     });
   };
