@@ -1,0 +1,6 @@
+{% load i18n %}
+{% if layout == "mobile" %}
+  <p class="custom-game-mobile__how">{% trans "Как это работает?" %}</p>
+{% else %}
+  <p class="custom-game-desktop__how">{% trans "Как это работает?" %}</p>
+{% endif %}

@@ -1,0 +1,26 @@
+{% load static i18n %}
+{% if layout == "mobile" %}
+  <div class="custom-game-mobile__intro">
+    <p class="custom-game-mobile__headline">
+      {% trans "Хотите уникальную развивающую игру, идеально подходящую для вашего ребенка?" %}<br>
+      {% trans "Мы создадим для вас персонализированную дидактическую игру в PDF-формате, которая:" %}
+    </p>
+    <div class="custom-game-mobile__benefits-section">
+      <ul class="custom-game-mobile__benefits">
+        {% include "pages/custom_game/_custom_game_benefits_items.html" with accent_class="custom-game-mobile__accent" %}
+      </ul>
+    </div>
+  </div>
+{% else %}
+  <div class="custom-game-desktop__intro">
+    <p class="custom-game-desktop__eyebrow">
+      {% trans "Хотите уникальную развивающую игру, идеально подходящую для вашего ребенка?" %}
+    </p>
+    <p class="custom-game-desktop__lead">
+      {% trans "Мы создадим для вас персонализированную дидактическую игру в PDF-формате, которая:" %}
+    </p>
+    <ul class="custom-game-desktop__benefits">
+      {% include "pages/custom_game/_custom_game_benefits_items.html" with accent_class="custom-game-desktop__accent" %}
+    </ul>
+  </div>
+{% endif %}

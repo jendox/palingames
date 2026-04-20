@@ -112,38 +112,13 @@
 
       <div class="custom-game-desktop__shell">
     <div class="custom-game-desktop__content">
-      <div class="custom-game-desktop__intro">
-        <p class="custom-game-desktop__eyebrow">
-          {% trans "Хотите уникальную развивающую игру, идеально подходящую для вашего ребенка?" %}
-        </p>
-        <p class="custom-game-desktop__lead">
-          {% trans "Мы создадим для вас персонализированную дидактическую игру в PDF-формате, которая:" %}
-        </p>
-        <ul class="custom-game-desktop__benefits">
-          <li>
-            <img src="{% static 'images/custom/puzzle-light-green.svg' %}" alt="" aria-hidden="true" draggable="false">
-            <span>{% trans "Учитывает ваши требования - тематику, сложность, возраст детей, обучающие задачи." %}</span>
-          </li>
-          <li>
-            <img src="{% static 'images/custom/puzzle-light-green.svg' %}" alt="" aria-hidden="true" draggable="false">
-            <span>{% trans "Решает конкретные задачи - развитие речи, логики, памяти, изучение цифр, букв и т.д." %}</span>
-          </li>
-          <li>
-            <img src="{% static 'images/custom/puzzle-light-green.svg' %}" alt="" aria-hidden="true" draggable="false">
-            <span>{% trans "Готова к печати и использованию - удобный формат для дома и сада." %}</span>
-          </li>
-          <li>
-            <img src="{% static 'images/custom/puzzle-light-green.svg' %}" alt="" aria-hidden="true" draggable="false">
-            <span>{% trans "Всего" %} <span class="custom-game-desktop__accent">{% trans "5 шагов" %}</span> {% trans "к распечатке дома." %}</span>
-          </li>
-        </ul>
-      </div>
+      {% include "pages/custom_game/_custom_game_intro.html" with layout="desktop" %}
 
-      <p class="custom-game-desktop__how">{% trans "Как это работает?" %}</p>
+      {% include "pages/custom_game/_custom_game_how_heading.html" with layout="desktop" %}
 
       <form class="custom-game-desktop__form" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
         {% csrf_token %}
-        <input type="hidden" name="contact_name" value="{% trans 'Заявка с формы игры на заказ' %}" maxlength="120">
+        {% include "pages/custom_game/_custom_game_hidden_contact_name.html" %}
 
         <div class="custom-game-step custom-game-step--compact" data-custom-game-step-block="1">
           <div class="custom-game-step__header">
@@ -152,7 +127,7 @@
               <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-step__mark" data-custom-game-star data-step="1" aria-hidden="true" draggable="false">
               <span>{% trans "Шаг 1" %}</span>
             </h2>
-            <p class="custom-game-step__hint">{% trans "Напишите свой" %} <strong>Email</strong></p>
+            {% include "pages/custom_game/_custom_game_step_hint.html" with step=1 hint_class="custom-game-step__hint" %}
           </div>
           <label class="custom-game-desktop__label" for="custom-game-email-desktop">Email</label>
           <input
@@ -162,7 +137,7 @@
             required
             maxlength="{{ form.fields.contact_email.max_length }}"
             class="custom-game-desktop__input"
-            placeholder="{% trans 'example@mail.com' %}"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_email.html' %}{% endspaceless %}"
             autocomplete="email"
             value="{{ form.contact_email.value|default_if_none:'' }}"
           >
@@ -178,7 +153,7 @@
               <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-step__mark" data-custom-game-star data-step="2" aria-hidden="true" draggable="false">
               <span>{% trans "Шаг 2" %}</span>
             </h2>
-            <p class="custom-game-step__hint">{% trans "Напишите" %} <strong>{% trans "название игры" %}</strong></p>
+            {% include "pages/custom_game/_custom_game_step_hint.html" with step=2 hint_class="custom-game-step__hint" %}
           </div>
           <label class="custom-game-desktop__label" for="custom-game-subject-desktop">{% trans "Название" %}</label>
           <input
@@ -188,7 +163,7 @@
             required
             maxlength="{{ form.fields.subject.max_length }}"
             class="custom-game-desktop__input"
-            placeholder="{% trans 'Например: игра про космос для детей 5-7 лет' %}"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_subject.html' %}{% endspaceless %}"
             autocomplete="off"
             value="{{ form.subject.value|default_if_none:'' }}"
           >
@@ -204,7 +179,7 @@
               <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-step__mark" data-custom-game-star data-step="3" aria-hidden="true" draggable="false">
               <span>{% trans "Шаг 3" %}</span>
             </h2>
-            <p class="custom-game-step__hint">{% trans "Выберите" %} <strong>{% trans "возраст ребенка" %}</strong></p>
+            {% include "pages/custom_game/_custom_game_step_hint.html" with step=3 hint_class="custom-game-step__hint" %}
           </div>
           <div class="custom-game-desktop__age-row" role="radiogroup" aria-label="{% trans 'Возраст ребенка' %}">
             {% for val, lbl in form.audience_preset.field.choices %}
@@ -225,7 +200,7 @@
           {% endif %}
           <div class="custom-game-desktop__age-other{% if form.audience_preset.value != 'other' %} hidden{% endif %}" data-custom-game-audience-other-block>
             <label class="custom-game-desktop__age-other-label" for="custom-game-age-other-desktop">
-              {% trans "Чтобы мы сделали игру подходящей именно для Вашего ребенка" %}
+              {% include "pages/custom_game/_custom_game_audience_other_label.html" %}
             </label>
             <input
               id="custom-game-age-other-desktop"
@@ -233,7 +208,7 @@
               type="text"
               maxlength="{{ form.fields.audience_other.max_length }}"
               class="custom-game-desktop__input"
-              placeholder="{% trans 'Например: 5 лет , задержка речевого развития' %}"
+              placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_audience_other.html' %}{% endspaceless %}"
               autocomplete="off"
               value="{{ form.audience_other.value|default_if_none:'' }}"
             >
@@ -250,7 +225,7 @@
               <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-step__mark" data-custom-game-star data-step="4" aria-hidden="true" draggable="false">
               <span>{% trans "Шаг 4" %}</span>
             </h2>
-            <p class="custom-game-step__hint">{% trans "Укажите" %} <strong>{% trans "количество страниц" %}</strong></p>
+            {% include "pages/custom_game/_custom_game_step_hint.html" with step=4 hint_class="custom-game-step__hint" %}
           </div>
           <label class="custom-game-desktop__label" for="custom-game-page-count-desktop">{% trans "Количество страниц" %}</label>
           <input
@@ -260,7 +235,7 @@
             required
             maxlength="{{ form.fields.page_count.max_length }}"
             class="custom-game-desktop__input"
-            placeholder="{% trans '2-10 страниц' %}"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_page_count.html' %}{% endspaceless %}"
             autocomplete="off"
             value="{{ form.page_count.value|default_if_none:'' }}"
           >
@@ -276,15 +251,15 @@
               <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-step__mark" data-custom-game-star data-step="5" aria-hidden="true" draggable="false">
               <span>{% trans "Шаг 5" %}</span>
             </h2>
-            <p class="custom-game-step__hint">{% trans "Добавьте свои" %} <strong>{% trans "пожелания" %}</strong><br>{% trans "к содержанию игры" %}</p>
+            {% include "pages/custom_game/_custom_game_step_hint.html" with step=5 hint_class="custom-game-step__hint" %}
           </div>
-          <label class="sr-only" for="custom-game-notes-desktop">{% trans "Пожелания" %}</label>
+          <label class="sr-only" for="custom-game-notes-desktop">{% include "pages/custom_game/_custom_game_wishes_sr_label.html" %}</label>
           <textarea
             id="custom-game-notes-desktop"
             name="idea"
             rows="4"
             class="custom-game-desktop__textarea"
-            placeholder="{% trans 'Поле формата А4, фон - кормушка на дереве. На фоне изображены силуэты зимующих птиц (6). На отдельном листе изображения птиц' %}"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_idea_placeholder.html' %}{% endspaceless %}"
           >{{ form.idea.value|default_if_none:'' }}</textarea>
           {% if form.idea.errors %}
             <p class="mt-2 text-[13px] leading-[18px] text-red-700">{{ form.idea.errors|striptags }}</p>

@@ -1,0 +1,12 @@
+{% load i18n %}
+{% if step == 1 %}
+  <p class="{{ hint_class }}">{% trans "Напишите свой" %} <strong>Email</strong></p>
+{% elif step == 2 %}
+  <p class="{{ hint_class }}">{% trans "Напишите" %} <strong>{% trans "название игры" %}</strong></p>
+{% elif step == 3 %}
+  <p class="{{ hint_class }}">{% trans "Выберите" %} <strong>{% trans "возраст ребенка" %}</strong></p>
+{% elif step == 4 %}
+  <p class="{{ hint_class }}">{% trans "Укажите" %} <strong>{% trans "количество страниц" %}</strong></p>
+{% elif step == 5 %}
+  <p class="{{ hint_class }}">{% trans "Добавьте свои" %} <strong>{% trans "пожелания" %}</strong><br>{% trans "к содержанию игры" %}</p>
+{% endif %}

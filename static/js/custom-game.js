@@ -121,10 +121,12 @@ function initCustomGameScope(scope) {
   syncAudienceOther();
 
   form.addEventListener("submit", (event) => {
-    const lastBlock = scope.querySelector(`[data-custom-game-step-block="${stepCount}"]`);
-    if (!validateStepBlock(lastBlock)) {
-      event.preventDefault();
-      return;
+    for (let s = 1; s <= stepCount; s += 1) {
+      const block = scope.querySelector(`[data-custom-game-step-block="${s}"]`);
+      if (!validateStepBlock(block)) {
+        event.preventDefault();
+        return;
+      }
     }
     if (!form.checkValidity()) {
       event.preventDefault();

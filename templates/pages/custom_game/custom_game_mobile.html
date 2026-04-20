@@ -1,6 +1,8 @@
 {% load static i18n %}
 
-<section class="relative overflow-hidden bg-[var(--color-white)] px-[20px] pb-[50px] pt-[50px]" data-custom-game-scope>
+<section class="custom-game-mobile relative overflow-x-visible overflow-y-visible bg-[var(--color-white)] px-[20px] pb-[50px] pt-[50px]" data-custom-game-scope>
+  {% comment %} Clouds temporarily hidden {% endcomment %}
+  {% comment %}
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[8px] top-[8px] w-[46px] opacity-80" draggable="false">
     <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-1/2 top-[14px] w-[28px] -translate-x-1/2 opacity-80" draggable="false">
@@ -9,273 +11,284 @@
     <img src="{% static 'images/decor/balloons/balloon-green.svg' %}" alt="" class="absolute right-[18px] top-[36px] w-[26px]" draggable="false">
     <img src="{% static 'images/decor/balloons/balloon-pink.svg' %}" alt="" class="absolute left-[26px] bottom-[18px] w-[24px]" draggable="false">
   </div>
+  {% endcomment %}
+  <div class="relative z-10 mx-auto w-full max-w-[335px] overflow-x-visible">
+    {% include "pages/custom_game/_custom_game_intro.html" with layout="mobile" %}
 
-  <div class="relative z-10 mx-auto w-full max-w-[335px]">
-    <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-      {% trans "Игра на заказ" %}
-    </h1>
-
-    <form class="mt-[35px]" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
-      {% csrf_token %}
-
-      <div data-custom-game-step-block="1">
-        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
-          <div class="relative h-[64px] w-[64px] shrink-0">
-            <img
-              src="{% static 'images/custom/star-1.svg' %}"
-              alt=""
-              class="h-[64px] w-[64px] object-contain"
-              aria-hidden="true"
-              data-custom-game-star
-              data-step="1"
-              data-active-src="{% static 'images/custom/star-1.svg' %}"
-              data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
-            >
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-white)]" data-custom-game-digit>1</span>
-          </div>
-          <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">Email</h2>
-          </div>
-        </div>
-        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Укажите адрес, чтобы мы могли ответить по заявке." %}
-        </p>
-        <label class="sr-only" for="custom-game-email-mobile">Email</label>
-        <input
-          id="custom-game-email-mobile"
-          name="contact_email"
-          type="email"
-          required
-          maxlength="{{ form.fields.contact_email.max_length }}"
-          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Электронная почта' %}"
-          autocomplete="email"
-          value="{{ form.contact_email.value|default_if_none:'' }}"
-        >
-        {% if form.contact_email.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.contact_email.errors|striptags }}</p>
-        {% endif %}
-        <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
-          {% trans "Далее" %}
-        </button>
-      </div>
-
-      <div class="flex h-[56px] w-full items-center justify-start pl-[12px]">
-        <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[52px] w-auto object-contain" draggable="false" aria-hidden="true">
-      </div>
-
-      <div data-custom-game-step-block="2">
-        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
-          <div class="relative h-[64px] w-[64px] shrink-0">
-            <img
-              src="{% static 'images/custom/star-2-inactive.svg' %}"
-              alt=""
-              class="h-[64px] w-[64px] object-contain"
-              aria-hidden="true"
-              data-custom-game-star
-              data-step="2"
-              data-active-src="{% static 'images/custom/star-2.svg' %}"
-              data-inactive-src="{% static 'images/custom/star-2-inactive.svg' %}"
-            >
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>2</span>
-          </div>
-          <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Название игры" %}</h2>
-          </div>
-        </div>
-        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Коротко опишите тему или название, как вы её видите." %}
-        </p>
-        <label class="sr-only" for="custom-game-subject-mobile">{% trans "Название" %}</label>
-        <input
-          id="custom-game-subject-mobile"
-          name="subject"
-          type="text"
-          required
-          maxlength="{{ form.fields.subject.max_length }}"
-          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Например: космическое приключение' %}"
-          autocomplete="off"
-          value="{{ form.subject.value|default_if_none:'' }}"
-        >
-        {% if form.subject.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.subject.errors|striptags }}</p>
-        {% endif %}
-        <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
-          {% trans "Далее" %}
-        </button>
-      </div>
-
-      <div class="flex h-[56px] w-full items-center justify-end pr-[12px]">
-        <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[52px] w-auto rotate-180 object-contain" draggable="false" aria-hidden="true">
-      </div>
-
-      <div data-custom-game-step-block="3">
-        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
-          <div class="relative h-[64px] w-[64px] shrink-0">
-            <img
-              src="{% static 'images/custom/star-1-inactive.svg' %}"
-              alt=""
-              class="h-[64px] w-[64px] object-contain"
-              aria-hidden="true"
-              data-custom-game-star
-              data-step="3"
-              data-active-src="{% static 'images/custom/star-1.svg' %}"
-              data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
-            >
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>3</span>
-          </div>
-          <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Возраст" %}</h2>
-          </div>
-        </div>
-        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Выберите возраст ребёнка или укажите свой вариант." %}
-        </p>
-        <div class="mt-[14px] flex flex-col gap-[10px]" role="radiogroup" aria-label="{% trans 'Возраст ребенка' %}">
-          {% for val, lbl in form.audience_preset.field.choices %}
-            <label class="flex cursor-pointer items-center gap-[10px] text-[14px] text-[var(--color-black)]">
-              <input
-                type="radio"
-                name="audience_preset"
-                value="{{ val }}"
-                {% if forloop.first %}required{% endif %}
-                {% if form.audience_preset.value == val %}checked{% endif %}
-                class="h-[18px] w-[18px] shrink-0 accent-[var(--color-pink)]"
-              >
-              <span>{{ lbl }}</span>
-            </label>
-          {% endfor %}
-        </div>
-        {% if form.audience_preset.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_preset.errors|striptags }}</p>
-        {% endif %}
-        <div class="mt-[10px]{% if form.audience_preset.value != 'other' %} hidden{% endif %}" data-custom-game-audience-other-block>
-          <label class="sr-only" for="custom-game-age-other-mobile">{% trans "Уточните возраст" %}</label>
-          <input
-            id="custom-game-age-other-mobile"
-            name="audience_other"
-            type="text"
-            maxlength="{{ form.fields.audience_other.max_length }}"
-            class="account-input account-input-thin h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-            placeholder="{% trans 'Например: 5 лет, особенности развития' %}"
-            autocomplete="off"
-            value="{{ form.audience_other.value|default_if_none:'' }}"
+    <div class="custom-game-mobile__progress" aria-hidden="true">
+      <div class="custom-game-mobile__progress-segment">
+        <div class="custom-game-mobile__star-cell">
+          <img src="{% static 'images/custom/rays.svg' %}" alt="" class="custom-game-mobile__star-ray" draggable="false">
+          <img
+            src="{% static 'images/custom/star-active.svg' %}"
+            alt=""
+            class="custom-game-mobile__star-icon"
+            draggable="false"
+            data-custom-game-star
+            data-step="1"
+            data-active-src="{% static 'images/custom/star-active.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-inactive.svg' %}"
           >
-          {% if form.audience_other.errors %}
-            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_other.errors|striptags }}</p>
+          <span class="custom-game-mobile__star-digit" data-custom-game-digit data-active-color="#FFFFFF" data-inactive-color="#80C11E">1</span>
+        </div>
+      </div>
+      <div class="custom-game-mobile__progress-segment">
+        <div class="custom-game-mobile__star-cell">
+          <img src="{% static 'images/custom/rays.svg' %}" alt="" class="custom-game-mobile__star-ray" draggable="false">
+          <img
+            src="{% static 'images/custom/star-inactive.svg' %}"
+            alt=""
+            class="custom-game-mobile__star-icon"
+            draggable="false"
+            data-custom-game-star
+            data-step="2"
+            data-active-src="{% static 'images/custom/star-active.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-inactive.svg' %}"
+          >
+          <span class="custom-game-mobile__star-digit" data-custom-game-digit data-active-color="#FFFFFF" data-inactive-color="#80C11E">2</span>
+        </div>
+      </div>
+      <div class="custom-game-mobile__progress-segment">
+        <div class="custom-game-mobile__star-cell">
+          <img src="{% static 'images/custom/rays.svg' %}" alt="" class="custom-game-mobile__star-ray" draggable="false">
+          <img
+            src="{% static 'images/custom/star-inactive.svg' %}"
+            alt=""
+            class="custom-game-mobile__star-icon"
+            draggable="false"
+            data-custom-game-star
+            data-step="3"
+            data-active-src="{% static 'images/custom/star-active.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-inactive.svg' %}"
+          >
+          <span class="custom-game-mobile__star-digit" data-custom-game-digit data-active-color="#FFFFFF" data-inactive-color="#80C11E">3</span>
+        </div>
+      </div>
+      <div class="custom-game-mobile__progress-segment">
+        <div class="custom-game-mobile__star-cell">
+          <img src="{% static 'images/custom/rays.svg' %}" alt="" class="custom-game-mobile__star-ray" draggable="false">
+          <img
+            src="{% static 'images/custom/star-inactive.svg' %}"
+            alt=""
+            class="custom-game-mobile__star-icon"
+            draggable="false"
+            data-custom-game-star
+            data-step="4"
+            data-active-src="{% static 'images/custom/star-active.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-inactive.svg' %}"
+          >
+          <span class="custom-game-mobile__star-digit" data-custom-game-digit data-active-color="#FFFFFF" data-inactive-color="#80C11E">4</span>
+        </div>
+      </div>
+      <div class="custom-game-mobile__progress-segment">
+        <div class="custom-game-mobile__star-cell">
+          <img src="{% static 'images/custom/rays.svg' %}" alt="" class="custom-game-mobile__star-ray" draggable="false">
+          <img
+            src="{% static 'images/custom/star-inactive.svg' %}"
+            alt=""
+            class="custom-game-mobile__star-icon"
+            draggable="false"
+            data-custom-game-star
+            data-step="5"
+            data-active-src="{% static 'images/custom/star-active.svg' %}"
+            data-inactive-src="{% static 'images/custom/star-inactive.svg' %}"
+          >
+          <span class="custom-game-mobile__star-digit" data-custom-game-digit data-active-color="#FFFFFF" data-inactive-color="#80C11E">5</span>
+        </div>
+      </div>
+    </div>
+
+    {% include "pages/custom_game/_custom_game_how_heading.html" with layout="mobile" %}
+
+    <form class="custom-game-mobile__form" action="{% url 'custom-game' %}" method="post" data-custom-game-form novalidate>
+      {% csrf_token %}
+      {% include "pages/custom_game/_custom_game_hidden_contact_name.html" %}
+
+      <div class="custom-game-mobile__step" data-custom-game-step-block="1">
+        <div class="custom-game-mobile__step-head">
+          <div class="custom-game-mobile__title-row">
+            <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-mobile__step-mark" draggable="false" aria-hidden="true">
+            <h2 class="custom-game-mobile__step-title">{% trans "Шаг 1" %}</h2>
+          </div>
+          {% include "pages/custom_game/_custom_game_step_hint.html" with step=1 hint_class="custom-game-mobile__step-hint" %}
+        </div>
+        <div class="custom-game-mobile__step-body">
+          <div class="custom-game-mobile__step-plane custom-game-mobile__step-plane--left" aria-hidden="true">
+            <img src="{% static 'images/custom/airplane.svg' %}" alt="" class="custom-game-mobile__step-plane-img" draggable="false">
+          </div>
+          <label class="custom-game-mobile__field-label" for="custom-game-email-mobile">Email</label>
+          <input
+            id="custom-game-email-mobile"
+            name="contact_email"
+            type="email"
+            required
+            maxlength="{{ form.fields.contact_email.max_length }}"
+            class="custom-game-mobile__input"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_email.html' %}{% endspaceless %}"
+            autocomplete="email"
+            value="{{ form.contact_email.value|default_if_none:'' }}"
+          >
+          {% if form.contact_email.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.contact_email.errors|striptags }}</p>
           {% endif %}
         </div>
-        <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
-          {% trans "Далее" %}
-        </button>
       </div>
 
-      <div class="flex h-[56px] w-full items-center justify-start pl-[12px]">
-        <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[52px] w-auto object-contain" draggable="false" aria-hidden="true">
-      </div>
-
-      <div data-custom-game-step-block="4">
-        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
-          <div class="relative h-[64px] w-[64px] shrink-0">
-            <img
-              src="{% static 'images/custom/star-2-inactive.svg' %}"
-              alt=""
-              class="h-[64px] w-[64px] object-contain"
-              aria-hidden="true"
-              data-custom-game-star
-              data-step="4"
-              data-active-src="{% static 'images/custom/star-2.svg' %}"
-              data-inactive-src="{% static 'images/custom/star-2-inactive.svg' %}"
-            >
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>4</span>
+      <div class="custom-game-mobile__step" data-custom-game-step-block="2">
+        <div class="custom-game-mobile__step-head">
+          <div class="custom-game-mobile__title-row">
+            <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-mobile__step-mark" draggable="false" aria-hidden="true">
+            <h2 class="custom-game-mobile__step-title">{% trans "Шаг 2" %}</h2>
           </div>
-          <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Количество страниц" %}</h2>
+          {% include "pages/custom_game/_custom_game_step_hint.html" with step=2 hint_class="custom-game-mobile__step-hint" %}
+        </div>
+        <div class="custom-game-mobile__step-body">
+          <div class="custom-game-mobile__step-plane custom-game-mobile__step-plane--right" aria-hidden="true">
+            <img src="{% static 'images/custom/airplane.svg' %}" alt="" class="custom-game-mobile__step-plane-img" draggable="false">
+          </div>
+          <label class="custom-game-mobile__field-label" for="custom-game-subject-mobile">{% trans "Тема" %}</label>
+          <input
+            id="custom-game-subject-mobile"
+            name="subject"
+            type="text"
+            required
+            maxlength="{{ form.fields.subject.max_length }}"
+            class="custom-game-mobile__input"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_subject.html' %}{% endspaceless %}"
+            autocomplete="off"
+            value="{{ form.subject.value|default_if_none:'' }}"
+          >
+          {% if form.subject.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.subject.errors|striptags }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="custom-game-mobile__step" data-custom-game-step-block="3">
+        <div class="custom-game-mobile__step-head">
+          <div class="custom-game-mobile__title-row">
+            <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-mobile__step-mark" draggable="false" aria-hidden="true">
+            <h2 class="custom-game-mobile__step-title">{% trans "Шаг 3" %}</h2>
+          </div>
+          {% include "pages/custom_game/_custom_game_step_hint.html" with step=3 hint_class="custom-game-mobile__step-hint" %}
+        </div>
+        <div class="custom-game-mobile__step-body">
+          <div class="custom-game-mobile__step-plane custom-game-mobile__step-plane--left" aria-hidden="true">
+            <img src="{% static 'images/custom/airplane.svg' %}" alt="" class="custom-game-mobile__step-plane-img" draggable="false">
+          </div>
+          <div class="custom-game-mobile__age-row" role="radiogroup" aria-label="{% trans 'Возраст ребенка' %}">
+            {% for val, lbl in form.audience_preset.field.choices %}
+              <label class="custom-game-mobile__age-pill{% if val == 'other' %} custom-game-mobile__age-pill--other{% endif %}">
+                <input
+                  type="radio"
+                  name="audience_preset"
+                  value="{{ val }}"
+                  {% if forloop.first %}required{% endif %}
+                  {% if form.audience_preset.value == val %}checked{% endif %}
+                >
+                <span class="inline-flex items-center gap-1">
+                  {{ lbl }}
+                  {% if val == 'other' %}
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  {% endif %}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+          {% if form.audience_preset.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_preset.errors|striptags }}</p>
+          {% endif %}
+          <div class="custom-game-mobile__audience-other{% if form.audience_preset.value != 'other' %} hidden{% endif %}" data-custom-game-audience-other-block>
+            <label class="custom-game-mobile__other-label" for="custom-game-age-other-mobile">
+              {% include "pages/custom_game/_custom_game_audience_other_label.html" %}
+            </label>
+            <input
+              id="custom-game-age-other-mobile"
+              name="audience_other"
+              type="text"
+              maxlength="{{ form.fields.audience_other.max_length }}"
+              class="custom-game-mobile__input"
+              placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_audience_other.html' %}{% endspaceless %}"
+              autocomplete="off"
+              value="{{ form.audience_other.value|default_if_none:'' }}"
+            >
+            {% if form.audience_other.errors %}
+              <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.audience_other.errors|striptags }}</p>
+            {% endif %}
           </div>
         </div>
-        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Сколько страниц вы хотите получить в материале." %}
-        </p>
-        <label class="sr-only" for="custom-game-page-count-mobile">{% trans "Количество страниц" %}</label>
-        <input
-          id="custom-game-page-count-mobile"
-          name="page_count"
-          type="text"
-          required
-          maxlength="{{ form.fields.page_count.max_length }}"
-          class="account-input account-input-thin mt-[14px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] leading-none text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Например: 6–8' %}"
-          autocomplete="off"
-          value="{{ form.page_count.value|default_if_none:'' }}"
-        >
-        {% if form.page_count.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.page_count.errors|striptags }}</p>
-        {% endif %}
-        <button type="button" class="btn-primary btn-primary--h40 mt-[18px] w-full text-[14px] font-bold" data-custom-game-next>
-          {% trans "Далее" %}
-        </button>
       </div>
 
-      <div class="flex h-[56px] w-full items-center justify-end pr-[12px]">
-        <img src="{% static 'images/custom/bubbles.svg' %}" alt="" class="h-[52px] w-auto rotate-180 object-contain" draggable="false" aria-hidden="true">
-      </div>
-
-      <div data-custom-game-step-block="5">
-        <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
-          <div class="relative h-[64px] w-[64px] shrink-0">
-            <img
-              src="{% static 'images/custom/star-1-inactive.svg' %}"
-              alt=""
-              class="h-[64px] w-[64px] object-contain"
-              aria-hidden="true"
-              data-custom-game-star
-              data-step="5"
-              data-active-src="{% static 'images/custom/star-1.svg' %}"
-              data-inactive-src="{% static 'images/custom/star-1-inactive.svg' %}"
-            >
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center pt-[2px] font-airfool text-[22px] leading-none text-[var(--color-black)]" data-custom-game-digit>5</span>
+      <div class="custom-game-mobile__step" data-custom-game-step-block="4">
+        <div class="custom-game-mobile__step-head">
+          <div class="custom-game-mobile__title-row">
+            <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-mobile__step-mark" draggable="false" aria-hidden="true">
+            <h2 class="custom-game-mobile__step-title">{% trans "Шаг 4" %}</h2>
           </div>
-          <div class="min-w-0 pt-[8px]">
-            <h2 class="text-[15px] font-bold leading-[1.2] text-[var(--color-black)]">{% trans "Пожелания и контакты" %}</h2>
+          {% include "pages/custom_game/_custom_game_step_hint.html" with step=4 hint_class="custom-game-mobile__step-hint" %}
+        </div>
+        <div class="custom-game-mobile__step-body">
+          <div class="custom-game-mobile__step-plane custom-game-mobile__step-plane--right" aria-hidden="true">
+            <img src="{% static 'images/custom/airplane.svg' %}" alt="" class="custom-game-mobile__step-plane-img" draggable="false">
+          </div>
+          <label class="custom-game-mobile__field-label" for="custom-game-page-count-mobile">{% trans "Количество страниц" %}</label>
+          <input
+            id="custom-game-page-count-mobile"
+            name="page_count"
+            type="text"
+            required
+            maxlength="{{ form.fields.page_count.max_length }}"
+            class="custom-game-mobile__input"
+            placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_placeholder_page_count.html' %}{% endspaceless %}"
+            autocomplete="off"
+            value="{{ form.page_count.value|default_if_none:'' }}"
+          >
+          {% if form.page_count.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.page_count.errors|striptags }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="custom-game-mobile__step" data-custom-game-step-block="5">
+        <div class="custom-game-mobile__step-head">
+          <div class="custom-game-mobile__title-row">
+            <img src="{% static 'images/custom/puzzle-green.svg' %}" alt="" class="custom-game-mobile__step-mark" draggable="false" aria-hidden="true">
+            <h2 class="custom-game-mobile__step-title">{% trans "Шаг 5" %}</h2>
+          </div>
+          {% include "pages/custom_game/_custom_game_step_hint.html" with step=5 hint_class="custom-game-mobile__step-hint" %}
+        </div>
+        <div class="custom-game-mobile__step-body">
+          <div class="custom-game-mobile__step-plane custom-game-mobile__step-plane--left" aria-hidden="true">
+            <img src="{% static 'images/custom/airplane.svg' %}" alt="" class="custom-game-mobile__step-plane-img" draggable="false">
+          </div>
+          <label class="sr-only" for="custom-game-idea-mobile">{% include "pages/custom_game/_custom_game_wishes_sr_label.html" %}</label>
+          <div class="custom-game-mobile__textarea-wrap">
+            <textarea
+              id="custom-game-idea-mobile"
+              name="idea"
+              rows="4"
+              class="custom-game-mobile__textarea"
+              placeholder="{% spaceless %}{% include 'pages/custom_game/_custom_game_idea_placeholder.html' %}{% endspaceless %}"
+              autocomplete="off"
+            >{{ form.idea.value|default_if_none:'' }}</textarea>
+            {% comment %}Иконка «скрепка» в углу поля — временно скрыта{% endcomment %}
+            {% comment %}
+            <svg class="custom-game-mobile__textarea-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {% endcomment %}
+          </div>
+          {% if form.idea.errors %}
+            <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.idea.errors|striptags }}</p>
+          {% endif %}
+          <div class="custom-game-mobile__submit">
+            <button type="submit" class="btn-primary custom-game-mobile__submit-btn">
+              {% trans "Заказать" %}
+            </button>
           </div>
         </div>
-        <p class="mt-[14px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "Дополнительные пожелания к содержанию и ваше имя для обращения." %}
-        </p>
-        <label class="sr-only" for="custom-game-idea-mobile">{% trans "Пожелания к содержанию" %}</label>
-        <textarea
-          id="custom-game-idea-mobile"
-          name="idea"
-          rows="4"
-          class="account-input account-input-thin mt-[14px] min-h-[100px] w-full resize-y rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] py-[10px] text-[14px] leading-[1.4] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Необязательно: детали о заданиях, оформлении, персонажах…' %}"
-          autocomplete="off"
-        >{{ form.idea.value|default_if_none:'' }}</textarea>
-        {% if form.idea.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.idea.errors|striptags }}</p>
-        {% endif %}
-        <label class="sr-only" for="custom-game-name-mobile">{% trans "Имя" %}</label>
-        <input
-          id="custom-game-name-mobile"
-          name="contact_name"
-          type="text"
-          required
-          maxlength="120"
-          class="account-input account-input-thin mt-[12px] h-[40px] w-full rounded-[5px] border border-[#C6C0C0] bg-[var(--color-white)] px-[12px] text-[14px] text-[var(--color-black)] outline-none placeholder:text-[var(--color-black-80)]"
-          placeholder="{% trans 'Имя' %}"
-          autocomplete="name"
-          value="{{ form.contact_name.value|default_if_none:'' }}"
-        >
-        {% if form.contact_name.errors %}
-          <p class="mt-2 text-[12px] leading-[16px] text-red-700">{{ form.contact_name.errors|striptags }}</p>
-        {% endif %}
-        <p class="mx-auto mt-[24px] max-w-[280px] text-center text-[10px] font-normal leading-[14px] text-[var(--color-black-80)]">
-          {% trans "Нажимая кнопку, вы соглашаетесь с обработкой данных для связи по заявке." %}
-        </p>
-        <button type="submit" class="btn-primary btn-primary--h40 mx-auto mt-[16px] block w-full text-[14px] font-bold">
-          {% trans "Отправить заявку" %}
-        </button>
       </div>
     </form>
   </div>
