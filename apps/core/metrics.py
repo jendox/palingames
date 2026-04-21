@@ -39,6 +39,11 @@ ORDERS_CREATED_TOTAL = Counter(
     "Total created orders.",
     ["checkout_type", "source"],
 )
+ORDER_CREATION_DURATION_SECONDS = Histogram(
+    "order_creation_duration_seconds",
+    "Order creation duration in seconds.",
+    ["checkout_type", "result"],
+)
 ORDERS_PAID_TOTAL = Counter(
     "orders_paid_total",
     "Total paid orders.",
@@ -73,6 +78,11 @@ PAYMENT_DUPLICATE_EVENTS_TOTAL = Counter(
     "payment_duplicate_events_total",
     "Total duplicate payment events received.",
     ["provider", "cmd_type", "source"],
+)
+PAYMENT_WEBHOOK_PROCESSING_DURATION_SECONDS = Histogram(
+    "payment_webhook_processing_duration_seconds",
+    "Payment webhook/status update processing duration in seconds.",
+    ["provider", "source", "result"],
 )
 INVOICE_STATUS_SYNC_RUNS_TOTAL = Counter(
     "invoice_status_sync_runs_total",
@@ -127,6 +137,11 @@ CELERY_TASK_FINISHED_TOTAL = Counter(
     "celery_task_finished_total",
     "Total Celery tasks finished.",
     ["task_name", "task_state"],
+)
+CUSTOM_GAME_REQUEST_CREATION_DURATION_SECONDS = Histogram(
+    "custom_game_request_creation_duration_seconds",
+    "Custom game request creation duration in seconds.",
+    ["user_type", "result"],
 )
 REVIEWS_SUBMITTED_TOTAL = Counter(
     "reviews_submitted_total",
@@ -238,6 +253,10 @@ def inc_order_created(*, checkout_type: str, source: str) -> None:
     ORDERS_CREATED_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
 
 
+def observe_order_creation_duration(*, checkout_type: str, result: str, duration_seconds: float) -> None:
+    ORDER_CREATION_DURATION_SECONDS.labels(checkout_type=checkout_type, result=result).observe(duration_seconds)
+
+
 def inc_order_paid(*, checkout_type: str, source: str) -> None:
     ORDERS_PAID_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
 
@@ -264,6 +283,20 @@ def inc_payment_webhook_rejected(*, provider: str, reason: str) -> None:
 
 def inc_payment_duplicate_event(*, provider: str, cmd_type: int | str, source: str) -> None:
     PAYMENT_DUPLICATE_EVENTS_TOTAL.labels(provider=provider, cmd_type=str(cmd_type), source=source).inc()
+
+
+def observe_payment_webhook_processing_duration(
+    *,
+    provider: str,
+    source: str,
+    result: str,
+    duration_seconds: float,
+) -> None:
+    PAYMENT_WEBHOOK_PROCESSING_DURATION_SECONDS.labels(
+        provider=provider,
+        source=source,
+        result=result,
+    ).observe(duration_seconds)
 
 
 def record_invoice_status_sync_summary(summary: dict[str, int]) -> None:
@@ -339,6 +372,18 @@ def inc_order_reward_skipped(*, reason: str) -> None:
 
 def inc_guest_orders_merged(*, count: int = 1) -> None:
     GUEST_ORDERS_MERGED_TOTAL.inc(count)
+
+
+def observe_custom_game_request_creation_duration(
+    *,
+    user_type: str,
+    result: str,
+    duration_seconds: float,
+) -> None:
+    CUSTOM_GAME_REQUEST_CREATION_DURATION_SECONDS.labels(
+        user_type=user_type,
+        result=result,
+    ).observe(duration_seconds)
 
 
 def inc_catalog_page_view(*, user_type: str) -> None:

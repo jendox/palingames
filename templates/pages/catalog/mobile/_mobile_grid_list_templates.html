@@ -1,7 +1,16 @@
 {% load static i18n %}
 
 <template data-catalog-mobile-grid-template>
-  <article class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+  <article
+    class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+    data-analytics-item
+    data-analytics-item-id=""
+    data-analytics-item-name=""
+    data-analytics-item-category=""
+    data-analytics-item-variant=""
+    data-analytics-price=""
+    data-analytics-currency=""
+  >
     <a href="#" class="block" data-product-link>
       <div class="relative">
         <img
@@ -83,6 +92,12 @@
         data-is-purchased="false"
         data-product-id=""
         data-in-cart="false"
+        data-analytics-item-id=""
+        data-analytics-item-name=""
+        data-analytics-item-category=""
+        data-analytics-item-variant=""
+        data-analytics-price=""
+        data-analytics-currency=""
       >
         <img
           src="{% static 'images/icons/cart-empty.svg' %}"
@@ -100,7 +115,16 @@
 </template>
 
 <template data-catalog-mobile-list-template>
-  <article class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]">
+  <article
+    class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]"
+    data-analytics-item
+    data-analytics-item-id=""
+    data-analytics-item-name=""
+    data-analytics-item-category=""
+    data-analytics-item-variant=""
+    data-analytics-price=""
+    data-analytics-currency=""
+  >
     <a href="#" class="block h-[77px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
       <img
         data-product-image
@@ -137,6 +161,12 @@
       data-is-purchased="false"
       data-product-id=""
       data-in-cart="false"
+      data-analytics-item-id=""
+      data-analytics-item-name=""
+      data-analytics-item-category=""
+      data-analytics-item-variant=""
+      data-analytics-price=""
+      data-analytics-currency=""
     >
       <img
         src="{% static 'images/icons/cart-empty.svg' %}"

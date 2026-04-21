@@ -88,6 +88,16 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertEqual(response.status_code, 200)
         inc_checkout_started_mock.assert_called_once_with(user_type="guest")
 
+    def test_checkout_renders_begin_checkout_analytics_payload(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="checkout-analytics-payload"')
+
     def test_authenticated_checkout_prefills_email_and_uses_second_step(self):
         self.client.force_login(self.user)
         cart = Cart.objects.create(user=self.user)
@@ -98,6 +108,23 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["checkout_step"], 2)
         self.assertEqual(response.context["checkout_email"], self.user.email)
+
+    @patch("apps.orders.services.observe_order_creation_duration")
+    def test_checkout_post_observes_order_creation_duration(self, observe_order_creation_duration_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(response.status_code, 302)
+        observe_order_creation_duration_mock.assert_called_once()
+        self.assertEqual(
+            observe_order_creation_duration_mock.call_args.kwargs["checkout_type"],
+            Order.CheckoutType.GUEST,
+        )
+        self.assertEqual(observe_order_creation_duration_mock.call_args.kwargs["result"], "success")
+        self.assertGreaterEqual(observe_order_creation_duration_mock.call_args.kwargs["duration_seconds"], 0)
 
     @patch("apps.orders.views.inc_checkout_completed")
     def test_guest_checkout_post_creates_order_and_redirects(self, inc_checkout_completed_mock):

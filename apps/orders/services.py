@@ -4,6 +4,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
+from time import perf_counter
 
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
@@ -13,7 +14,7 @@ from django.templatetags.static import static
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
-from apps.core.metrics import inc_order_created
+from apps.core.metrics import inc_order_created, observe_order_creation_duration
 from apps.products.models import Product
 from apps.products.pricing import format_price
 from apps.promocodes.models import PromoCodeRedemption
@@ -165,12 +166,20 @@ def _build_checkout_item(product: Product, promo_discount: PromoCodeDiscount | N
 
     return {
         "product_id": product.id,
+        "item_id": str(product.id),
+        "item_name": product.title,
+        "item_category": first_category.title if first_category else "",
+        "item_variant": first_category.title if first_category else "",
         "title": product.title,
         "kind": first_category.title if first_category else "",
         "price": format_price(product.price, product.currency),
+        "price_value": float(product.price),
         "discount_price": format_price(discount_price, product.currency) if discount_price is not None else "",
+        "discount_price_value": float(discount_price) if discount_price is not None else None,
         "has_discount": discount_price is not None,
         "image_url": first_image.image.url if first_image else static("images/example-product-image-1.png"),
+        "currency": product.currency,
+        "quantity": 1,
     }
 
 
@@ -225,18 +234,39 @@ def get_checkout_order_context(
         promo_message = "Промокод применен."
         promo_message_level = "success"
 
+    cart_items = [_build_checkout_item(product, promo_discount) for product in products]
+
     return {
-        "cart_items": [_build_checkout_item(product, promo_discount) for product in products],
+        "cart_items": cart_items,
         "cart_subtotal": format_price(subtotal, currency),
+        "cart_subtotal_value": float(subtotal),
         "cart_total": format_price(total, currency),
+        "cart_total_value": float(total),
         "cart_total_original": format_price(subtotal, currency) if promo_discount else "",
         "cart_discount": format_price(discount_amount, currency) if promo_discount else "",
+        "cart_discount_value": float(discount_amount),
+        "cart_currency": currency,
         "cart_count": len(products),
         "cart_product_ids": [product.id for product in products],
         "checkout_promo_code": promo_code,
         "checkout_promo_applied": promo_discount is not None,
         "checkout_promo_message": promo_message,
         "checkout_promo_message_level": promo_message_level,
+        "checkout_analytics_items": [
+            {
+                "item_id": item["item_id"],
+                "item_name": item["item_name"],
+                "item_category": item["item_category"],
+                "item_variant": item["item_variant"],
+                "price": (
+                    item["discount_price_value"]
+                    if item["discount_price_value"] is not None
+                    else item["price_value"]
+                ),
+                "quantity": item["quantity"],
+            }
+            for item in cart_items
+        ],
     }
 
 
@@ -321,6 +351,7 @@ def create_order_from_cart(
         checkout_type=checkout_type,
         user_id=request.user.id if request.user.is_authenticated else None,
     )
+    started_at = perf_counter()
     try:
         try:
             order = _create_new_order_from_products(
@@ -346,6 +377,11 @@ def create_order_from_cart(
             cart_items_count=len(products),
             error_type=type(exc).__name__,
         )
+        observe_order_creation_duration(
+            checkout_type=checkout_type,
+            result="error",
+            duration_seconds=perf_counter() - started_at,
+        )
         raise
 
     log_event(
@@ -360,6 +396,11 @@ def create_order_from_cart(
         currency=order.currency,
     )
     inc_order_created(checkout_type=order.checkout_type, source=order.source)
+    observe_order_creation_duration(
+        checkout_type=order.checkout_type,
+        result="success",
+        duration_seconds=perf_counter() - started_at,
+    )
 
     return OrderCreationResult(order=order, created=True)
 

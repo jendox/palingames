@@ -487,6 +487,13 @@ function updateCatalogMobileViewButtons(root, view) {
 }
 
 function fillCatalogMobileProduct(node, product) {
+  node.dataset.analyticsItemId = String(product.id || "");
+  node.dataset.analyticsItemName = product.title || "";
+  node.dataset.analyticsItemCategory = product.category || "";
+  node.dataset.analyticsItemVariant = product.kind || "";
+  node.dataset.analyticsPrice = product.price_value != null ? String(product.price_value) : "";
+  node.dataset.analyticsCurrency = product.currency || "";
+
   node.querySelectorAll("[data-product-link]").forEach((link) => {
     if (link instanceof HTMLAnchorElement) {
       link.href = product.url || "#";
@@ -549,6 +556,12 @@ function fillCatalogMobileProduct(node, product) {
     cartButton.dataset.inCart = product.is_in_cart ? "true" : "false";
     cartButton.dataset.isPurchased = product.is_purchased ? "true" : "false";
     cartButton.dataset.catalogDownloadUrl = product.download_url || "";
+    cartButton.dataset.analyticsItemId = String(product.id || "");
+    cartButton.dataset.analyticsItemName = product.title || "";
+    cartButton.dataset.analyticsItemCategory = product.category || "";
+    cartButton.dataset.analyticsItemVariant = product.kind || "";
+    cartButton.dataset.analyticsPrice = product.price_value != null ? String(product.price_value) : "";
+    cartButton.dataset.analyticsCurrency = product.currency || "";
     setCartState(cartButton, Boolean(product.is_in_cart));
   }
 }
@@ -811,7 +824,11 @@ function initCatalogProductCards(root = document) {
           }
           return;
         }
-        setCartState(button, Boolean(payload.in_cart));
+        const isInCart = Boolean(payload.in_cart);
+        setCartState(button, isInCart);
+        if (isInCart) {
+          window.PaliAnalytics?.trackAddToCartFromElement?.(button);
+        }
       } catch (error) {
         console.error(error);
       } finally {

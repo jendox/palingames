@@ -155,6 +155,12 @@
             data-product-download-url="{{ product_download_url }}"
             data-product-download-link
             data-product-added-dialog="productAddedDialog"
+            data-analytics-item-id="{{ product_analytics_item.item_id }}"
+            data-analytics-item-name="{{ product_analytics_item.item_name }}"
+            data-analytics-item-category="{{ product_analytics_item.item_category }}"
+            data-analytics-item-variant="{{ product_analytics_item.item_variant }}"
+            data-analytics-price="{{ product_analytics_item.price }}"
+            data-analytics-currency="{{ product_analytics_item.currency }}"
             aria-label="{% if product_is_purchased %}{% trans 'Скачать' %}{% else %}{% trans 'Купить' %}{% endif %}"
           >
             <span data-product-cart-label>

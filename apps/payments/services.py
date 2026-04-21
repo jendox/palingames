@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 
 from django.db import transaction
 from django.utils import timezone
@@ -7,8 +8,13 @@ from apps.access.services import (
     create_guest_access_notification_for_order,
     grant_user_product_accesses,
 )
+from apps.core.analytics import send_ga4_purchase_event_for_order
 from apps.core.logging import log_event
-from apps.core.metrics import inc_order_paid, inc_order_paid_duplicate
+from apps.core.metrics import (
+    inc_order_paid,
+    inc_order_paid_duplicate,
+    observe_payment_webhook_processing_duration,
+)
 from apps.custom_games.models import CustomGameRequest
 from apps.custom_games.services import send_custom_game_download_link
 from apps.notifications.services import enqueue_notification_outbox
@@ -142,6 +148,9 @@ def mark_order_paid(
             guest_access_email_outbox_id=guest_access_email_outbox.id if guest_access_email_outbox else None,
         )
         inc_order_paid(checkout_type=order.checkout_type, source=order.source)
+        transaction.on_commit(
+            lambda: send_ga4_purchase_event_for_order(order_id=order.id, source=source),
+        )
     else:
         log_event(
             logger,
@@ -356,29 +365,43 @@ def apply_invoice_status_update(
     persist: bool = True,
     status_payload: dict | None = None,
 ) -> str | None:
+    started_at = perf_counter()
+    provider = invoice.provider or Invoice._meta.get_field("provider").default
     status_payload = status_payload or {}
-    normalized_status = map_invoice_status(provider_status)
-    normalized_event_at = normalize_notification_datetime(status_payload.get("event_at"))
+    result = "success"
+    try:
+        normalized_status = map_invoice_status(provider_status)
+        normalized_event_at = normalize_notification_datetime(status_payload.get("event_at"))
 
-    invoice.provider = invoice.provider or Invoice._meta.get_field("provider").default
-    invoice.last_status_check_at = timezone.now()
-    if "raw_response" in status_payload:
-        invoice.raw_last_status_response = status_payload["raw_response"]
-    if status_payload.get("amount") is not None:
-        invoice.amount = status_payload["amount"]
-    if status_payload.get("currency") is not None:
-        invoice.currency = status_payload["currency"]
-    if normalized_status is not None:
-        invoice.status = normalized_status
+        invoice.provider = provider
+        invoice.last_status_check_at = timezone.now()
+        if "raw_response" in status_payload:
+            invoice.raw_last_status_response = status_payload["raw_response"]
+        if status_payload.get("amount") is not None:
+            invoice.amount = status_payload["amount"]
+        if status_payload.get("currency") is not None:
+            invoice.currency = status_payload["currency"]
+        if normalized_status is not None:
+            invoice.status = normalized_status
 
-    apply_payable_status_from_invoice_status(
-        invoice,
-        normalized_status,
-        normalized_event_at,
-        source=source,
-    )
+        apply_payable_status_from_invoice_status(
+            invoice,
+            normalized_status,
+            normalized_event_at,
+            source=source,
+        )
 
-    if persist:
-        save_invoice_and_target(invoice)
+        if persist:
+            save_invoice_and_target(invoice)
 
-    return normalized_status
+        return normalized_status
+    except Exception:
+        result = "error"
+        raise
+    finally:
+        observe_payment_webhook_processing_duration(
+            provider=provider,
+            source=source,
+            result=result,
+            duration_seconds=perf_counter() - started_at,
+        )

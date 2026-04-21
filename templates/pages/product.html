@@ -13,6 +13,7 @@
 {% block main_class %}w-full px-0 py-0{% endblock %}
 
 {% block content %}
+  {{ product_analytics_item|json_script:"product-analytics-item" }}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
   <div class="min-[1024px]:hidden">
     {% include "pages/product/product_mobile.html" %}

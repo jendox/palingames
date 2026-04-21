@@ -14,6 +14,9 @@
 {% block main_class %}w-full px-0 py-0{% endblock %}
 
 {% block content %}
+  {% if checkout_analytics_payload %}
+    {{ checkout_analytics_payload|json_script:"checkout-analytics-payload" }}
+  {% endif %}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
   <div class="min-[1024px]:hidden">
     {% include "pages/checkout/checkout_mobile.html" %}

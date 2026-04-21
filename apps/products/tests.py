@@ -75,6 +75,13 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         inc_catalog_page_view_mock.assert_called_once_with(user_type="guest")
 
+    def test_catalog_renders_analytics_payload_attributes(self):
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-analytics-item")
+        self.assertContains(response, 'data-analytics-item-id="')
+
     def test_catalog_global_search_shows_matching_products(self):
         response = self.client.get(reverse("catalog"), {"q": "Альф"})
 
@@ -588,6 +595,13 @@ class ProductDetailDownloadContextTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         inc_product_page_view_mock.assert_called_once_with(user_type="guest")
+
+    def test_product_detail_renders_product_analytics_payload(self):
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="product-analytics-item"')
+        self.assertContains(response, 'data-analytics-item-id="')
 
 
 class ProductReviewFlowTests(TestCase):

@@ -97,6 +97,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.analytics",
                 "apps.core.context_processors.default_currency",
             ],
         },
@@ -212,6 +213,13 @@ S3_READ_TIMEOUT_SECONDS = env.int("S3_READ_TIMEOUT_SECONDS", default=30)
 S3_MAX_POOL_CONNECTIONS = env.int("S3_MAX_POOL_CONNECTIONS", default=10)
 S3_RETRY_MAX_ATTEMPTS = env.int("S3_RETRY_MAX_ATTEMPTS", default=3)
 SITE_BASE_URL = env.str("SITE_BASE_URL", default="http://127.0.0.1:8000")
+ANALYTICS_ENABLED = env.bool("ANALYTICS_ENABLED", default=False)
+GTM_ID = env.str("GTM_ID", default="")
+GA4_MEASUREMENT_ID = env.str("GA4_MEASUREMENT_ID", default="")
+GA4_API_SECRET = env.str("GA4_API_SECRET", default="")
+YANDEX_METRIKA_ID = env.str("YANDEX_METRIKA_ID", default="")
+META_PIXEL_ID = env.str("META_PIXEL_ID", default="")
+CLARITY_PROJECT_ID = env.str("CLARITY_PROJECT_ID", default="")
 GUEST_ACCESS_EXPIRE_HOURS = env.int("GUEST_ACCESS_EXPIRE_HOURS", default=24)
 GUEST_ACCESS_MAX_DOWNLOADS = env.int("GUEST_ACCESS_MAX_DOWNLOADS", default=3)
 GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS = env.int("GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS", default=30)

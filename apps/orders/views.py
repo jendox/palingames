@@ -43,6 +43,14 @@ def _metrics_user_type(user) -> str:
     return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
+def _build_checkout_analytics_payload(context: dict) -> dict:
+    return {
+        "currency": context["cart_currency"],
+        "value": context["cart_total_value"],
+        "items": context["checkout_analytics_items"],
+    }
+
+
 def _redirect_to_created_order(order: Order):
     checkout_url = f"{reverse('checkout')}?created={order.public_id}"
     return redirect(checkout_url)
@@ -179,11 +187,14 @@ class CheckoutPageView(TemplateView):
         context["checkout_is_authenticated"] = self.request.user.is_authenticated
         created_public_id = self.request.GET.get("created")
         context["checkout_created_order"] = None
+        context["checkout_analytics_payload"] = None
         context["checkout_success_redirect_url"] = (
             f"{reverse('account')}?tab=orders" if self.request.user.is_authenticated else reverse("catalog")
         )
         if created_public_id:
             context["checkout_created_order"] = Order.objects.filter(public_id=created_public_id).first()
+        elif context["cart_items"]:
+            context["checkout_analytics_payload"] = _build_checkout_analytics_payload(context)
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},
             {"title": "Корзина", "url": reverse("cart")},

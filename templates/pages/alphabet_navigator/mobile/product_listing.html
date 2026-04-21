@@ -62,7 +62,16 @@
     {{ alphabet_mobile_products|json_script:"catalog-mobile-products-data" }}
 
     <template data-catalog-mobile-grid-template>
-      <article class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+          <article
+            class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+            data-analytics-item
+            data-analytics-item-id=""
+            data-analytics-item-name=""
+            data-analytics-item-category=""
+            data-analytics-item-variant=""
+            data-analytics-price=""
+            data-analytics-currency=""
+          >
         <a href="#" class="block" data-product-link>
           <div class="relative">
             <img
@@ -103,7 +112,7 @@
         </a>
 
         <div class="absolute bottom-[6px] right-[8px] z-20">
-          <button type="button" class="catalog-card-cart-button inline-flex h-[32px] w-[32px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-catalog-download-url="" data-product-download-link data-is-purchased="false" data-product-id="" data-in-cart="false">
+          <button type="button" class="catalog-card-cart-button inline-flex h-[32px] w-[32px] items-center justify-center transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-catalog-download-url="" data-product-download-link data-is-purchased="false" data-product-id="" data-in-cart="false" data-analytics-item-id="" data-analytics-item-name="" data-analytics-item-category="" data-analytics-item-variant="" data-analytics-price="" data-analytics-currency="">
             <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[32px] w-[32px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}" data-icon-download="{% static 'images/icons/download.svg' %}">
           </button>
         </div>
@@ -111,7 +120,16 @@
     </template>
 
     <template data-catalog-mobile-list-template>
-      <article class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]">
+      <article
+        class="relative flex rounded-[10px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] p-[7px]"
+        data-analytics-item
+        data-analytics-item-id=""
+        data-analytics-item-name=""
+        data-analytics-item-category=""
+        data-analytics-item-variant=""
+        data-analytics-price=""
+        data-analytics-currency=""
+      >
         <a href="#" class="block h-[77px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
           <img data-product-image src="{% static 'images/example-product-image-1.png' %}" alt="" class="h-full w-full object-cover" draggable="false">
         </a>
@@ -127,7 +145,7 @@
           <p class="mt-[12px] text-[14px] font-black leading-[14px] text-[var(--color-black)]" data-product-price></p>
         </div>
 
-        <button type="button" class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[32px] w-[32px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-cart-border-toggle data-catalog-download-url="" data-product-download-link data-is-purchased="false" data-product-id="" data-in-cart="false">
+        <button type="button" class="catalog-card-cart-button absolute bottom-[7px] right-[35px] inline-flex h-[32px] w-[32px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.04)] transition-transform duration-200" aria-label="{% trans 'Добавить в корзину' %}" data-catalog-cart-toggle data-cart-border-toggle data-catalog-download-url="" data-product-download-link data-is-purchased="false" data-product-id="" data-in-cart="false" data-analytics-item-id="" data-analytics-item-name="" data-analytics-item-category="" data-analytics-item-variant="" data-analytics-price="" data-analytics-currency="">
           <img src="{% static 'images/icons/cart-empty.svg' %}" alt="" class="h-[32px] w-[32px]" aria-hidden="true" data-cart-icon data-icon-empty="{% static 'images/icons/cart-empty.svg' %}" data-icon-full="{% static 'images/icons/cart-full.svg' %}" data-icon-download="{% static 'images/icons/download.svg' %}">
         </button>
       </article>

@@ -103,6 +103,44 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertFalse(UserProductAccess.objects.exists())
         self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
 
+    @patch("apps.payments.services.send_ga4_purchase_event_for_order")
+    def test_notification_triggers_purchase_analytics_once(
+        self,
+        send_ga4_purchase_event_for_order_mock,
+    ):
+        with self.captureOnCommitCallbacks(execute=True):
+            first_response = self.client.post(self.notification_url, data=self._build_request_payload())
+        with self.captureOnCommitCallbacks(execute=True):
+            second_response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(payment_no=555002),
+            )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        send_ga4_purchase_event_for_order_mock.assert_called_once_with(order_id=self.order.id, source="notification")
+
+    @patch("apps.payments.services.observe_payment_webhook_processing_duration")
+    def test_notification_observes_payment_webhook_processing_duration(
+        self,
+        observe_payment_webhook_processing_duration_mock,
+    ):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload())
+
+        self.assertEqual(response.status_code, 200)
+        observe_payment_webhook_processing_duration_mock.assert_called_once()
+        self.assertEqual(
+            observe_payment_webhook_processing_duration_mock.call_args.kwargs["provider"],
+            Invoice.Provider.EXPRESS_PAY,
+        )
+        self.assertEqual(observe_payment_webhook_processing_duration_mock.call_args.kwargs["source"], "notification")
+        self.assertEqual(observe_payment_webhook_processing_duration_mock.call_args.kwargs["result"], "success")
+        self.assertGreaterEqual(
+            observe_payment_webhook_processing_duration_mock.call_args.kwargs["duration_seconds"],
+            0,
+        )
+
     def test_notification_creates_access_for_authenticated_user(self):
         user = get_user_model().objects.create_user(email="paid@example.com", password="test-pass-123")
         order = Order.objects.create(

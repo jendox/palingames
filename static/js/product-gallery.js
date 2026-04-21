@@ -475,6 +475,7 @@ function initProductCartButtons() {
         const isInCart = Boolean(payload.in_cart);
         setProductCartState(button, isInCart);
         if (isInCart) {
+          window.PaliAnalytics?.trackAddToCartFromElement?.(button);
           openProductAddedDialog(button);
         }
       } catch (error) {

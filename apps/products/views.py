@@ -132,6 +132,8 @@ class CatalogView(TemplateView):
             "title": product.title,
             "url": product.get_absolute_url(),
             "price": format_price(product.price, product.currency),
+            "price_value": float(product.price),
+            "currency": product.currency,
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(selected_category or product.categories.first()),
             "content": product.content,
@@ -366,17 +368,29 @@ class CatalogView(TemplateView):
         mobile_paginator = Paginator(sorted_queryset, 8)
         mobile_page_obj = mobile_paginator.get_page(page_number)
 
+        catalog_products = [
+            self._build_product_card(
+                product,
+                selected_category=selected_category,
+                cart_product_ids=cart_product_ids,
+                purchased_product_ids=purchased_product_ids,
+                favorite_product_ids=favorite_product_ids,
+            )
+            for product in desktop_page_obj.object_list
+        ]
+        catalog_mobile_products = [
+            self._build_product_card(
+                product,
+                selected_category=selected_category,
+                cart_product_ids=cart_product_ids,
+                purchased_product_ids=purchased_product_ids,
+                favorite_product_ids=favorite_product_ids,
+            )
+            for product in mobile_page_obj.object_list
+        ]
+
         return {
-            "catalog_products": [
-                self._build_product_card(
-                    product,
-                    selected_category=selected_category,
-                    cart_product_ids=cart_product_ids,
-                    purchased_product_ids=purchased_product_ids,
-                    favorite_product_ids=favorite_product_ids,
-                )
-                for product in desktop_page_obj.object_list
-            ],
+            "catalog_products": catalog_products,
             "catalog_products_count": desktop_paginator.count,
             "catalog_page_obj": desktop_page_obj,
             "catalog_pagination": {
@@ -388,16 +402,7 @@ class CatalogView(TemplateView):
                 "next_page": desktop_page_obj.next_page_number() if desktop_page_obj.has_next() else None,
                 "pages": list(desktop_paginator.page_range),
             },
-            "catalog_mobile_products": [
-                self._build_product_card(
-                    product,
-                    selected_category=selected_category,
-                    cart_product_ids=cart_product_ids,
-                    purchased_product_ids=purchased_product_ids,
-                    favorite_product_ids=favorite_product_ids,
-                )
-                for product in mobile_page_obj.object_list
-            ],
+            "catalog_mobile_products": catalog_mobile_products,
             "catalog_mobile_products_count": mobile_paginator.count,
             "catalog_mobile_page_obj": mobile_page_obj,
             "catalog_mobile_pagination_items": self._build_mobile_pagination(mobile_page_obj),
@@ -810,8 +815,15 @@ class ProductDetailView(DetailView):
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()
         context["product_content_html"] = product.content_as_html()
-
         primary_category = product.categories.first()
+        context["product_analytics_item"] = {
+            "item_id": str(product.id),
+            "item_name": product.title,
+            "item_category": primary_category.title if primary_category else "",
+            "item_variant": primary_kind.title if primary_kind else "",
+            "price": float(product.price),
+            "currency": product.currency,
+        }
         breadcrumbs = [
             {"title": "Главная", "url": reverse("home")},
             {"title": "Каталог", "url": reverse("catalog")},

@@ -1,12 +1,16 @@
 import json
 import logging
 from contextlib import contextmanager
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.core.cache import caches
+from django.http import HttpRequest
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from apps.core.analytics import send_ga4_purchase_event_for_order
+from apps.core.context_processors import analytics
 from apps.core.logging import (
     JsonFormatter,
     LoggingContextFilter,
@@ -17,6 +21,9 @@ from apps.core.logging import (
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.sentry import configure_sentry_scope, init_sentry
 from apps.core.tasks import clear_expired_sessions_task
+from apps.orders.models import Order, OrderItem
+from apps.payments.models import Invoice
+from apps.products.models import Product
 
 
 class StructuredLoggingTests(TestCase):
@@ -144,6 +151,118 @@ class CoreTasksTests(TestCase):
         clear_expired_sessions_task.apply(args=())
 
         call_command_mock.assert_called_once_with("clearsessions")
+
+
+class AnalyticsTemplateTests(TestCase):
+    @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
+    def test_analytics_context_processor_exposes_gtm_settings(self):
+        context = analytics(HttpRequest())
+
+        self.assertEqual(
+            context,
+            {
+                "analytics_enabled": True,
+                "gtm_id": "GTM-TEST123",
+            },
+        )
+
+    @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
+    def test_home_renders_gtm_and_analytics_script_when_enabled(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "googletagmanager.com/gtm.js?id=GTM-TEST123")
+        self.assertContains(response, "googletagmanager.com/ns.html?id=GTM-TEST123")
+        self.assertContains(response, '/static/js/analytics.js')
+        self.assertContains(response, 'data-user-type="guest"')
+
+    @override_settings(ANALYTICS_ENABLED=False, GTM_ID="GTM-TEST123")
+    def test_home_does_not_render_gtm_when_disabled(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "googletagmanager.com/gtm.js?id=GTM-TEST123")
+        self.assertNotContains(response, '/static/js/analytics.js')
+
+
+class PurchaseAnalyticsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.product = Product.objects.create(
+            title="Analytics product",
+            slug="analytics-product",
+            price=Decimal("25.00"),
+        )
+        cls.order = Order.objects.create(
+            email="analytics@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("22.50"),
+            items_count=1,
+            promo_code_snapshot="WELCOME10",
+            currency=933,
+        )
+        Invoice.objects.create(
+            order=cls.order,
+            provider_invoice_no="99990001",
+            status=Invoice.InvoiceStatus.PAID,
+            invoice_url="https://example.com/pay/99990001",
+            amount=Decimal("22.50"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=cls.order,
+            product=cls.product,
+            title_snapshot=cls.product.title,
+            category_snapshot="Игры",
+            unit_price_amount=Decimal("25.00"),
+            quantity=1,
+            line_total_amount=Decimal("25.00"),
+            discount_amount=Decimal("2.50"),
+            discounted_line_total_amount=Decimal("22.50"),
+            product_slug_snapshot=cls.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_event_for_order_posts_expected_payload(self, httpx_post_mock):
+        response_mock = httpx_post_mock.return_value
+        response_mock.raise_for_status.return_value = None
+
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        httpx_post_mock.assert_called_once()
+        self.assertEqual(
+            httpx_post_mock.call_args.kwargs["params"],
+            {
+                "measurement_id": "G-TEST123",
+                "api_secret": "ga4-secret",
+            },
+        )
+        payload = httpx_post_mock.call_args.kwargs["json"]
+        self.assertEqual(payload["events"][0]["name"], "purchase")
+        self.assertEqual(payload["events"][0]["params"]["transaction_id"], str(self.order.public_id))
+        self.assertEqual(payload["events"][0]["params"]["value"], 22.5)
+        self.assertEqual(payload["events"][0]["params"]["coupon"], "WELCOME10")
+        self.assertEqual(payload["events"][0]["params"]["items"][0]["item_name"], self.product.title)
+
+    @override_settings(
+        ANALYTICS_ENABLED=False,
+        GA4_MEASUREMENT_ID="",
+        GA4_API_SECRET="",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_event_for_order_skips_when_ga4_disabled(self, httpx_post_mock):
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        httpx_post_mock.assert_not_called()
 
 
 class HealthViewsTests(TestCase):

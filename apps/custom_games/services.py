@@ -4,6 +4,7 @@ import hashlib
 import logging
 import secrets
 from datetime import timedelta
+from time import perf_counter
 
 from django.conf import settings
 from django.db import transaction
@@ -11,6 +12,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.core.metrics import observe_custom_game_request_creation_duration
 from apps.custom_games.emails import (
     send_custom_game_request_admin_email,
     send_custom_game_request_customer_email,
@@ -25,13 +27,28 @@ CUSTOM_GAME_DOWNLOAD_TOKEN_PREFIX_LENGTH = 12
 
 
 def create_custom_game_request(*, form, user=None) -> CustomGameRequest:
+    started_at = perf_counter()
+    user_type = "authenticated" if user is not None and user.is_authenticated else "guest"
     custom_game_request = form.save(commit=False)
     if user is not None and user.is_authenticated:
         custom_game_request.user = user
 
-    with transaction.atomic():
-        custom_game_request.save()
+    try:
+        with transaction.atomic():
+            custom_game_request.save()
+    except Exception:
+        observe_custom_game_request_creation_duration(
+            user_type=user_type,
+            result="error",
+            duration_seconds=perf_counter() - started_at,
+        )
+        raise
 
+    observe_custom_game_request_creation_duration(
+        user_type=user_type,
+        result="success",
+        duration_seconds=perf_counter() - started_at,
+    )
     notify_custom_game_request_created(custom_game_request)
     return custom_game_request
 

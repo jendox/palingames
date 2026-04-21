@@ -243,6 +243,25 @@ class CustomGamePageTests(TestCase):
         self.assertContains(response, 'data-checkout-order-created="true"')
         self.assertContains(response, custom_game_request.payment_account_no)
 
+    @patch("apps.custom_games.services.observe_custom_game_request_creation_duration")
+    def test_guest_submit_observes_creation_duration(self, observe_custom_game_request_creation_duration_mock):
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        observe_custom_game_request_creation_duration_mock.assert_called_once()
+        self.assertEqual(
+            observe_custom_game_request_creation_duration_mock.call_args.kwargs["user_type"],
+            "guest",
+        )
+        self.assertEqual(
+            observe_custom_game_request_creation_duration_mock.call_args.kwargs["result"],
+            "success",
+        )
+        self.assertGreaterEqual(
+            observe_custom_game_request_creation_duration_mock.call_args.kwargs["duration_seconds"],
+            0,
+        )
+
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=[],
