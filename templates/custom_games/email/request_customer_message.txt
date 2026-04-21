@@ -1,20 +1,14 @@
 Здравствуйте, {{ request.contact_name }}!
 
-Мы получили вашу заявку на игру {{ request.payment_account_no }}.
+Мы получили вашу заявку на игру №{{ request.payment_account_no }}.
 
-Название игры:
-{{ request.subject }}
-
-Возраст:
-{{ request.audience }}
-
-Количество страниц:
-{{ request.page_count }}
-
-Пожелания к содержанию:
-{% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
+Детали заявки:
+Название игры: {{ request.subject }}
+Возраст: {{ request.audience }}
+Количество страниц: {{ request.page_count }}
+Пожелания к содержанию: {% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
 
 Мы посмотрим детали и свяжемся с вами по этому email.
 
-PaliGames
-{{ site_base_url }}
+С уважением,
+команда PaliGames

@@ -1,0 +1,9 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Здравствуйте!</p>
+  <p>Email для вашего аккаунта PaliGames был изменён:</p>
+  <p>с <strong>{{ from_email }}</strong><br>на <strong>{{ to_email }}</strong>.</p>
+  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

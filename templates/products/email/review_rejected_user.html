@@ -1,16 +1,12 @@
-<!DOCTYPE html>
-<html lang="ru">
-  <head>
-    <meta charset="utf-8" />
-  </head>
-  <body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #222">
-    <p>Здравствуйте!</p>
-    <p>К сожалению, ваш отзыв на игру «{{ product.title }}» не прошёл модерацию.</p>
-    {% if review.rejection_reason %}
-      <p><strong>Причина:</strong></p>
-      <p style="white-space: pre-wrap">{{ review.rejection_reason }}</p>
-    {% endif %}
-    <p>Вы можете отправить отзыв заново на <a href="{{ product_url }}">странице товара</a>.</p>
-    <p>С уважением,<br />команда PaliGames</p>
-  </body>
-</html>
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Здравствуйте!</p>
+  <p>К сожалению, ваш отзыв на игру «{{ product.title }}» не прошёл модерацию.</p>
+  {% if review.rejection_reason %}
+    <p><strong>Причина отклонения:</strong></p>
+    <p style="white-space: pre-wrap;">{{ review.rejection_reason }}</p>
+  {% endif %}
+  <p>Вы можете исправить отзыв и отправить его заново на <a href="{{ product_url }}">странице игры</a>.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

@@ -1,44 +1,12 @@
-<!doctype html>
-<html lang="ru">
-  <body style="margin:0;background:#ffffff;color:#201b1b;font-family:Arial,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;">
-      <tr>
-        <td align="center" style="padding:28px 16px;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;">
-            <tr>
-              <td style="padding-bottom:24px;">
-                <img src="{{ logo_url }}" alt="PaliGames" width="160" style="display:block;border:0;">
-              </td>
-            </tr>
-            <tr>
-              <td style="font-size:24px;line-height:30px;font-weight:700;padding-bottom:14px;">
-                Новая заявка на игру {{ request.payment_account_no }}
-              </td>
-            </tr>
-            <tr>
-              <td style="font-size:15px;line-height:22px;padding-bottom:18px;">
-                <strong>Имя:</strong> {{ request.contact_name }}<br>
-                <strong>Email:</strong> {{ request.contact_email }}
-              </td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #e8dede;border-radius:8px;padding:18px;">
-                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Название игры:</strong><br>{{ request.subject|linebreaksbr }}</p>
-                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Возраст:</strong><br>{{ request.audience|linebreaksbr }}</p>
-                <p style="margin:0 0 12px;font-size:14px;line-height:20px;"><strong>Количество страниц:</strong><br>{{ request.page_count|linebreaksbr }}</p>
-                <p style="margin:0;font-size:14px;line-height:20px;"><strong>Пожелания к содержанию:</strong><br>{% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding-top:22px;">
-                <a href="{{ admin_url }}" style="display:inline-block;border-radius:8px;background:#d7437b;color:#ffffff;font-size:14px;font-weight:700;line-height:18px;padding:12px 18px;text-decoration:none;">
-                  Открыть заявку
-                </a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Поступила новая заявка на игру №{{ request.payment_account_no }}.</p>
+  <p><strong>Контактные данные:</strong><br>Имя: {{ request.contact_name }}<br>Email: {{ request.contact_email }}</p>
+  <p><strong>Детали заявки:</strong></p>
+  <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
+  <p><strong>Возраст:</strong> {{ request.audience|linebreaksbr }}</p>
+  <p><strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}</p>
+  <p><strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
+  <p><a href="{{ admin_url }}">Открыть заявку в админке</a></p>
+{% endblock %}

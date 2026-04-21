@@ -2,10 +2,11 @@
 
 К сожалению, ваш отзыв на игру «{{ product.title }}» не прошёл модерацию.
 
-{% if review.rejection_reason %}Причина:
+{% if review.rejection_reason %}Причина отклонения:
 {{ review.rejection_reason }}
 
-{% endif %}Вы можете отправить отзыв заново на странице товара: {{ product_url }}
+{% endif %}Вы можете исправить отзыв и отправить его заново на странице игры:
+{{ product_url }}
 
 С уважением,
 команда PaliGames

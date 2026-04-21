@@ -1,14 +1,10 @@
-<!doctype html>
-<html lang="ru">
-  <body style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,sans-serif;color:#222;">
-    <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
-      <img src="{{ logo_url }}" alt="PaliGames" style="display:block;height:40px;margin-bottom:24px;">
-      <p>Спасибо за ваш заказ!</p>
-      <p>В знак благодарности дарим вам персональный промокод на <strong>{{ discount_percent }}%</strong>:</p>
-      <p style="font-size:24px;font-weight:700;letter-spacing:1px;">{{ promo_code.code }}</p>
-      <p>Промокод действует до <strong>{{ expires_at|date:"d.m.Y H:i" }}</strong> и может быть использован один раз при заказе, оформленном на email {{ order.email }}.</p>
-      <p>Используйте его для следующей покупки на PaliGames.</p>
-      <p><a href="{{ catalog_url }}">Перейти к покупкам</a></p>
-    </div>
-  </body>
-</html>
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Спасибо за ваш заказ!</p>
+  <p>В знак благодарности дарим вам персональный промокод на <strong>{{ discount_percent }}%</strong>:</p>
+  <p style="font-size:24px;font-weight:700;letter-spacing:1px;">{{ promo_code.code }}</p>
+  <p>Промокод действует до <strong>{{ expires_at|date:"d.m.Y H:i" }}</strong> и может быть использован один раз при заказе, оформленном на email {{ order.email }}.</p>
+  <p>Используйте его для следующей покупки на PaliGames.</p>
+  <p><a href="{{ catalog_url }}">Перейти к покупкам</a></p>
+{% endblock %}

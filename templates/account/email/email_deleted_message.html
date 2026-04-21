@@ -1,0 +1,9 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Здравствуйте!</p>
+  <p>Из вашего аккаунта PaliGames был удалён email:</p>
+  <p><strong>{{ deleted_email }}</strong></p>
+  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

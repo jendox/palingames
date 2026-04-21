@@ -1,19 +1,14 @@
-Новая заявка на игру {{ request.payment_account_no }}
+Поступила новая заявка на игру №{{ request.payment_account_no }}.
 
+Контактные данные:
 Имя: {{ request.contact_name }}
 Email: {{ request.contact_email }}
 
-Название игры:
-{{ request.subject }}
+Детали заявки:
+Название игры: {{ request.subject }}
+Возраст: {{ request.audience }}
+Количество страниц: {{ request.page_count }}
+Пожелания к содержанию: {% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
 
-Возраст:
-{{ request.audience }}
-
-Количество страниц:
-{{ request.page_count }}
-
-Пожелания к содержанию:
-{% if request.idea %}{{ request.idea }}{% else %}—{% endif %}
-
-Открыть в админке:
+Открыть заявку в админке:
 {{ admin_url }}

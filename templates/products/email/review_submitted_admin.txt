@@ -1,9 +1,11 @@
-Новый отзыв ждёт модерации.
+Новый отзыв ожидает модерации.
 
-Товар: {{ product.title }}
+Игра: {{ product.title }}
 Пользователь: {{ user.email }}
 Оценка: {{ review.rating }}/5
-Текст:
+
+Текст отзыва:
 {{ review.comment }}
 
-Админка: {{ admin_review_url }}
+Открыть отзыв в админке:
+{{ admin_review_url }}

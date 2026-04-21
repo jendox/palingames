@@ -1,78 +1,23 @@
-<!doctype html>
-<html lang="ru">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ссылки на скачивание заказа</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:#fdf6ef;font-family:'Trebuchet MS',Arial,sans-serif;color:#222222;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(180deg,#fff8f2 0%,#fdf6ef 100%);margin:0;padding:24px 0;">
-      <tr>
-        <td align="center" style="padding:0 16px;">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background-color:#ffffff;border:1px solid #f7d5a2;border-radius:28px;overflow:hidden;">
-            <tr>
-              <td style="padding:28px 32px 12px;background:linear-gradient(135deg,#fff4d8 0%,#ffffff 55%,#eefaf9 100%);text-align:center;">
-                <a href="{{ site_base_url }}/" style="text-decoration:none;display:inline-block;">
-                  <img src="{{ logo_url }}" alt="PaliGames" width="256" style="display:block;width:256px;max-width:100%;height:auto;margin:0 auto;border:0;">
-                </a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 32px 36px;">
-                <p style="margin:0 0 14px;font-size:26px;line-height:30px;font-weight:700;color:#1f1f1f;">
-                  Ваш заказ оплачен
-                </p>
-                <p style="margin:0 0 8px;font-size:16px;line-height:25px;color:#4a4a4a;">
-                  Заказ №{{ order.payment_account_no }} успешно оплачен. Ниже находятся ссылки на скачивание ваших материалов.
-                </p>
-                <p style="margin:0 0 28px;font-size:15px;line-height:24px;color:#4a4a4a;">
-                  Каждая ссылка действует <strong>{{ guest_access_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ guest_access_max_downloads }} раз</strong>.
-                </p>
+{% extends "email/base.html" %}
 
-                {% for item in items %}
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px;border:1px solid #e8ecef;border-radius:20px;background:#ffffff;">
-                    <tr>
-                      <td style="padding:18px;">
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                          <tr>
-                            <td width="132" valign="top" style="padding-right:18px;">
-                              <img src="{{ item.image_url }}" alt="{{ item.title }}" width="132" style="display:block;width:132px;height:132px;object-fit:cover;border-radius:14px;border:0;">
-                            </td>
-                            <td valign="top">
-                              <p style="margin:0 0 10px;font-size:20px;line-height:24px;font-weight:700;color:#1f1f1f;">
-                                {{ item.title }}
-                              </p>
-                              <p style="margin:0 0 8px;font-size:14px;line-height:20px;color:#5c6470;">
-                                {{ item.category }}
-                              </p>
-                              <p style="margin:0 0 18px;font-size:18px;line-height:22px;font-weight:700;color:#1f1f1f;">
-                                {{ item.price }}
-                              </p>
-                              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                                <tr>
-                                  <td align="center" bgcolor="#80c11e" style="border-radius:14px;">
-                                    <a href="{{ item.download_url }}" style="display:inline-block;padding:14px 22px;font-size:16px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;background:linear-gradient(135deg,#80c11e 0%,#2dc0c2 100%);">
-                                      Скачать
-                                    </a>
-                                  </td>
-                                </tr>
-                              </table>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                {% endfor %}
+{% block content %}
+  <p>Спасибо за ваш заказ!</p>
+  <p>Заказ №{{ order.payment_account_no }} успешно оплачен. Ниже находятся ссылки на скачивание ваших материалов.</p>
+  <p>Каждая ссылка действует <strong>{{ guest_access_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ guest_access_max_downloads }} раз</strong>.</p>
 
-                <p style="margin:20px 0 0;font-size:14px;line-height:22px;color:#6c727a;">
-                  Если ссылка больше не работает, срок её действия истёк или лимит скачиваний исчерпан.
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
+  {% for item in items %}
+    <div style="margin:0 0 18px;padding:18px;border:1px solid #ececec;border-radius:12px;">
+      <p style="margin:0 0 8px;font-size:18px;font-weight:700;">{{ item.title }}</p>
+      {% if item.category %}
+        <p style="margin:0 0 8px;color:#666;">{{ item.category }}</p>
+      {% endif %}
+      <p style="margin:0 0 16px;font-weight:700;">{{ item.price }}</p>
+      <p style="margin:0;">
+        <a href="{{ item.download_url }}">Скачать</a>
+      </p>
+    </div>
+  {% endfor %}
+
+  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

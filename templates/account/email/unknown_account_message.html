@@ -1,0 +1,13 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+  <p>Здравствуйте!</p>
+  <p>Поступил запрос на восстановление доступа к аккаунту PaliGames для email:</p>
+  <p><strong>{{ email }}</strong></p>
+  <p>Но аккаунт с таким адресом у нас не найден.</p>
+  <p>Если это были вы, вы можете зарегистрироваться по ссылке:</p>
+  <p><a href="{{ signup_url }}">Создать аккаунт</a></p>
+  <p style="word-break:break-word;"><a href="{{ signup_url }}">{{ signup_url }}</a></p>
+  <p>Если это были не вы, просто проигнорируйте это письмо.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+  <body style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,sans-serif;color:#222;">
+    <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      {% if logo_url %}
+        <img src="{{ logo_url }}" alt="PaliGames" style="display:block;height:40px;margin-bottom:24px;">
+      {% elif request and current_site %}
+        <img src="{{ request.scheme }}://{{ current_site.domain }}{% static 'images/logo.svg' %}" alt="PaliGames" style="display:block;height:40px;margin-bottom:24px;">
+      {% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>
