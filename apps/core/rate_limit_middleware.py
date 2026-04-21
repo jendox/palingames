@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
+from apps.core.logging import log_event
 from apps.core.rate_limits import RateLimitResult, RateLimitScope, check_rate_limit
 
 AUTH_LOGIN_PATH = "/_allauth/browser/v1/auth/login"
@@ -17,12 +19,14 @@ AUTH_PASSWORD_RESET_REQUEST_PATH = "/_allauth/browser/v1/auth/password/request"
 AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE = "Слишком много запросов сброса пароля. Попробуйте позже."
 AUTH_PASSWORD_RESET_CONFIRM_PATH = "/_allauth/browser/v1/auth/password/reset"
 AUTH_PASSWORD_RESET_CONFIRM_RATE_LIMIT_MESSAGE = "Слишком много попыток сброса пароля. Попробуйте позже."
+logger = logging.getLogger("apps.auth.rate_limits")
 
 
 @dataclass(frozen=True)
 class AuthRateLimitConfig:
-    checker: Callable[[HttpRequest], RateLimitResult | None]
+    checker: Callable[[HttpRequest], tuple[RateLimitResult | None, str | None]]
     message: str
+    scope: str
 
 
 def _get_client_ip(request: HttpRequest) -> str:
@@ -78,17 +82,20 @@ def _check_auth_login_rate_limit(request: HttpRequest):
             window_seconds=settings.AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
         )
         if not email_result.allowed:
-            return email_result
+            return email_result, "email"
 
     ip = _get_client_ip(request)
     if not ip:
-        return None
+        return None, None
 
-    return check_rate_limit(
+    return (
+        check_rate_limit(
         scope=RateLimitScope.AUTH_LOGIN,
         identifier=f"ip:{ip}",
         limit=settings.AUTH_LOGIN_IP_RATE_LIMIT,
         window_seconds=settings.AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+        "ip",
     )
 
 
@@ -102,17 +109,20 @@ def _check_auth_signup_rate_limit(request: HttpRequest):
             window_seconds=settings.AUTH_SIGNUP_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
         )
         if not email_result.allowed:
-            return email_result
+            return email_result, "email"
 
     ip = _get_client_ip(request)
     if not ip:
-        return None
+        return None, None
 
-    return check_rate_limit(
+    return (
+        check_rate_limit(
         scope=RateLimitScope.AUTH_SIGNUP,
         identifier=f"ip:{ip}",
         limit=settings.AUTH_SIGNUP_IP_RATE_LIMIT,
         window_seconds=settings.AUTH_SIGNUP_IP_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+        "ip",
     )
 
 
@@ -126,17 +136,20 @@ def _check_auth_password_reset_request_rate_limit(request: HttpRequest):
             window_seconds=settings.AUTH_PASSWORD_RESET_REQUEST_EMAIL_RATE_LIMIT_WINDOW_SECONDS,
         )
         if not email_result.allowed:
-            return email_result
+            return email_result, "email"
 
     ip = _get_client_ip(request)
     if not ip:
-        return None
+        return None, None
 
-    return check_rate_limit(
+    return (
+        check_rate_limit(
         scope=RateLimitScope.AUTH_PASSWORD_RESET_REQUEST,
         identifier=f"ip:{ip}",
         limit=settings.AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT,
         window_seconds=settings.AUTH_PASSWORD_RESET_REQUEST_IP_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+        "ip",
     )
 
 
@@ -150,17 +163,20 @@ def _check_auth_password_reset_confirm_rate_limit(request: HttpRequest):
             window_seconds=settings.AUTH_PASSWORD_RESET_CONFIRM_KEY_RATE_LIMIT_WINDOW_SECONDS,
         )
         if not key_result.allowed:
-            return key_result
+            return key_result, "key"
 
     ip = _get_client_ip(request)
     if not ip:
-        return None
+        return None, None
 
-    return check_rate_limit(
+    return (
+        check_rate_limit(
         scope=RateLimitScope.AUTH_PASSWORD_RESET_CONFIRM,
         identifier=f"ip:{ip}",
         limit=settings.AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT,
         window_seconds=settings.AUTH_PASSWORD_RESET_CONFIRM_IP_RATE_LIMIT_WINDOW_SECONDS,
+        ),
+        "ip",
     )
 
 
@@ -168,18 +184,22 @@ AUTH_RATE_LIMIT_CONFIGS = {
     AUTH_LOGIN_PATH: AuthRateLimitConfig(
         checker=_check_auth_login_rate_limit,
         message=AUTH_LOGIN_RATE_LIMIT_MESSAGE,
+        scope=RateLimitScope.AUTH_LOGIN,
     ),
     AUTH_SIGNUP_PATH: AuthRateLimitConfig(
         checker=_check_auth_signup_rate_limit,
         message=AUTH_SIGNUP_RATE_LIMIT_MESSAGE,
+        scope=RateLimitScope.AUTH_SIGNUP,
     ),
     AUTH_PASSWORD_RESET_REQUEST_PATH: AuthRateLimitConfig(
         checker=_check_auth_password_reset_request_rate_limit,
         message=AUTH_PASSWORD_RESET_REQUEST_RATE_LIMIT_MESSAGE,
+        scope=RateLimitScope.AUTH_PASSWORD_RESET_REQUEST,
     ),
     AUTH_PASSWORD_RESET_CONFIRM_PATH: AuthRateLimitConfig(
         checker=_check_auth_password_reset_confirm_rate_limit,
         message=AUTH_PASSWORD_RESET_CONFIRM_RATE_LIMIT_MESSAGE,
+        scope=RateLimitScope.AUTH_PASSWORD_RESET_CONFIRM,
     ),
 }
 
@@ -196,8 +216,17 @@ class AuthRateLimitMiddleware:
         if config is None:
             return self.get_response(request)
 
-        rate_limit = config.checker(request)
+        rate_limit, identifier_type = config.checker(request)
         if rate_limit is not None and not rate_limit.allowed:
+            log_event(
+                logger,
+                logging.WARNING,
+                "auth.rate_limit.triggered",
+                path=request.path,
+                scope=config.scope,
+                identifier_type=identifier_type,
+                retry_after_seconds=rate_limit.retry_after_seconds,
+            )
             return _rate_limited_response(
                 message=config.message,
                 retry_after_seconds=rate_limit.retry_after_seconds,

@@ -184,6 +184,47 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertContains(response, "22,50 BYN")
         self.assertFalse(Order.objects.exists())
 
+    @patch("apps.orders.views.log_event")
+    def test_checkout_promo_apply_logs_success(self, log_event_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        PromoCode.objects.create(code="review10", discount_percent=10, max_redemptions_per_email=1)
+
+        response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "review10",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.succeeded")
+        self.assertEqual(log_event_mock.call_args.kwargs["promo_code"], "REVIEW10")
+
+    @patch("apps.orders.views.log_event")
+    def test_checkout_promo_apply_logs_failure_for_invalid_code(self, log_event_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing-one",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.failed")
+        self.assertEqual(log_event_mock.call_args.kwargs["reason"], "invalid_or_not_applicable")
+
     def test_checkout_post_applies_category_limited_percent_promo(self):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id, self.other_product.id]
@@ -298,6 +339,32 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertEqual(Order.objects.count(), 1)
 
     @override_settings(
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT=1,
+        CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_CREATE_IP_RATE_LIMIT=100,
+        CHECKOUT_CREATE_IP_RATE_LIMIT_WINDOW_SECONDS=3600,
+    )
+    @patch("apps.orders.views.log_event")
+    def test_checkout_post_logs_rate_limit_event(self, log_event_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(first_response.status_code, 302)
+
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.other_product.id]
+        session.save()
+
+        second_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertEqual(log_event_mock.call_args.args[2], "checkout.rate_limited")
+        self.assertEqual(log_event_mock.call_args.kwargs["reason"], "create_order")
+
+    @override_settings(
         CHECKOUT_CREATE_EMAIL_RATE_LIMIT=100,
         CHECKOUT_CREATE_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
         CHECKOUT_CREATE_IP_RATE_LIMIT=1,
@@ -376,6 +443,43 @@ class CheckoutPageViewTests(CheckoutTestBase):
         )
         self.assertEqual(second_response["Retry-After"], "600")
         self.assertNotEqual(self.client.session.get("checkout_promo_code"), "MISSING-TWO")
+
+    @override_settings(
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT=1,
+        CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT=100,
+        CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    @patch("apps.orders.views.log_event")
+    def test_checkout_promo_apply_logs_rate_limit_event(self, log_event_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        first_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing-one",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+
+        second_response = self.client.post(
+            reverse("checkout-promo-apply"),
+            {
+                "email": "guest@example.com",
+                "promo_code": "missing-two",
+                "checkout_variant": "desktop",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(second_response.status_code, 429)
+        self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.rate_limited")
 
     @override_settings(
         CHECKOUT_PROMO_APPLY_EMAIL_RATE_LIMIT=100,

@@ -1,10 +1,12 @@
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from allauth.account.models import EmailAddress
-from allauth.account.signals import email_confirmed
+from allauth.account.signals import email_confirmed, password_reset, user_signed_up
 from django.contrib.auth import get_user_model
-from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
 
@@ -150,6 +152,70 @@ class GuestOrderMergeTests(TestCase):
                 order=guest_order,
             ).exists(),
         )
+
+
+class AuthLoggingSignalTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            email="auth-logs@example.com",
+            password="test-pass-123",
+        )
+
+    @patch("apps.users.signals.log_event")
+    def test_user_logged_in_logs_social_login_success(self, log_event_mock):
+        request = SimpleNamespace(
+            session={
+                "account_authentication_methods": [
+                    {
+                        "method": "socialaccount",
+                        "provider": "google",
+                    },
+                ],
+            },
+        )
+
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        self.assertEqual(log_event_mock.call_args_list[0].args[2], "auth.social.login.succeeded")
+        self.assertEqual(log_event_mock.call_args_list[0].kwargs["provider"], "google")
+
+    @patch("apps.users.signals.log_event")
+    def test_user_login_failed_logs_failed_auth(self, log_event_mock):
+        user_login_failed.send(
+            sender=self.user.__class__,
+            credentials={"email": self.user.email, "password": "wrong"},
+            request=SimpleNamespace(path="/_allauth/browser/v1/auth/login"),
+        )
+
+        log_event_mock.assert_called_once()
+        self.assertEqual(log_event_mock.call_args.args[2], "auth.login.failed")
+        self.assertEqual(log_event_mock.call_args.kwargs["login_field"], "email")
+
+    @patch("apps.users.signals.log_event")
+    def test_user_signed_up_logs_signup_success(self, log_event_mock):
+        sociallogin = Mock()
+        sociallogin.account.provider = "google"
+
+        user_signed_up.send(
+            sender=self.user.__class__,
+            request=None,
+            user=self.user,
+            sociallogin=sociallogin,
+        )
+
+        log_event_mock.assert_called_once()
+        self.assertEqual(log_event_mock.call_args.args[2], "auth.signup.succeeded")
+        self.assertEqual(log_event_mock.call_args.kwargs["method"], "socialaccount")
+        self.assertEqual(log_event_mock.call_args.kwargs["provider"], "google")
+
+    @patch("apps.users.signals.log_event")
+    def test_password_reset_logs_completed_event(self, log_event_mock):
+        password_reset.send(sender=self.user.__class__, request=None, user=self.user)
+
+        log_event_mock.assert_called_once()
+        self.assertEqual(log_event_mock.call_args.args[2], "auth.password_reset.completed")
+        self.assertEqual(log_event_mock.call_args.kwargs["user_id"], self.user.id)
 
     def test_email_confirmation_merges_guest_reward_promo_to_user(self):
         guest_order = Order.objects.create(

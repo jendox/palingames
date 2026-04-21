@@ -95,6 +95,15 @@ def enqueue_notification_outbox(outbox: NotificationOutbox) -> NotificationOutbo
     from .tasks import send_notification_outbox_task
 
     transaction.on_commit(lambda: send_notification_outbox_task.delay(outbox.id))
+    log_event(
+        logger,
+        logging.INFO,
+        "notification.outbox.enqueued",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        recipient=outbox.recipient,
+    )
     return outbox
 
 
@@ -139,6 +148,16 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
         outbox.last_attempt_at = timezone.now()
         outbox.last_error = ""
         outbox.save(update_fields=["status", "attempts", "last_attempt_at", "last_error", "updated_at"])
+    log_event(
+        logger,
+        logging.INFO,
+        "notification.outbox.processing.started",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        recipient=outbox.recipient,
+        attempts=outbox.attempts,
+    )
 
     try:
         payload = decrypt_outbox_payload(outbox.payload_encrypted)

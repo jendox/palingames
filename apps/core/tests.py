@@ -298,6 +298,25 @@ class AuthRateLimitMiddlewareTests(TestCase):
         self.assertEqual(second.status_code, 429)
         self.assertEqual(second["Retry-After"], "600")
 
+    @patch("apps.core.rate_limit_middleware.log_event")
+    def test_auth_login_rate_limit_is_logged(self, log_event_mock):
+        self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        log_event_mock.assert_called_once()
+        self.assertEqual(log_event_mock.call_args.args[2], "auth.rate_limit.triggered")
+        self.assertEqual(log_event_mock.call_args.kwargs["scope"], RateLimitScope.AUTH_LOGIN)
+        self.assertEqual(log_event_mock.call_args.kwargs["identifier_type"], "email")
+
     def test_auth_signup_enforces_email_rate_limit(self):
         first = self.client.post(
             "/_allauth/browser/v1/auth/signup",

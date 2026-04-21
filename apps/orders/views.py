@@ -91,6 +91,27 @@ def _check_checkout_promo_apply_rate_limit(*, request: HttpRequest, email: str):
     )
 
 
+def _log_promo_apply_result(*, request: HttpRequest, promo_code: str, context: dict) -> None:
+    if context.get("checkout_promo_applied"):
+        log_event(
+            logger,
+            logging.INFO,
+            "promo.apply.succeeded",
+            promo_code=promo_code,
+            email_present=bool(request.POST.get("email", "").strip()),
+        )
+        return
+
+    log_event(
+        logger,
+        logging.WARNING,
+        "promo.apply.failed",
+        promo_code=promo_code,
+        reason="invalid_or_not_applicable",
+        email_present=bool(request.POST.get("email", "").strip()),
+    )
+
+
 class CheckoutPageView(TemplateView):
     template_name = "pages/checkout.html"
 
@@ -184,6 +205,14 @@ class CheckoutPageView(TemplateView):
             email=form.cleaned_data["email"],
         )
         if not rate_limit.allowed:
+            log_event(
+                logger,
+                logging.WARNING,
+                "checkout.rate_limited",
+                reason="create_order",
+                email_present=bool(form.cleaned_data["email"].strip()),
+                retry_after_seconds=rate_limit.retry_after_seconds,
+            )
             context = self.get_context_data(
                 checkout_form=form,
                 checkout_error_message=CHECKOUT_RATE_LIMIT_MESSAGE,
@@ -237,6 +266,13 @@ def _checkout_summary_template(request) -> str:
 def checkout_promo_apply_view(request):
     raw_code = request.POST.get("promo_code", "")
     if not raw_code.strip():
+        log_event(
+            logger,
+            logging.WARNING,
+            "promo.apply.failed",
+            reason="empty_code",
+            email_present=bool(request.POST.get("email", "").strip()),
+        )
         clear_checkout_promo_code(request)
         context = get_checkout_order_context(
             request,
@@ -251,6 +287,13 @@ def checkout_promo_apply_view(request):
         email=request.POST.get("email", ""),
     )
     if rate_limit is not None and not rate_limit.allowed:
+        log_event(
+            logger,
+            logging.WARNING,
+            "promo.apply.rate_limited",
+            email_present=bool(request.POST.get("email", "").strip()),
+            retry_after_seconds=rate_limit.retry_after_seconds,
+        )
         context = get_checkout_order_context(
             request,
             email=request.POST.get("email", ""),
@@ -261,14 +304,23 @@ def checkout_promo_apply_view(request):
         response["Retry-After"] = str(rate_limit.retry_after_seconds)
         return response
 
-    set_checkout_promo_code(request, raw_code)
+    normalized_code = set_checkout_promo_code(request, raw_code)
     context = get_checkout_order_context(request, email=request.POST.get("email", ""))
+    _log_promo_apply_result(request=request, promo_code=normalized_code, context=context)
     return render(request, _checkout_summary_template(request), context)
 
 
 @require_POST
 def checkout_promo_remove_view(request):
+    removed_code = get_checkout_promo_code(request)
     clear_checkout_promo_code(request)
+    log_event(
+        logger,
+        logging.INFO,
+        "promo.remove.succeeded",
+        promo_code=removed_code or None,
+        email_present=bool(request.POST.get("email", "").strip()),
+    )
     context = get_checkout_order_context(
         request,
         email=request.POST.get("email", ""),
