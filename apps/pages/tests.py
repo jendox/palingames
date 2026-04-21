@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from apps.access.models import UserProductAccess
 from apps.favorites.models import Favorite
+from apps.orders.guest_merge import merge_guest_orders_for_user
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Category, Product
 
@@ -173,6 +174,37 @@ class AccountOrdersDownloadTests(TestCase):
         )
         self.assertIn("Не удалось завершить оплату", order_ctx["status_failure_hint"])
         self.assertContains(response, order_ctx["status_failure_hint"])
+
+    def test_account_orders_include_merged_guest_orders(self):
+        guest_order = Order.objects.create(
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("19.00"),
+            total_amount=Decimal("19.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=guest_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        merge_guest_orders_for_user(user=self.user, email=self.user.email)
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("account"), {"tab": "orders"})
+
+        self.assertEqual(response.status_code, 200)
+        order_numbers = {item["number"] for item in response.context["account_orders"]}
+        self.assertIn(guest_order.payment_account_no, order_numbers)
 
 
 class AccountFavoritesTabTests(TestCase):

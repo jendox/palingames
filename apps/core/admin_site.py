@@ -1,3 +1,8 @@
+from allauth.account import app_settings as allauth_account_settings
+from allauth.account.admin import EmailAddressAdmin, EmailConfirmationAdmin
+from allauth.account.models import EmailAddress, EmailConfirmation
+from allauth.socialaccount.admin import SocialAccountAdmin, SocialAppAdmin, SocialTokenAdmin
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib.admin import AdminSite
 
 
@@ -15,6 +20,8 @@ class PaliAdminSite(AdminSite):
         "promocodes": 60,
         "favorites": 70,
         "users": 80,
+        "account": 81,
+        "socialaccount": 82,
         "notifications": 90,
         "pages": 100,
         "cart": 110,
@@ -60,6 +67,15 @@ class PaliAdminSite(AdminSite):
         "users": {
             "CustomUser": 10,
         },
+        "account": {
+            "EmailAddress": 10,
+            "EmailConfirmation": 20,
+        },
+        "socialaccount": {
+            "SocialApp": 10,
+            "SocialAccount": 20,
+            "SocialToken": 30,
+        },
         "notifications": {
             "NotificationOutbox": 10,
         },
@@ -87,3 +103,10 @@ class PaliAdminSite(AdminSite):
 
 
 admin_site = PaliAdminSite(name="admin")
+
+admin_site.register(EmailAddress, EmailAddressAdmin)
+if not allauth_account_settings.EMAIL_CONFIRMATION_HMAC:
+    admin_site.register(EmailConfirmation, EmailConfirmationAdmin)
+admin_site.register(SocialApp, SocialAppAdmin)
+admin_site.register(SocialToken, SocialTokenAdmin)
+admin_site.register(SocialAccount, SocialAccountAdmin)

@@ -1,7 +1,16 @@
+from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
+from allauth.account.models import EmailAddress
+from allauth.account.signals import email_confirmed
+from django.contrib.auth import get_user_model
 from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
+
+from apps.access.models import UserProductAccess
+from apps.orders.models import Order, OrderItem
+from apps.products.models import Product
+from apps.promocodes.models import PromoCode
 
 SOCIALACCOUNT_TEST_PROVIDERS = {
     "google": {
@@ -86,3 +95,89 @@ class SocialLoginTests(TestCase):
         parsed_redirect_uri = urlparse(redirect_uri)
         self.assertEqual(parsed_redirect_uri.scheme, "https")
         self.assertEqual(parsed_redirect_uri.netloc, "example.ngrok-free.app")
+
+
+class GuestOrderMergeTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            email="merge@example.com",
+            password="test-pass-123",
+        )
+        cls.product = Product.objects.create(
+            title="Merge product",
+            slug="merge-product",
+            price=Decimal("25.00"),
+        )
+
+    def test_email_confirmation_merges_guest_orders_and_grants_access(self):
+        guest_order = Order.objects.create(
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=guest_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        email_address = EmailAddress.objects.create(
+            user=self.user,
+            email=self.user.email,
+            verified=True,
+            primary=True,
+        )
+
+        email_confirmed.send(sender=EmailAddress, request=None, email_address=email_address)
+
+        guest_order.refresh_from_db()
+        self.assertEqual(guest_order.user, self.user)
+        self.assertTrue(
+            UserProductAccess.objects.filter(
+                user=self.user,
+                product=self.product,
+                order=guest_order,
+            ).exists(),
+        )
+
+    def test_email_confirmation_merges_guest_reward_promo_to_user(self):
+        guest_order = Order.objects.create(
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        reward_promo = PromoCode.objects.create(
+            code="GUESTREWARD",
+            discount_percent=10,
+            is_reward=True,
+            assigned_email=self.user.email,
+        )
+        guest_order.reward_promo_code = reward_promo
+        guest_order.save(update_fields=["reward_promo_code"])
+        email_address = EmailAddress.objects.create(
+            user=self.user,
+            email=self.user.email,
+            verified=True,
+            primary=True,
+        )
+
+        email_confirmed.send(sender=EmailAddress, request=None, email_address=email_address)
+
+        reward_promo.refresh_from_db()
+        guest_order.refresh_from_db()
+        self.assertEqual(guest_order.user, self.user)
+        self.assertEqual(reward_promo.assigned_user, self.user)
