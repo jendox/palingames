@@ -16,7 +16,12 @@ from django.views.generic import DetailView, TemplateView
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.logging import log_event
-from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
+from apps.core.metrics import (
+    inc_catalog_page_view,
+    inc_product_download_failed,
+    inc_product_download_redirect,
+    inc_product_page_view,
+)
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_favorite_product_ids
 
@@ -49,6 +54,10 @@ logger = logging.getLogger("apps.products")
 PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание."
 PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE = "Файл недоступен. Попробуйте позже."
 REVIEW_SUBMITTED_NOTIFICATION_EVENT = "review:submitted"
+
+
+def _metrics_user_type(user) -> str:
+    return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
 class CatalogView(TemplateView):
@@ -431,6 +440,8 @@ class CatalogView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        if self.request.headers.get("HX-Request") != "true":
+            inc_catalog_page_view(user_type=_metrics_user_type(self.request.user))
         categories = []
         for index, category in enumerate(Category.objects.order_by("id")):
             style = self.card_styles[index % len(self.card_styles)]
@@ -762,6 +773,8 @@ class ProductDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        if self.request.headers.get("HX-Request") != "true":
+            inc_product_page_view(user_type=_metrics_user_type(self.request.user))
         product = context["product"]
         active_tab = _get_active_product_tab(self.request)
         images = [image.image.url for image in product.images.all()]

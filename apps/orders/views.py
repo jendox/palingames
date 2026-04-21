@@ -10,6 +10,12 @@ from django.views.generic import TemplateView
 
 from apps.cart.services import clear_cart
 from apps.core.logging import log_event
+from apps.core.metrics import (
+    inc_checkout_completed,
+    inc_checkout_started,
+    inc_promo_apply_failed,
+    inc_promo_apply_succeeded,
+)
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.promocodes.services import PromoCodeError
@@ -31,6 +37,10 @@ logger = logging.getLogger("apps.checkout")
 
 CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оформления заказа. Попробуйте позже."
 CHECKOUT_PROMO_RATE_LIMIT_MESSAGE = "Слишком много попыток применения промокода. Попробуйте позже."
+
+
+def _metrics_user_type(user) -> str:
+    return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
 def _redirect_to_created_order(order: Order):
@@ -93,6 +103,7 @@ def _check_checkout_promo_apply_rate_limit(*, request: HttpRequest, email: str):
 
 def _log_promo_apply_result(*, request: HttpRequest, promo_code: str, context: dict) -> None:
     if context.get("checkout_promo_applied"):
+        inc_promo_apply_succeeded()
         log_event(
             logger,
             logging.INFO,
@@ -102,6 +113,7 @@ def _log_promo_apply_result(*, request: HttpRequest, promo_code: str, context: d
         )
         return
 
+    inc_promo_apply_failed(reason="invalid_or_not_applicable")
     log_event(
         logger,
         logging.WARNING,
@@ -133,6 +145,8 @@ class CheckoutPageView(TemplateView):
             log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
         self.checkout_context = checkout_context
+        if request.method == "GET" and request.headers.get("HX-Request") != "true":
+            inc_checkout_started(user_type=_metrics_user_type(request.user))
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -178,7 +192,7 @@ class CheckoutPageView(TemplateView):
         context["checkout_error_message"] = kwargs.get("checkout_error_message", "")
         return context
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):  # noqa: C901
         form = CheckoutSubmitForm(request.POST)
         if not form.is_valid():
             log_event(
@@ -253,6 +267,8 @@ class CheckoutPageView(TemplateView):
             checkout_type=order.checkout_type,
             order_created=result.created,
         )
+        if result.created:
+            inc_checkout_completed(checkout_type=order.checkout_type, source=order.source)
         return _redirect_to_created_order(order)
 
 
@@ -266,6 +282,7 @@ def _checkout_summary_template(request) -> str:
 def checkout_promo_apply_view(request):
     raw_code = request.POST.get("promo_code", "")
     if not raw_code.strip():
+        inc_promo_apply_failed(reason="empty_code")
         log_event(
             logger,
             logging.WARNING,
@@ -287,6 +304,7 @@ def checkout_promo_apply_view(request):
         email=request.POST.get("email", ""),
     )
     if rate_limit is not None and not rate_limit.allowed:
+        inc_promo_apply_failed(reason="rate_limited")
         log_event(
             logger,
             logging.WARNING,

@@ -180,6 +180,23 @@ class AuthLoggingSignalTests(TestCase):
         self.assertEqual(log_event_mock.call_args_list[0].args[2], "auth.social.login.succeeded")
         self.assertEqual(log_event_mock.call_args_list[0].kwargs["provider"], "google")
 
+    @patch("apps.users.signals.inc_auth_login_success")
+    def test_user_logged_in_increments_login_success_metric(self, inc_auth_login_success_mock):
+        request = SimpleNamespace(
+            session={
+                "account_authentication_methods": [
+                    {
+                        "method": "socialaccount",
+                        "provider": "google",
+                    },
+                ],
+            },
+        )
+
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        inc_auth_login_success_mock.assert_called_once_with(method="socialaccount")
+
     @patch("apps.users.signals.log_event")
     def test_user_login_failed_logs_failed_auth(self, log_event_mock):
         user_login_failed.send(
@@ -191,6 +208,16 @@ class AuthLoggingSignalTests(TestCase):
         log_event_mock.assert_called_once()
         self.assertEqual(log_event_mock.call_args.args[2], "auth.login.failed")
         self.assertEqual(log_event_mock.call_args.kwargs["login_field"], "email")
+
+    @patch("apps.users.signals.inc_auth_login_failed")
+    def test_user_login_failed_increments_metric(self, inc_auth_login_failed_mock):
+        user_login_failed.send(
+            sender=self.user.__class__,
+            credentials={"email": self.user.email, "password": "wrong"},
+            request=SimpleNamespace(path="/_allauth/browser/v1/auth/login"),
+        )
+
+        inc_auth_login_failed_mock.assert_called_once_with(login_field="email")
 
     @patch("apps.users.signals.log_event")
     def test_user_signed_up_logs_signup_success(self, log_event_mock):
@@ -209,6 +236,20 @@ class AuthLoggingSignalTests(TestCase):
         self.assertEqual(log_event_mock.call_args.kwargs["method"], "socialaccount")
         self.assertEqual(log_event_mock.call_args.kwargs["provider"], "google")
 
+    @patch("apps.users.signals.inc_auth_signup_success")
+    def test_user_signed_up_increments_signup_success_metric(self, inc_auth_signup_success_mock):
+        sociallogin = Mock()
+        sociallogin.account.provider = "google"
+
+        user_signed_up.send(
+            sender=self.user.__class__,
+            request=None,
+            user=self.user,
+            sociallogin=sociallogin,
+        )
+
+        inc_auth_signup_success_mock.assert_called_once_with(method="socialaccount")
+
     @patch("apps.users.signals.log_event")
     def test_password_reset_logs_completed_event(self, log_event_mock):
         password_reset.send(sender=self.user.__class__, request=None, user=self.user)
@@ -216,6 +257,12 @@ class AuthLoggingSignalTests(TestCase):
         log_event_mock.assert_called_once()
         self.assertEqual(log_event_mock.call_args.args[2], "auth.password_reset.completed")
         self.assertEqual(log_event_mock.call_args.kwargs["user_id"], self.user.id)
+
+    @patch("apps.users.signals.inc_auth_password_reset_completed")
+    def test_password_reset_increments_completed_metric(self, inc_auth_password_reset_completed_mock):
+        password_reset.send(sender=self.user.__class__, request=None, user=self.user)
+
+        inc_auth_password_reset_completed_mock.assert_called_once_with()
 
     def test_email_confirmation_merges_guest_reward_promo_to_user(self):
         guest_order = Order.objects.create(
@@ -288,3 +335,54 @@ class AuthLoggingSignalTests(TestCase):
                 order=guest_order,
             ).exists(),
         )
+
+    @patch("apps.orders.guest_merge.inc_guest_orders_merged")
+    def test_email_confirmation_increments_guest_merge_metric(self, inc_guest_orders_merged_mock):
+        guest_order = Order.objects.create(
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=guest_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        email_address = EmailAddress.objects.create(
+            user=self.user,
+            email=self.user.email,
+            verified=True,
+            primary=True,
+        )
+
+        email_confirmed.send(sender=EmailAddress, request=None, email_address=email_address)
+
+        inc_guest_orders_merged_mock.assert_called_once_with(count=1)
+
+
+class AccountAdapterMetricsTests(TestCase):
+    @patch("apps.users.adapters.inc_auth_password_reset_requested")
+    def test_send_password_reset_mail_increments_metric(self, inc_auth_password_reset_requested_mock):
+        user = get_user_model().objects.create_user(
+            email="reset-metric@example.com",
+            password="test-pass-123",
+        )
+
+        with patch("allauth.account.adapter.DefaultAccountAdapter.send_password_reset_mail") as super_mock:
+            from apps.users.adapters import AccountAdapter
+
+            adapter = AccountAdapter(request=None)
+            adapter.send_password_reset_mail(user, user.email, {"request": None})
+
+        inc_auth_password_reset_requested_mock.assert_called_once_with()
+        super_mock.assert_called_once()

@@ -58,7 +58,7 @@ class CheckoutTestBase(TestCase):
         self.mock_get_express_pay_request_client.return_value = mock_client
 
 
-class CheckoutPageViewTests(CheckoutTestBase):
+class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
     def test_checkout_redirects_to_cart_when_empty(self):
         response = self.client.get(reverse("checkout"))
 
@@ -77,6 +77,17 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertContains(response, 'name="checkout_idempotency_key"')
         self.assertTrue(response.context["checkout_idempotency_key"])
 
+    @patch("apps.orders.views.inc_checkout_started")
+    def test_checkout_get_increments_started_metric(self, inc_checkout_started_mock):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        inc_checkout_started_mock.assert_called_once_with(user_type="guest")
+
     def test_authenticated_checkout_prefills_email_and_uses_second_step(self):
         self.client.force_login(self.user)
         cart = Cart.objects.create(user=self.user)
@@ -88,7 +99,8 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertEqual(response.context["checkout_step"], 2)
         self.assertEqual(response.context["checkout_email"], self.user.email)
 
-    def test_guest_checkout_post_creates_order_and_redirects(self):
+    @patch("apps.orders.views.inc_checkout_completed")
+    def test_guest_checkout_post_creates_order_and_redirects(self, inc_checkout_completed_mock):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
@@ -110,6 +122,10 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertEqual(invoice.amount, order.total_amount)
         self.assertIsNotNone(invoice.expires_at)
         self.assertIn(f"created={order.public_id}", response["Location"])
+        inc_checkout_completed_mock.assert_called_once_with(
+            checkout_type=Order.CheckoutType.GUEST,
+            source=Order.Source.PALINGAMES,
+        )
         self.assertEqual(self.client.session.get(SESSION_CART_KEY), [])
         self.assertNotIn(CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY, self.client.session)
 
@@ -184,8 +200,9 @@ class CheckoutPageViewTests(CheckoutTestBase):
         self.assertContains(response, "22,50 BYN")
         self.assertFalse(Order.objects.exists())
 
+    @patch("apps.orders.views.inc_promo_apply_succeeded")
     @patch("apps.orders.views.log_event")
-    def test_checkout_promo_apply_logs_success(self, log_event_mock):
+    def test_checkout_promo_apply_logs_success(self, log_event_mock, inc_promo_apply_succeeded_mock):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
@@ -202,11 +219,13 @@ class CheckoutPageViewTests(CheckoutTestBase):
         )
 
         self.assertEqual(response.status_code, 200)
+        inc_promo_apply_succeeded_mock.assert_called_once()
         self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.succeeded")
         self.assertEqual(log_event_mock.call_args.kwargs["promo_code"], "REVIEW10")
 
+    @patch("apps.orders.views.inc_promo_apply_failed")
     @patch("apps.orders.views.log_event")
-    def test_checkout_promo_apply_logs_failure_for_invalid_code(self, log_event_mock):
+    def test_checkout_promo_apply_logs_failure_for_invalid_code(self, log_event_mock, inc_promo_apply_failed_mock):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
@@ -222,6 +241,7 @@ class CheckoutPageViewTests(CheckoutTestBase):
         )
 
         self.assertEqual(response.status_code, 200)
+        inc_promo_apply_failed_mock.assert_called_once_with(reason="invalid_or_not_applicable")
         self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.failed")
         self.assertEqual(log_event_mock.call_args.kwargs["reason"], "invalid_or_not_applicable")
 
@@ -450,8 +470,9 @@ class CheckoutPageViewTests(CheckoutTestBase):
         CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT=100,
         CHECKOUT_PROMO_APPLY_IP_RATE_LIMIT_WINDOW_SECONDS=600,
     )
+    @patch("apps.orders.views.inc_promo_apply_failed")
     @patch("apps.orders.views.log_event")
-    def test_checkout_promo_apply_logs_rate_limit_event(self, log_event_mock):
+    def test_checkout_promo_apply_logs_rate_limit_event(self, log_event_mock, inc_promo_apply_failed_mock):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
@@ -479,6 +500,7 @@ class CheckoutPageViewTests(CheckoutTestBase):
         )
 
         self.assertEqual(second_response.status_code, 429)
+        inc_promo_apply_failed_mock.assert_called_once_with(reason="rate_limited")
         self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.rate_limited")
 
     @override_settings(

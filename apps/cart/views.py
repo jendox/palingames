@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from apps.core.metrics import inc_product_added_to_cart
 from apps.products.models import Product
 
 from .services import (
@@ -14,6 +15,10 @@ from .services import (
     remove_cart_product,
     toggle_cart_product,
 )
+
+
+def _metrics_user_type(user) -> str:
+    return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
 class CartPageView(TemplateView):
@@ -47,6 +52,8 @@ def cart_toggle_view(request):
         raise Http404("Product not found")
 
     result = toggle_cart_product(request, product_id)
+    if result["in_cart"] and not result["already_purchased"]:
+        inc_product_added_to_cart(user_type=_metrics_user_type(request.user))
     cart_ids = get_cart_product_ids(request)
     return JsonResponse(
         {

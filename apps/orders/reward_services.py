@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.core.metrics import inc_order_reward_issued, inc_order_reward_skipped
 from apps.orders.emails import send_order_reward_user_email
 from apps.orders.models import Order
 from apps.promocodes.models import PromoCode
@@ -23,7 +24,9 @@ PROMO_CODE_MAX_ATTEMPTS = 10
 
 
 def ensure_order_reward(order: Order) -> PromoCode | None:
-    if not _should_issue_reward(order):
+    skip_reason = _get_order_reward_skip_reason(order)
+    if skip_reason is not None:
+        inc_order_reward_skipped(reason=skip_reason)
         return None
 
     if order.reward_promo_code_id:
@@ -45,11 +48,12 @@ def ensure_order_reward(order: Order) -> PromoCode | None:
         user_id=order.user_id,
         email=order.email,
     )
+    inc_order_reward_issued()
     return order.reward_promo_code
 
 
 def ensure_order_reward_email(order: Order) -> None:
-    if not _should_issue_reward(order):
+    if _get_order_reward_skip_reason(order) is not None:
         return
 
     promo_code = ensure_order_reward(order)
@@ -84,14 +88,14 @@ def issue_order_reward_after_payment(order_id: int) -> None:
     transaction.on_commit(_run)
 
 
-def _should_issue_reward(order: Order) -> bool:
+def _get_order_reward_skip_reason(order: Order) -> str | None:
     if order.status != Order.OrderStatus.PAID:
-        return False
+        return "status_not_paid"
     if order.total_amount < Decimal(settings.ORDER_REWARD_MIN_TOTAL_AMOUNT):
-        return False
+        return "below_threshold"
     if order.promo_code_id and order.promo_code and order.promo_code.is_reward:
-        return False
-    return True
+        return "reward_promo_used"
+    return None
 
 
 def _create_order_reward_promo_code(order: Order) -> PromoCode:

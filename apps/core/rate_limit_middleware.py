@@ -9,6 +9,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from apps.core.logging import log_event
+from apps.core.metrics import inc_auth_rate_limit_triggered
 from apps.core.rate_limits import RateLimitResult, RateLimitScope, check_rate_limit
 
 AUTH_LOGIN_PATH = "/_allauth/browser/v1/auth/login"
@@ -218,6 +219,10 @@ class AuthRateLimitMiddleware:
 
         rate_limit, identifier_type = config.checker(request)
         if rate_limit is not None and not rate_limit.allowed:
+            inc_auth_rate_limit_triggered(
+                scope=config.scope,
+                identifier_type=identifier_type or "unknown",
+            )
             log_event(
                 logger,
                 logging.WARNING,

@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.core.metrics import inc_review_reward_issued
 from apps.products.emails import send_review_reward_user_email
 from apps.products.models import Review, ReviewStatus
 from apps.promocodes.models import PromoCode
@@ -43,6 +44,7 @@ def ensure_review_reward(review: Review) -> PromoCode | None:
         promo_code_id=promo_code.id,
         user_id=review.user_id,
     )
+    inc_review_reward_issued()
     return review.reward_promo_code
 
 

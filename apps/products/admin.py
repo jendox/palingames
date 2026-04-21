@@ -11,6 +11,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.admin_site import admin_site
+from apps.core.metrics import inc_review_published, inc_review_rejected
 
 from .forms import ProductFileAdminForm
 from .models import (
@@ -373,6 +374,14 @@ class ReviewAdmin(admin.ModelAdmin):
         ),
     )
 
+    def _record_moderation_metrics(self, *, prev: Review | None, current: Review) -> None:
+        if prev is None or prev.status == current.status:
+            return
+        if current.status == ReviewStatus.PUBLISHED:
+            inc_review_published()
+        elif current.status == ReviewStatus.REJECTED:
+            inc_review_rejected()
+
     def save_model(self, request, obj, form, change):
         prev = None
         if change:
@@ -384,6 +393,7 @@ class ReviewAdmin(admin.ModelAdmin):
             }:
                 obj.moderated_at = obj.moderated_at or timezone.now()
         super().save_model(request, obj, form, change)
+        self._record_moderation_metrics(prev=prev, current=obj)
         if change and prev is not None and prev.status != ReviewStatus.REJECTED and obj.status == ReviewStatus.REJECTED:
             send_review_rejected_user_or_log(obj)
         if obj.status == ReviewStatus.PUBLISHED:

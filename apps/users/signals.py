@@ -13,6 +13,12 @@ from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.dispatch import receiver
 
 from apps.core.logging import log_event
+from apps.core.metrics import (
+    inc_auth_login_failed,
+    inc_auth_login_success,
+    inc_auth_password_reset_completed,
+    inc_auth_signup_success,
+)
 from apps.orders.guest_merge import merge_guest_orders_for_user
 
 logger = logging.getLogger("apps.users.signals")
@@ -64,6 +70,7 @@ def log_auth_login_succeeded(sender, request, user, **kwargs):
     latest_method = _get_latest_auth_method(request)
     method = latest_method.get("method") or "unknown"
     provider = latest_method.get("provider")
+    inc_auth_login_success(method=method)
     event = "auth.social.login.succeeded" if method == "socialaccount" else "auth.login.succeeded"
     log_event(
         logger,
@@ -85,6 +92,7 @@ def log_auth_login_failed(sender, credentials, request, **kwargs):
             login_field = "login"
         elif credentials.get("username"):
             login_field = "username"
+    inc_auth_login_failed(login_field=login_field)
     log_event(
         logger,
         logging.WARNING,
@@ -98,18 +106,21 @@ def log_auth_login_failed(sender, credentials, request, **kwargs):
 @receiver(user_signed_up)
 def log_auth_signup_succeeded(request, user, **kwargs):
     sociallogin = kwargs.get("sociallogin")
+    method = "socialaccount" if sociallogin else "password"
+    inc_auth_signup_success(method=method)
     log_event(
         logger,
         logging.INFO,
         "auth.signup.succeeded",
         user_id=user.id,
-        method="socialaccount" if sociallogin else "password",
+        method=method,
         provider=getattr(getattr(sociallogin, "account", None), "provider", None),
     )
 
 
 @receiver(password_reset)
 def log_auth_password_reset_completed(request, user, **kwargs):
+    inc_auth_password_reset_completed()
     log_event(
         logger,
         logging.INFO,

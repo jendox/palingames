@@ -6,6 +6,7 @@ from django.db import transaction
 
 from apps.access.models import UserProductAccess
 from apps.core.logging import log_event
+from apps.core.metrics import inc_guest_orders_merged
 from apps.orders.models import Order
 
 logger = logging.getLogger("apps.orders.guest_merge")
@@ -56,4 +57,5 @@ def merge_guest_orders_for_user(*, user, email: str) -> int:
         email=normalized_email,
         merged_orders_count=len(orders),
     )
+    inc_guest_orders_merged(count=len(orders))
     return len(orders)

@@ -153,7 +153,8 @@ class ExpressPayNotificationViewTests(TestCase):
         ORDER_REWARD_DISCOUNT_PERCENT=10,
         ORDER_REWARD_VALID_DAYS=14,
     )
-    def test_notification_issues_reward_promo_for_authenticated_order(self):
+    @patch("apps.orders.reward_services.inc_order_reward_issued")
+    def test_notification_issues_reward_promo_for_authenticated_order(self, inc_order_reward_issued_mock):
         user = get_user_model().objects.create_user(email="reward-auth@example.com", password="test-pass-123")
         order = Order.objects.create(
             user=user,
@@ -197,6 +198,7 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         order.refresh_from_db()
+        inc_order_reward_issued_mock.assert_called_once()
         self.assertIsNotNone(order.reward_promo_code)
         self.assertIsNotNone(order.reward_issued_at)
         self.assertIsNotNone(order.reward_email_sent_at)
@@ -240,7 +242,8 @@ class ExpressPayNotificationViewTests(TestCase):
         ORDER_REWARD_DISCOUNT_PERCENT=10,
         ORDER_REWARD_VALID_DAYS=14,
     )
-    def test_notification_does_not_issue_reward_below_total_amount_threshold(self):
+    @patch("apps.orders.reward_services.inc_order_reward_skipped")
+    def test_notification_does_not_issue_reward_below_total_amount_threshold(self, inc_order_reward_skipped_mock):
         low_product = Product.objects.create(title="Cheap", slug="cheap-paid-product", price=Decimal("24.99"))
         order = Order.objects.create(
             email="cheap@example.com",
@@ -284,6 +287,7 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         order.refresh_from_db()
+        inc_order_reward_skipped_mock.assert_called_once_with(reason="below_threshold")
         self.assertIsNone(order.reward_promo_code)
         self.assertEqual(PromoCode.objects.count(), 0)
 
@@ -294,7 +298,8 @@ class ExpressPayNotificationViewTests(TestCase):
         ORDER_REWARD_DISCOUNT_PERCENT=10,
         ORDER_REWARD_VALID_DAYS=14,
     )
-    def test_notification_does_not_issue_reward_when_paid_with_reward_promo(self):
+    @patch("apps.orders.reward_services.inc_order_reward_skipped")
+    def test_notification_does_not_issue_reward_when_paid_with_reward_promo(self, inc_order_reward_skipped_mock):
         reward_promo = PromoCode.objects.create(
             code="RWDPROMO",
             discount_percent=10,
@@ -356,6 +361,7 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         order.refresh_from_db()
+        inc_order_reward_skipped_mock.assert_called_once_with(reason="reward_promo_used")
         self.assertIsNone(order.reward_promo_code)
         self.assertEqual(PromoCode.objects.filter(is_reward=True).count(), 1)
 

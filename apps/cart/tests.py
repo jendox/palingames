@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 
@@ -25,7 +27,8 @@ class CartViewsTests(TestCase):
         self.product_1.categories.add(self.category)
         self.product_2.categories.add(self.category)
 
-    def test_guest_cart_toggle_add_and_remove(self):
+    @patch("apps.cart.views.inc_product_added_to_cart")
+    def test_guest_cart_toggle_add_and_remove(self, inc_product_added_to_cart_mock):
         toggle_url = reverse("cart-toggle")
 
         response = self.client.post(toggle_url, {"product_id": self.product_1.id})
@@ -40,6 +43,7 @@ class CartViewsTests(TestCase):
             },
         )
         self.assertEqual(self.client.session.get(SESSION_CART_KEY), [self.product_1.id])
+        inc_product_added_to_cart_mock.assert_called_once_with(user_type="guest")
 
         response = self.client.post(toggle_url, {"product_id": self.product_1.id})
         self.assertEqual(response.status_code, 200)
@@ -73,7 +77,8 @@ class CartViewsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.client.session.get(SESSION_CART_KEY), [])
 
-    def test_authenticated_cart_toggle_add_and_remove(self):
+    @patch("apps.cart.views.inc_product_added_to_cart")
+    def test_authenticated_cart_toggle_add_and_remove(self, inc_product_added_to_cart_mock):
         user = CustomUser.objects.create_user(email="cart@example.com", password="test-password-123")
         self.client.force_login(user)
 
@@ -89,6 +94,7 @@ class CartViewsTests(TestCase):
                 "cart_count": 1,
             },
         )
+        inc_product_added_to_cart_mock.assert_called_once_with(user_type="authenticated")
 
         response = self.client.post(reverse("cart-toggle"), {"product_id": self.product_1.id})
         self.assertEqual(response.status_code, 200)

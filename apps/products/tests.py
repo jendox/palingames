@@ -68,6 +68,13 @@ class CatalogViewTests(TestCase):
         self.assertCountEqual(titles, ["Альфа", "Бета", "Гамма"])
         self.assertNotIn("Чужой товар", titles)
 
+    @patch("apps.products.views.inc_catalog_page_view")
+    def test_catalog_page_view_increments_metric_for_full_page(self, inc_catalog_page_view_mock):
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        inc_catalog_page_view_mock.assert_called_once_with(user_type="guest")
+
     def test_catalog_global_search_shows_matching_products(self):
         response = self.client.get(reverse("catalog"), {"q": "Альф"})
 
@@ -575,6 +582,13 @@ class ProductDetailDownloadContextTests(TestCase):
         )
         self.assertContains(response, "data-product-download-link")
 
+    @patch("apps.products.views.inc_product_page_view")
+    def test_product_detail_increments_metric_for_full_page(self, inc_product_page_view_mock):
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        inc_product_page_view_mock.assert_called_once_with(user_type="guest")
+
 
 class ProductReviewFlowTests(TestCase):
     @classmethod
@@ -584,7 +598,8 @@ class ProductReviewFlowTests(TestCase):
         UserProductAccess.objects.create(user=cls.user, product=cls.product, order=None)
 
     @patch("apps.products.views.schedule_review_submitted_notifications")
-    def test_submit_review_creates_pending(self, mock_sched):
+    @patch("apps.products.services.reviews.inc_review_submitted")
+    def test_submit_review_creates_pending(self, inc_review_submitted_mock, mock_sched):
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
         response = self.client.post(
@@ -596,9 +611,33 @@ class ProductReviewFlowTests(TestCase):
         review = Review.objects.get(product=self.product, user=self.user)
         self.assertEqual(review.status, ReviewStatus.PENDING)
         self.assertEqual(review.rating, 5)
+        inc_review_submitted_mock.assert_called_once()
         self.assertEqual(response.headers["HX-Trigger"], "review:submitted")
         self.assertContains(response, "Ваш отзыв принят и появится на сайте после проверки модератором.")
         self.assertNotContains(response, "data-review-form", html=False)
+
+    @patch("apps.products.views.schedule_review_submitted_notifications")
+    @patch("apps.products.services.reviews.inc_review_resubmitted")
+    def test_resubmit_review_increments_resubmitted_metric(self, inc_review_resubmitted_mock, mock_sched):
+        Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=3,
+            comment="Старая версия отзыва.",
+            status=ReviewStatus.REJECTED,
+            rejection_reason="Нужно доработать.",
+        )
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        response = self.client.post(
+            url,
+            {"rating": "5", "comment": "Новая версия отзыва после правок."},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        inc_review_resubmitted_mock.assert_called_once()
+        mock_sched.assert_called_once()
 
     def test_submit_without_purchase_forbidden(self):
         other = Product.objects.create(title="Other", slug="other-game", price=Decimal("1.00"))
@@ -686,7 +725,8 @@ class ProductReviewFlowTests(TestCase):
         mock_notify_telegram.assert_called_once()
 
     @override_settings(SITE_BASE_URL="https://example.com")
-    def test_admin_rejection_sends_user_email(self):
+    @patch("apps.products.admin.inc_review_rejected")
+    def test_admin_rejection_sends_user_email(self, inc_review_rejected_mock):
         admin_user = get_user_model().objects.create_user(
             email="admin@example.com",
             password="secret12345",
@@ -723,6 +763,7 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(review.rejection_reason, "Нужно убрать рекламный текст.")
         self.assertIsNotNone(review.moderated_at)
         self.assertIsNotNone(review.rejection_notified_at)
+        inc_review_rejected_mock.assert_called_once()
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
         self.assertEqual(email.to, [self.user.email])
@@ -734,7 +775,13 @@ class ProductReviewFlowTests(TestCase):
         REVIEW_REWARD_DISCOUNT_PERCENT=10,
         REVIEW_REWARD_VALID_DAYS=14,
     )
-    def test_admin_publish_creates_reward_promo_and_sends_user_email_once(self):
+    @patch("apps.products.services.review_rewards.inc_review_reward_issued")
+    @patch("apps.products.admin.inc_review_published")
+    def test_admin_publish_creates_reward_promo_and_sends_user_email_once(
+        self,
+        inc_review_published_mock,
+        inc_review_reward_issued_mock,
+    ):
         admin_user = get_user_model().objects.create_user(
             email="admin@example.com",
             password="secret12345",
@@ -769,6 +816,8 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         review.refresh_from_db()
         self.assertEqual(review.status, ReviewStatus.PUBLISHED)
+        inc_review_published_mock.assert_called_once()
+        inc_review_reward_issued_mock.assert_called_once()
         self.assertIsNotNone(review.moderated_at)
         self.assertIsNotNone(review.reward_promo_code)
         self.assertIsNotNone(review.reward_issued_at)

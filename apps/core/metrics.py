@@ -128,6 +128,101 @@ CELERY_TASK_FINISHED_TOTAL = Counter(
     "Total Celery tasks finished.",
     ["task_name", "task_state"],
 )
+REVIEWS_SUBMITTED_TOTAL = Counter(
+    "reviews_submitted_total",
+    "Total newly submitted reviews.",
+)
+REVIEWS_RESUBMITTED_TOTAL = Counter(
+    "reviews_resubmitted_total",
+    "Total resubmitted reviews after rejection.",
+)
+REVIEWS_PUBLISHED_TOTAL = Counter(
+    "reviews_published_total",
+    "Total reviews published by moderation.",
+)
+REVIEWS_REJECTED_TOTAL = Counter(
+    "reviews_rejected_total",
+    "Total reviews rejected by moderation.",
+)
+REVIEW_REWARDS_ISSUED_TOTAL = Counter(
+    "review_rewards_issued_total",
+    "Total reward promo codes issued for published reviews.",
+)
+ORDER_REWARDS_ISSUED_TOTAL = Counter(
+    "order_rewards_issued_total",
+    "Total reward promo codes issued for paid orders.",
+)
+ORDER_REWARDS_SKIPPED_TOTAL = Counter(
+    "order_rewards_skipped_total",
+    "Total order reward skips by reason.",
+    ["reason"],
+)
+GUEST_ORDERS_MERGED_TOTAL = Counter(
+    "guest_orders_merged_total",
+    "Total guest orders merged into user accounts.",
+)
+CATALOG_PAGE_VIEWS_TOTAL = Counter(
+    "catalog_page_views_total",
+    "Total catalog page views.",
+    ["user_type"],
+)
+PRODUCT_PAGE_VIEWS_TOTAL = Counter(
+    "product_page_views_total",
+    "Total product detail page views.",
+    ["user_type"],
+)
+PRODUCT_ADDED_TO_CART_TOTAL = Counter(
+    "product_added_to_cart_total",
+    "Total products added to cart.",
+    ["user_type"],
+)
+CHECKOUT_STARTED_TOTAL = Counter(
+    "checkout_started_total",
+    "Total checkout starts.",
+    ["user_type"],
+)
+CHECKOUT_COMPLETED_TOTAL = Counter(
+    "checkout_completed_total",
+    "Total completed checkout submissions that created an order.",
+    ["checkout_type", "source"],
+)
+AUTH_LOGIN_SUCCESS_TOTAL = Counter(
+    "auth_login_success_total",
+    "Total successful login events.",
+    ["method"],
+)
+AUTH_LOGIN_FAILED_TOTAL = Counter(
+    "auth_login_failed_total",
+    "Total failed login events.",
+    ["login_field"],
+)
+AUTH_SIGNUP_SUCCESS_TOTAL = Counter(
+    "auth_signup_success_total",
+    "Total successful signup events.",
+    ["method"],
+)
+AUTH_PASSWORD_RESET_REQUESTED_TOTAL = Counter(
+    "auth_password_reset_requested_total",
+    "Total password reset emails requested and sent.",
+)
+AUTH_PASSWORD_RESET_COMPLETED_TOTAL = Counter(
+    "auth_password_reset_completed_total",
+    "Total completed password reset events.",
+)
+AUTH_RATE_LIMIT_TRIGGERED_TOTAL = Counter(
+    "auth_rate_limit_triggered_total",
+    "Total auth rate limit blocks.",
+    ["scope", "identifier_type"],
+)
+PROMO_APPLY_SUCCESS_TOTAL = Counter(
+    "promo_apply_success_total",
+    "Total successful promo code apply attempts.",
+)
+PROMO_APPLY_FAILED_TOTAL = Counter(
+    "promo_apply_failed_total",
+    "Total failed promo code apply attempts by reason.",
+    ["reason"],
+)
 
 
 def metrics_response() -> tuple[bytes, str]:
@@ -212,3 +307,90 @@ def inc_celery_task_finished(*, task_name: str | None, task_state: str | None) -
         task_name=task_name or "unknown",
         task_state=task_state or "unknown",
     ).inc()
+
+
+def inc_review_submitted() -> None:
+    REVIEWS_SUBMITTED_TOTAL.inc()
+
+
+def inc_review_resubmitted() -> None:
+    REVIEWS_RESUBMITTED_TOTAL.inc()
+
+
+def inc_review_published() -> None:
+    REVIEWS_PUBLISHED_TOTAL.inc()
+
+
+def inc_review_rejected() -> None:
+    REVIEWS_REJECTED_TOTAL.inc()
+
+
+def inc_review_reward_issued() -> None:
+    REVIEW_REWARDS_ISSUED_TOTAL.inc()
+
+
+def inc_order_reward_issued() -> None:
+    ORDER_REWARDS_ISSUED_TOTAL.inc()
+
+
+def inc_order_reward_skipped(*, reason: str) -> None:
+    ORDER_REWARDS_SKIPPED_TOTAL.labels(reason=reason).inc()
+
+
+def inc_guest_orders_merged(*, count: int = 1) -> None:
+    GUEST_ORDERS_MERGED_TOTAL.inc(count)
+
+
+def inc_catalog_page_view(*, user_type: str) -> None:
+    CATALOG_PAGE_VIEWS_TOTAL.labels(user_type=user_type).inc()
+
+
+def inc_product_page_view(*, user_type: str) -> None:
+    PRODUCT_PAGE_VIEWS_TOTAL.labels(user_type=user_type).inc()
+
+
+def inc_product_added_to_cart(*, user_type: str) -> None:
+    PRODUCT_ADDED_TO_CART_TOTAL.labels(user_type=user_type).inc()
+
+
+def inc_checkout_started(*, user_type: str) -> None:
+    CHECKOUT_STARTED_TOTAL.labels(user_type=user_type).inc()
+
+
+def inc_checkout_completed(*, checkout_type: str, source: str) -> None:
+    CHECKOUT_COMPLETED_TOTAL.labels(checkout_type=checkout_type, source=source).inc()
+
+
+def inc_auth_login_success(*, method: str) -> None:
+    AUTH_LOGIN_SUCCESS_TOTAL.labels(method=method).inc()
+
+
+def inc_auth_login_failed(*, login_field: str) -> None:
+    AUTH_LOGIN_FAILED_TOTAL.labels(login_field=login_field).inc()
+
+
+def inc_auth_signup_success(*, method: str) -> None:
+    AUTH_SIGNUP_SUCCESS_TOTAL.labels(method=method).inc()
+
+
+def inc_auth_password_reset_requested() -> None:
+    AUTH_PASSWORD_RESET_REQUESTED_TOTAL.inc()
+
+
+def inc_auth_password_reset_completed() -> None:
+    AUTH_PASSWORD_RESET_COMPLETED_TOTAL.inc()
+
+
+def inc_auth_rate_limit_triggered(*, scope: str, identifier_type: str) -> None:
+    AUTH_RATE_LIMIT_TRIGGERED_TOTAL.labels(
+        scope=scope,
+        identifier_type=identifier_type or "unknown",
+    ).inc()
+
+
+def inc_promo_apply_succeeded() -> None:
+    PROMO_APPLY_SUCCESS_TOTAL.inc()
+
+
+def inc_promo_apply_failed(*, reason: str) -> None:
+    PROMO_APPLY_FAILED_TOTAL.labels(reason=reason).inc()

@@ -9,6 +9,7 @@ from django.utils.http import urlencode
 
 from apps.access.services import has_user_product_access
 from apps.core.logging import log_event
+from apps.core.metrics import inc_review_resubmitted, inc_review_submitted
 from apps.products.models import Product, Review, ReviewStatus
 
 logger = logging.getLogger("apps.products.reviews")
@@ -160,6 +161,7 @@ def submit_or_resubmit_review(*, user, product: Product, rating: int, comment: s
             comment=comment,
             status=ReviewStatus.PENDING,
         )
+        inc_review_submitted()
         _log_review_created(review)
         return review
 
@@ -213,6 +215,7 @@ def submit_or_resubmit_review(*, user, product: Product, rating: int, comment: s
             product_id=product.id,
             user_id=user.id,
         )
+        inc_review_resubmitted()
         return existing
 
     log_event(

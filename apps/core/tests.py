@@ -317,6 +317,25 @@ class AuthRateLimitMiddlewareTests(TestCase):
         self.assertEqual(log_event_mock.call_args.kwargs["scope"], RateLimitScope.AUTH_LOGIN)
         self.assertEqual(log_event_mock.call_args.kwargs["identifier_type"], "email")
 
+    @patch("apps.core.rate_limit_middleware.inc_auth_rate_limit_triggered")
+    def test_auth_login_rate_limit_increments_metric(self, inc_auth_rate_limit_triggered_mock):
+        self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "user@example.com", "password": "wrong"}),
+            content_type="application/json",
+        )
+
+        inc_auth_rate_limit_triggered_mock.assert_called_once_with(
+            scope=RateLimitScope.AUTH_LOGIN,
+            identifier_type="email",
+        )
+
     def test_auth_signup_enforces_email_rate_limit(self):
         first = self.client.post(
             "/_allauth/browser/v1/auth/signup",
