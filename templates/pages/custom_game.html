@@ -1,7 +1,7 @@
 {% extends "base/base.html" %}
 {% load static %}
 
-{% block title %}Игра на заказ — PaliGames{% endblock %}
+{% block title %}{{ seo_title|default:"Игра на заказ — PaliGames" }}{% endblock %}
 
 {% block head %}
   <script src="{% static 'js/custom-game.js' %}" defer></script>

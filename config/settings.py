@@ -99,6 +99,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.core.context_processors.analytics",
                 "apps.core.context_processors.default_currency",
+                "apps.core.context_processors.seo_defaults",
             ],
         },
     },

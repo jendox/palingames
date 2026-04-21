@@ -6,6 +6,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
 from apps.core.metrics import inc_product_added_to_cart
+from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.products.models import Product
 
 from .services import (
@@ -37,6 +38,15 @@ class CartPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Корзина"},
         ]
+        context.update(
+            build_seo_context(
+                title="Корзина — PaliGames",
+                description="Корзина пользователя PaliGames.",
+                canonical_url=reverse("cart"),
+                robots="noindex,nofollow",
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
 

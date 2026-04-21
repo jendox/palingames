@@ -185,6 +185,34 @@ class AnalyticsTemplateTests(TestCase):
         self.assertNotContains(response, '/static/js/analytics.js')
 
 
+@override_settings(SITE_BASE_URL="https://example.com")
+class SeoTemplateTests(TestCase):
+    def test_home_renders_basic_seo_meta_tags(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>PaliGames — развивающие игры для детей</title>", html=True)
+        self.assertContains(response, '<link rel="canonical" href="https://example.com/" />', html=True)
+        self.assertContains(
+            response,
+            'property="og:title" content="PaliGames — развивающие игры для детей"',
+            html=False,
+        )
+
+    def test_robots_txt_references_sitemap(self):
+        response = self.client.get(reverse("robots-txt"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sitemap: https://example.com/sitemap.xml")
+
+    def test_sitemap_lists_static_pages(self):
+        response = self.client.get(reverse("sitemap-xml"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<loc>https://example.com/</loc>", html=False)
+        self.assertContains(response, "<loc>https://example.com/catalog/</loc>", html=False)
+
+
 class PurchaseAnalyticsTests(TestCase):
     @classmethod
     def setUpTestData(cls):

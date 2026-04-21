@@ -1,3 +1,4 @@
+from apps.core.seo import build_seo_context
 from apps.products.pricing import get_currency_code
 
 
@@ -14,3 +15,10 @@ def analytics(request):
         "analytics_enabled": settings.ANALYTICS_ENABLED and bool(settings.GTM_ID),
         "gtm_id": settings.GTM_ID,
     }
+
+
+def seo_defaults(request):
+    return build_seo_context(
+        title="PaliGames",
+        canonical_url=request.path,
+    )

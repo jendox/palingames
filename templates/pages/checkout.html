@@ -2,7 +2,7 @@
 
 {% load static i18n %}
 
-{% block title %}{% trans "Оформление заказа" %} — PaliGames{% endblock %}
+{% block title %}{{ seo_title|default:_("Оформление заказа — PaliGames") }}{% endblock %}
 
 {% block head %}
   {{ block.super }}

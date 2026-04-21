@@ -2,7 +2,7 @@
 
 {% load static i18n %}
 
-{% block title %}{% trans "Личный кабинет" %} — PaliGames{% endblock %}
+{% block title %}{{ seo_title|default:_("Личный кабинет — PaliGames") }}{% endblock %}
 
 {% block head %}
   {# htmx swaps only the desktop account shell; regular links remain the fallback when JS is unavailable. #}

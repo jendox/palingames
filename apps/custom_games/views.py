@@ -9,6 +9,7 @@ from django.views import View
 from django.views.generic.edit import FormView
 
 from apps.core.logging import log_event
+from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.custom_games.forms import CustomGameRequestForm
 from apps.custom_games.models import CustomGameRequest
 from apps.custom_games.services import (
@@ -54,6 +55,14 @@ class CustomGamePageView(FormView):
             context["custom_game_created_request"] = CustomGameRequest.objects.filter(pk=created_id).first()
         else:
             context["custom_game_created_request"] = None
+        context.update(
+            build_seo_context(
+                title="Игра на заказ — PaliGames",
+                description="Закажите персональную развивающую игру для ребенка с учетом возраста и ваших пожеланий.",
+                canonical_url=reverse("custom-game"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
 

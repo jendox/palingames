@@ -2,7 +2,7 @@
 
 {% load static %}
 
-{% block title %}Избранное — PaliGames{% endblock %}
+{% block title %}{{ seo_title|default:"Избранное — PaliGames" }}{% endblock %}
 
 {% block head %}
   <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>

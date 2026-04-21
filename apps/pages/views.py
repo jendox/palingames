@@ -10,6 +10,7 @@ from django.views.generic import TemplateView
 
 from apps.access.services import get_user_product_access_ids
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context
 from apps.favorites.services import get_account_favorites_context
 from apps.orders.failure_reasons import format_order_failure_reason_label
 from apps.orders.models import Order
@@ -44,6 +45,25 @@ def _get_client_ip(request) -> str:
 class HomePageView(TemplateView):
     template_name = "pages/home.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            build_seo_context(
+                title="PaliGames — развивающие игры для детей",
+                description=(
+                    "Развивающие игры, материалы для занятий и игры на заказ для детей, родителей и педагогов."
+                ),
+                canonical_url=reverse("home"),
+                json_ld={
+                    "@context": "https://schema.org",
+                    "@type": "WebSite",
+                    "name": "PaliGames",
+                    "url": build_absolute_url(reverse("home")),
+                },
+            ),
+        )
+        return context
+
 
 class AboutPageView(TemplateView):
     template_name = "pages/about.html"
@@ -54,6 +74,14 @@ class AboutPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "О нас"},
         ]
+        context.update(
+            build_seo_context(
+                title="О нас — PaliGames",
+                description="Узнайте больше о PaliGames, подходе к созданию развивающих игр и материалов для детей.",
+                canonical_url=reverse("about"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
 
@@ -66,6 +94,14 @@ class PaymentPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Оплата"},
         ]
+        context.update(
+            build_seo_context(
+                title="Оплата — PaliGames",
+                description="Способы оплаты заказов на PaliGames и ответы на частые вопросы по оплате.",
+                canonical_url=reverse("payment"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
 
@@ -119,6 +155,15 @@ class AccountPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Личный кабинет"},
         ]
+        context.update(
+            build_seo_context(
+                title="Личный кабинет — PaliGames",
+                description="Личный кабинет пользователя PaliGames.",
+                canonical_url=reverse("account"),
+                robots="noindex,nofollow",
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         context.update(get_account_favorites_context(self.request))
         return context
 

@@ -17,6 +17,7 @@ from apps.core.metrics import (
     inc_promo_apply_succeeded,
 )
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.promocodes.services import PromoCodeError
 
@@ -201,6 +202,15 @@ class CheckoutPageView(TemplateView):
             {"title": "Оформление заказа"},
         ]
         context["checkout_error_message"] = kwargs.get("checkout_error_message", "")
+        context.update(
+            build_seo_context(
+                title="Оформление заказа — PaliGames",
+                description="Оформление заказа на PaliGames.",
+                canonical_url=reverse("checkout"),
+                robots="noindex,nofollow",
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
     def post(self, request, *args, **kwargs):  # noqa: C901

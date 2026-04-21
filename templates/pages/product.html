@@ -2,7 +2,7 @@
 
 {% load static i18n %}
 
-{% block title %}{% trans "Товар" %} — PaliGames{% endblock %}
+{% block title %}{{ seo_title|default:_("Товар — PaliGames") }}{% endblock %}
 
 {% block head %}
   <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>

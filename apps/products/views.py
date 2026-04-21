@@ -23,6 +23,7 @@ from apps.core.metrics import (
     inc_product_page_view,
 )
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context, normalize_seo_description
 from apps.favorites.services import get_favorite_product_ids
 
 from .forms import ProductReviewForm
@@ -37,7 +38,7 @@ from .models import (
     SubType,
     Theme,
 )
-from .pricing import format_price
+from .pricing import format_price, get_currency_code
 from .review_notifications import schedule_review_submitted_notifications
 from .search import (
     MIN_QUERY_LEN,
@@ -443,7 +444,7 @@ class CatalogView(TemplateView):
             return [self.htmx_results_template_name]
         return [self.template_name]
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):  # noqa: PLR0914
         context = super().get_context_data(**kwargs)
         if self.request.headers.get("HX-Request") != "true":
             inc_catalog_page_view(user_type=_metrics_user_type(self.request.user))
@@ -484,10 +485,60 @@ class CatalogView(TemplateView):
         context["breadcrumbs"] = breadcrumbs
 
         if not products_mode:
+            context.update(
+                build_seo_context(
+                    title="Каталог — PaliGames",
+                    description="Каталог развивающих игр и материалов для занятий от PaliGames.",
+                    canonical_url=reverse("catalog"),
+                    json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+                ),
+            )
             return context
 
         context.update(self._build_products_mode_context(selected_category, search_q=search_q))
+        context.update(
+            self._build_seo_context(
+                selected_category=selected_category,
+                search_q=search_q,
+                breadcrumbs=context["breadcrumbs"],
+            ),
+        )
         return context
+
+    def _build_seo_context(self, *, selected_category, search_q: str, breadcrumbs: list[dict]) -> dict:
+        has_extra_filters = any(
+            self.request.GET.getlist(param)
+            for param in ("subtype", "age", "area", "theme")
+        ) or any(
+            self.request.GET.get(param)
+            for param in ("price_from", "price_to", "sort", "page")
+        )
+
+        canonical_url = reverse("catalog")
+        title = "Каталог — PaliGames"
+        description = "Каталог развивающих игр и материалов для занятий от PaliGames."
+        robots = "index,follow"
+
+        if selected_category is not None:
+            title = f"{selected_category.title} — каталог PaliGames"
+            description = f"Каталог раздела «{selected_category.title}» на PaliGames."
+            canonical_url = f"{reverse('catalog')}?category={selected_category.slug}"
+
+        if search_q:
+            title = f"Поиск: {search_q} — PaliGames"
+            description = f"Результаты поиска по запросу «{search_q}» в каталоге PaliGames."
+            robots = "noindex,follow"
+
+        if has_extra_filters:
+            robots = "noindex,follow"
+
+        return build_seo_context(
+            title=title,
+            description=description,
+            canonical_url=canonical_url,
+            robots=robots,
+            json_ld=build_breadcrumbs_json_ld(breadcrumbs),
+        )
 
 
 class CatalogSearchSuggestView(View):
@@ -694,7 +745,7 @@ class AlphabetNavigatorView(CatalogView):
             return [self.htmx_results_template_name]
         return [self.template_name]
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):  # noqa: PLR0914
         context = TemplateView.get_context_data(self, **kwargs)
         context["alphabet_mode"] = "products"
         context.update(self._build_products_mode_context())
@@ -776,7 +827,7 @@ class ProductDetailView(DetailView):
         ctx["review_rating_initial"] = int(form_initial.get("rating", 5) or 5)
         return ctx
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):  # noqa: PLR0914
         context = super().get_context_data(**kwargs)
         if self.request.headers.get("HX-Request") != "true":
             inc_product_page_view(user_type=_metrics_user_type(self.request.user))
@@ -838,6 +889,50 @@ class ProductDetailView(DetailView):
         breadcrumbs.append({"title": product.title})
         context["breadcrumbs"] = breadcrumbs
 
+        primary_image_url = images[0] if images else static("images/example-product-image-1.png")
+        product_description = normalize_seo_description(
+            product.description or product.content,
+            fallback=f"Купить игру «{product.title}» на PaliGames.",
+        )
+        product_json_ld = {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": product.title,
+            "description": product_description,
+            "image": [build_absolute_url(primary_image_url)],
+            "url": build_absolute_url(product.get_absolute_url()),
+            "brand": {
+                "@type": "Brand",
+                "name": "PaliGames",
+            },
+            "offers": {
+                "@type": "Offer",
+                "priceCurrency": get_currency_code(product.currency),
+                "price": str(product.price),
+                "availability": "https://schema.org/InStock",
+                "url": build_absolute_url(product.get_absolute_url()),
+            },
+        }
+        if reviews:
+            product_json_ld["aggregateRating"] = {
+                "@type": "AggregateRating",
+                "ratingValue": str(product.average_rating),
+                "reviewCount": len(reviews),
+            }
+
+        context.update(
+            build_seo_context(
+                title=f"{product.title} — PaliGames",
+                description=product_description,
+                canonical_url=product.get_absolute_url(),
+                image_url=primary_image_url,
+                og_type="product",
+                json_ld=[
+                    build_breadcrumbs_json_ld(breadcrumbs),
+                    product_json_ld,
+                ],
+            ),
+        )
         context.update(self._get_review_form_context(product))
         return context
 

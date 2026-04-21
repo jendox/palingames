@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView
 
+from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.products.models import Product
 
 from .services import get_favorite_product_ids, get_favorites_page_context, toggle_favorite_product
@@ -31,6 +32,15 @@ class FavoritesPageView(TemplateView):
             {"title": "Главная", "url": reverse("home")},
             {"title": "Избранное"},
         ]
+        context.update(
+            build_seo_context(
+                title="Избранное — PaliGames",
+                description="Сохраненные товары в избранном на PaliGames.",
+                canonical_url=reverse("favorites"),
+                robots="noindex,follow",
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
         return context
 
 

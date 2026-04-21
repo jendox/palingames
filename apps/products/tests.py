@@ -341,6 +341,43 @@ class AlphabetNavigatorViewTests(TestCase):
         self.assertIn("Алфавитный навигатор", content)
 
 
+@override_settings(SITE_BASE_URL="https://example.com")
+class ProductSeoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games-seo")
+        cls.product = Product.objects.create(
+            title="Математическая игра",
+            slug="math-game",
+            price=Decimal("25.00"),
+            description="Подробное описание игры для занятий дома и в детском саду.",
+        )
+        cls.product.categories.add(cls.category)
+
+    def test_product_page_renders_dynamic_seo_meta(self):
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Математическая игра — PaliGames</title>", html=True)
+        self.assertContains(
+            response,
+            'content="Подробное описание игры для занятий дома и в детском саду."',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="https://example.com/products/math-game/" />',
+            html=True,
+        )
+        self.assertContains(response, '"@type":"Product"', html=False)
+
+    def test_sitemap_lists_product_urls(self):
+        response = self.client.get(reverse("sitemap-xml"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<loc>https://example.com/products/math-game/</loc>", html=False)
+
+
 class ProductFileModelTests(TestCase):
     def test_product_allows_only_one_active_file(self):
         product = Product.objects.create(title="Архив", slug="archive", price=Decimal("10.00"))
