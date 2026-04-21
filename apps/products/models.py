@@ -232,6 +232,16 @@ class Review(TimeStampedModel):
         null=True,
         blank=True,
     )
+    reward_promo_code = models.ForeignKey(
+        "promocodes.PromoCode",
+        on_delete=models.SET_NULL,
+        related_name="rewarded_reviews",
+        verbose_name=_("Выданный промокод за отзыв"),
+        null=True,
+        blank=True,
+    )
+    reward_issued_at = models.DateTimeField(_("Промокод выдан в"), null=True, blank=True)
+    reward_email_sent_at = models.DateTimeField(_("Письмо с промокодом отправлено в"), null=True, blank=True)
 
     objects = ReviewManager()
 

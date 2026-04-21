@@ -2,8 +2,8 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
-from django.core.cache import caches
 from django.core import mail
+from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
@@ -20,6 +20,7 @@ from apps.products.services.s3 import (
     head_product_file,
     upload_product_file,
 )
+from apps.promocodes.models import PromoCode
 
 
 class CatalogViewTests(TestCase):
@@ -727,3 +728,86 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(email.to, [self.user.email])
         self.assertIn("не прошёл модерацию", email.subject)
         self.assertIn("Нужно убрать рекламный текст.", email.body)
+
+    @override_settings(
+        SITE_BASE_URL="https://example.com",
+        REVIEW_REWARD_DISCOUNT_PERCENT=10,
+        REVIEW_REWARD_VALID_DAYS=14,
+    )
+    def test_admin_publish_creates_reward_promo_and_sends_user_email_once(self):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=5,
+            comment="Достаточно длинный текст отзыва для публикации и награды.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "5",
+                    "comment": review.comment,
+                    "status": ReviewStatus.PUBLISHED,
+                    "rejection_reason": "",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        review.refresh_from_db()
+        self.assertEqual(review.status, ReviewStatus.PUBLISHED)
+        self.assertIsNotNone(review.moderated_at)
+        self.assertIsNotNone(review.reward_promo_code)
+        self.assertIsNotNone(review.reward_issued_at)
+        self.assertIsNotNone(review.reward_email_sent_at)
+
+        promo_code = review.reward_promo_code
+        self.assertEqual(promo_code.discount_percent, 10)
+        self.assertEqual(promo_code.max_total_redemptions, 1)
+        self.assertEqual(promo_code.max_redemptions_per_user, 1)
+        self.assertEqual(promo_code.max_redemptions_per_email, 1)
+        self.assertEqual(promo_code.assigned_user, self.user)
+        self.assertEqual(promo_code.assigned_email, self.user.email)
+        self.assertEqual((promo_code.ends_at - promo_code.starts_at).days, 14)
+        self.assertIn(f"Reward for published review #{review.id}", promo_code.note)
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, [self.user.email])
+        self.assertIn("промокод на 10%", email.subject)
+        self.assertIn(promo_code.code, email.body)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response_repeat = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "5",
+                    "comment": review.comment,
+                    "status": ReviewStatus.PUBLISHED,
+                    "rejection_reason": "",
+                    "moderated_at_0": review.moderated_at.strftime("%Y-%m-%d"),
+                    "moderated_at_1": review.moderated_at.strftime("%H:%M:%S"),
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response_repeat.status_code, 302)
+        review.refresh_from_db()
+        self.assertEqual(PromoCode.objects.filter(id=promo_code.id).count(), 1)
+        self.assertEqual(PromoCode.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)

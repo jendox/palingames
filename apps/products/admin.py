@@ -25,6 +25,7 @@ from .models import (
     SubType,
     Theme,
 )
+from .services.review_rewards import issue_review_reward_after_publish
 from .services.s3 import delete_product_file, upload_product_file
 
 
@@ -334,7 +335,14 @@ class ReviewAdmin(admin.ModelAdmin):
     list_filter = ("status", "rating", "created_at")
     search_fields = ("product__title", "user__email", "user__username", "comment", "rejection_reason")
     autocomplete_fields = ("product", "user")
-    readonly_fields = ("created_at", "updated_at", "rejection_notified_at")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "rejection_notified_at",
+        "reward_promo_code",
+        "reward_issued_at",
+        "reward_email_sent_at",
+    )
     ordering = ("-created_at",)
     save_on_top = True
     fieldsets = (
@@ -347,7 +355,14 @@ class ReviewAdmin(admin.ModelAdmin):
         (
             _("Модерация"),
             {
-                "fields": ("rejection_reason", "moderated_at", "rejection_notified_at"),
+                "fields": (
+                    "rejection_reason",
+                    "moderated_at",
+                    "rejection_notified_at",
+                    "reward_promo_code",
+                    "reward_issued_at",
+                    "reward_email_sent_at",
+                ),
             },
         ),
         (
@@ -371,6 +386,8 @@ class ReviewAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         if change and prev is not None and prev.status != ReviewStatus.REJECTED and obj.status == ReviewStatus.REJECTED:
             send_review_rejected_user_or_log(obj)
+        if obj.status == ReviewStatus.PUBLISHED:
+            issue_review_reward_after_publish(obj.id)
 
 
 logger_review_admin = logging.getLogger("apps.products.admin.reviews")
