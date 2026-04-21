@@ -1,11 +1,11 @@
 from django.conf.urls.static import static
-from django.contrib import admin
 from django.urls import include, path
 
+from apps.core.admin_site import admin_site
 from config import settings
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("admin/", admin_site.urls),
     path("", include("apps.core.urls")),
     path("", include("apps.access.urls")),
     path("", include("apps.users.urls")),

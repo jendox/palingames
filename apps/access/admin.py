@@ -1,10 +1,12 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
+
 from .models import GuestAccess, UserProductAccess
 
 
-@admin.register(UserProductAccess)
+@admin.register(UserProductAccess, site=admin_site)
 class UserProductAccessAdmin(admin.ModelAdmin):
     list_display = (
         "id",
@@ -56,7 +58,7 @@ class UserProductAccessAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(GuestAccess)
+@admin.register(GuestAccess, site=admin_site)
 class GuestAccessAdmin(admin.ModelAdmin):
     list_display = (
         "id",

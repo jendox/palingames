@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
+
 from .forms import ProductFileAdminForm
 from .models import (
     AgeGroupTag,
@@ -26,7 +28,7 @@ from .models import (
 from .services.s3 import delete_product_file, upload_product_file
 
 
-@admin.register(Category)
+@admin.register(Category, site=admin_site)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("title", "slug", "products_count", "created_at")
     search_fields = ("title", "slug")
@@ -38,7 +40,7 @@ class CategoryAdmin(admin.ModelAdmin):
         return obj.products.count()
 
 
-@admin.register(SubType)
+@admin.register(SubType, site=admin_site)
 class SubTypeAdmin(admin.ModelAdmin):
     list_display = ("title", "category", "products_count", "created_at")
     list_filter = ("category",)
@@ -51,7 +53,7 @@ class SubTypeAdmin(admin.ModelAdmin):
         return obj.products.count()
 
 
-@admin.register(AgeGroupTag)
+@admin.register(AgeGroupTag, site=admin_site)
 class AgeGroupTagAdmin(admin.ModelAdmin):
     list_display = ("value", "products_count", "created_at")
     search_fields = ("value",)
@@ -62,7 +64,7 @@ class AgeGroupTagAdmin(admin.ModelAdmin):
         return obj.products.count()
 
 
-@admin.register(DevelopmentAreaTag)
+@admin.register(DevelopmentAreaTag, site=admin_site)
 class DevelopmentAreaTagAdmin(admin.ModelAdmin):
     list_display = ("title", "products_count", "created_at")
     search_fields = ("title",)
@@ -73,7 +75,7 @@ class DevelopmentAreaTagAdmin(admin.ModelAdmin):
         return obj.products.count()
 
 
-@admin.register(Theme)
+@admin.register(Theme, site=admin_site)
 class ThemeAdmin(admin.ModelAdmin):
     list_display = ("title", "products_count", "created_at")
     search_fields = ("title",)
@@ -93,7 +95,7 @@ class ProductImageInline(admin.TabularInline):
     ordering = ("order", "id")
 
 
-@admin.register(Product)
+@admin.register(Product, site=admin_site)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "title",
@@ -220,7 +222,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin_thumbnails.thumbnail("image", _("Превью"))
-@admin.register(ProductImage)
+@admin.register(ProductImage, site=admin_site)
 class ProductImageAdmin(admin.ModelAdmin):
     list_display = ("image_thumbnail", "product", "order", "created_at")
     list_filter = ("product", "created_at")
@@ -230,7 +232,7 @@ class ProductImageAdmin(admin.ModelAdmin):
     ordering = ("product", "order", "id")
 
 
-@admin.register(ProductFile)
+@admin.register(ProductFile, site=admin_site)
 class ProductFileAdmin(admin.ModelAdmin):
     form = ProductFileAdminForm
     list_display = ("original_filename", "product", "mime_type", "size_bytes", "is_active", "created_at")
@@ -325,7 +327,7 @@ class ReviewAdminForm(forms.ModelForm):
         }
 
 
-@admin.register(Review)
+@admin.register(Review, site=admin_site)
 class ReviewAdmin(admin.ModelAdmin):
     form = ReviewAdminForm
     list_display = ("product", "user", "rating", "status", "created_at", "moderated_at")

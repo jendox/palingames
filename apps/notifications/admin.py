@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
 from apps.orders.models import Order
 
 from .models import NotificationOutbox
@@ -9,7 +10,7 @@ from .tasks import send_notification_outbox_task
 from .types import GUEST_ORDER_DOWNLOAD
 
 
-@admin.register(NotificationOutbox)
+@admin.register(NotificationOutbox, site=admin_site)
 class NotificationOutboxAdmin(admin.ModelAdmin):
     list_display = (
         "id",

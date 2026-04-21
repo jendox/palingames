@@ -8,6 +8,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
 from apps.core.models import OrderSource
 from apps.orders.forms import OrderAdminForm
 from apps.payments.admin import InvoiceInline
@@ -63,7 +64,7 @@ class OrderItemInline(admin.TabularInline):
         return super().has_delete_permission(request, obj)
 
 
-@admin.register(Order)
+@admin.register(Order, site=admin_site)
 class OrderAdmin(admin.ModelAdmin):
     form = OrderAdminForm
     list_display = (
@@ -284,7 +285,7 @@ class OrderAdmin(admin.ModelAdmin):
         )
 
 
-@admin.register(OrderItem)
+@admin.register(OrderItem, site=admin_site)
 class OrderItemAdmin(admin.ModelAdmin):
     list_display = (
         "id",

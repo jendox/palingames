@@ -2,10 +2,12 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
+
 from .models import CustomUser
 
 
-@admin.register(CustomUser)
+@admin.register(CustomUser, site=admin_site)
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
 

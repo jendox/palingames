@@ -1,9 +1,11 @@
 from django.contrib import admin
 
+from apps.core.admin_site import admin_site
+
 from .models import Favorite
 
 
-@admin.register(Favorite)
+@admin.register(Favorite, site=admin_site)
 class FavoriteAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "product", "created_at")
     list_select_related = ("user", "product")

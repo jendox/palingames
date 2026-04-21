@@ -2,10 +2,12 @@ from django.contrib import admin
 from django.db.models import Count
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
+
 from .models import PromoCode, PromoCodeRedemption
 
 
-@admin.register(PromoCode)
+@admin.register(PromoCode, site=admin_site)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
         "code",
@@ -60,7 +62,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
         return getattr(obj, "_redemptions_count", obj.redemptions.count())
 
 
-@admin.register(PromoCodeRedemption)
+@admin.register(PromoCodeRedemption, site=admin_site)
 class PromoCodeRedemptionAdmin(admin.ModelAdmin):
     list_display = (
         "promo_code",

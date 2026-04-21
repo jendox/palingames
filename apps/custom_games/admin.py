@@ -6,6 +6,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.admin_site import admin_site
 from apps.custom_games.forms import CustomGameFileAdminForm
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameFile, CustomGameRequest
 from apps.custom_games.services import send_custom_game_download_link
@@ -44,7 +45,7 @@ class CustomGameInvoiceInline(admin.StackedInline):
         return False
 
 
-@admin.register(CustomGameRequest)
+@admin.register(CustomGameRequest, site=admin_site)
 class CustomGameRequestAdmin(admin.ModelAdmin):
     list_display = (
         "id",
@@ -314,7 +315,7 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
             self.message_user(request, error, messages.ERROR)
 
 
-@admin.register(CustomGameFile)
+@admin.register(CustomGameFile, site=admin_site)
 class CustomGameFileAdmin(admin.ModelAdmin):
     form = CustomGameFileAdminForm
     list_display = ("id", "request", "original_filename", "size_bytes", "uploaded_at", "is_active")
@@ -396,7 +397,7 @@ class CustomGameFileAdmin(admin.ModelAdmin):
             delete_product_file(file_key=previous_file_key)
 
 
-@admin.register(CustomGameDownloadToken)
+@admin.register(CustomGameDownloadToken, site=admin_site)
 class CustomGameDownloadTokenAdmin(admin.ModelAdmin):
     list_display = ("id", "request", "token_prefix", "email", "expires_at", "downloads_count", "max_downloads")
     list_filter = ("expires_at", "sent_at", "created_at")

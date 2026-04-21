@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_site import admin_site
+
 from .models import Invoice, PaymentEvent
 
 
@@ -50,7 +52,7 @@ class PaymentEventInline(admin.TabularInline):
     show_change_link = True
 
 
-@admin.register(Invoice)
+@admin.register(Invoice, site=admin_site)
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = (
         "id",
@@ -80,7 +82,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     ordering = ("-created_at", "-id")
 
 
-@admin.register(PaymentEvent)
+@admin.register(PaymentEvent, site=admin_site)
 class PaymentEventAdmin(admin.ModelAdmin):
     list_display = (
         "id",
