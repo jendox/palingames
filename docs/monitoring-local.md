@@ -33,10 +33,11 @@ make up-develop
 
 ### Шаг 2. Запустить Django
 
-Важно: Django должен быть доступен на `127.0.0.1:8000`, потому что Prometheus ходит к нему за метриками.
+Важно: Prometheus работает в контейнере и ходит к Django через `host.docker.internal:8000`.
+Поэтому в локальной Linux-разработке Django должен быть доступен на `0.0.0.0:8000`, а не только на loopback `127.0.0.1:8000`.
 
 ```bash
-uv run python manage.py runserver
+make runserver-observability
 ```
 
 ### Шаг 3. Проверить endpoint метрик
@@ -123,7 +124,7 @@ http://127.0.0.1:9090/targets
 
 Проверь по порядку:
 
-1. Django реально запущен на `127.0.0.1:8000`
+1. Django реально запущен на `0.0.0.0:8000`
 2. `/metrics/` открывается в браузере
 3. Prometheus контейнер поднят
 4. Docker поддерживает `host.docker.internal`
@@ -212,7 +213,7 @@ Prometheus/Grafana на локалке имеет смысл, если ты:
 Если нужен самый короткий сценарий:
 
 1. `make up-develop`
-2. `uv run python manage.py runserver`
+2. `make runserver-observability`
 3. открыть `http://127.0.0.1:8000/metrics/`
 4. открыть `http://127.0.0.1:9090/targets`
 5. открыть `http://127.0.0.1:3000`

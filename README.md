@@ -348,8 +348,10 @@ make up-develop
 2. Запустить Django локально на `127.0.0.1:8000`
 
 ```bash
-uv run python manage.py runserver
+make runserver-observability
 ```
+
+Это важно: Prometheus работает в контейнере и ходит на хост через `host.docker.internal:8000`. Поэтому для scrape в Linux dev-окружении Django должен слушать `0.0.0.0:8000`, а не только дефолтный loopback-интерфейс `127.0.0.1:8000`.
 
 3. Проверить, что `http://127.0.0.1:8000/metrics/` отвечает
 

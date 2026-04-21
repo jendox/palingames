@@ -22,6 +22,9 @@ makemigrations: ## Сделать миграции
 migrate: ## Применить миграции
 	$(UV) run python manage.py migrate
 
+runserver-observability: ## Запустить Django для локального Prometheus/Grafana
+	$(UV) run python manage.py runserver 0.0.0.0:8000
+
 admin: ## Создать администратора
 	$(UV) run python manage.py createsuperuser
 
