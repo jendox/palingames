@@ -5,7 +5,8 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Min, Prefetch
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -19,9 +20,20 @@ from apps.core.metrics import inc_product_download_failed, inc_product_download_
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.favorites.services import get_favorite_product_ids
 
-from .models import AgeGroupTag, Category, DevelopmentAreaTag, Product, ProductImage, Review, SubType, Theme, \
-    ReviewStatus
+from .forms import ProductReviewForm
+from .models import (
+    AgeGroupTag,
+    Category,
+    DevelopmentAreaTag,
+    Product,
+    ProductImage,
+    Review,
+    ReviewStatus,
+    SubType,
+    Theme,
+)
 from .pricing import format_price
+from .review_notifications import schedule_review_submitted_notifications
 from .search import (
     MIN_QUERY_LEN,
     apply_product_search,
@@ -29,12 +41,14 @@ from .search import (
     order_catalog_queryset,
     suggest_product_hits,
 )
+from .services.reviews import get_review_panel_context, submit_or_resubmit_review
 from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.products")
 
 PRODUCT_DOWNLOAD_RATE_LIMIT_MESSAGE = "Слишком много запросов на скачивание."
 PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE = "Файл недоступен. Попробуйте позже."
+REVIEW_SUBMITTED_NOTIFICATION_EVENT = "review:submitted"
 
 
 class CatalogView(TemplateView):
@@ -720,6 +734,32 @@ class ProductDetailView(DetailView):
             return ["pages/product/desktop/_tabs_panel.html"]
         return [self.template_name]
 
+    def _get_review_form_context(self, product: Product) -> dict:
+        review_panel = get_review_panel_context(user=self.request.user, product=product)
+        ctx = {
+            "review_panel": review_panel.as_template_dict(),
+            "product_review_submit_url": reverse("product-review-submit", kwargs={"slug": product.slug}),
+            "review_rating_initial": 5,
+            "review_form": None,
+        }
+        if not review_panel.show_form:
+            return ctx
+        form_initial = {}
+        if self.request.user.is_authenticated:
+            existing_review = Review.objects.filter(product=product, user=self.request.user).only(
+                "rating",
+                "comment",
+                "status",
+            ).first()
+            if existing_review and existing_review.status == ReviewStatus.REJECTED:
+                form_initial = {
+                    "rating": existing_review.rating,
+                    "comment": existing_review.comment,
+                }
+        ctx["review_form"] = ProductReviewForm(initial=form_initial)
+        ctx["review_rating_initial"] = int(form_initial.get("rating", 5) or 5)
+        return ctx
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = context["product"]
@@ -772,7 +812,78 @@ class ProductDetailView(DetailView):
             )
         breadcrumbs.append({"title": product.title})
         context["breadcrumbs"] = breadcrumbs
+
+        context.update(self._get_review_form_context(product))
         return context
+
+
+def _review_panel_template_name(request) -> str:
+    if request.POST.get("review_form_variant") == "mobile":
+        return "pages/product/partials/review_panel_mobile.html"
+    return "pages/product/partials/review_panel_desktop.html"
+
+
+class ProductReviewSubmitView(LoginRequiredMixin, View):
+    http_method_names = ["post"]
+    login_url = "/?dialog=login"
+
+    def post(self, request, slug: str, *args, **kwargs):
+        product = get_object_or_404(Product, slug=slug)
+        panel = get_review_panel_context(user=request.user, product=product)
+        base_ctx = {
+            "product": product,
+            "review_panel": panel.as_template_dict(),
+            "product_review_submit_url": reverse("product-review-submit", kwargs={"slug": product.slug}),
+            "review_rating_initial": 5,
+        }
+        if not panel.show_form:
+            return HttpResponseForbidden()
+
+        form = ProductReviewForm(request.POST)
+        rating_try = int(request.POST.get("rating", "5") or 5)
+        base_ctx["review_rating_initial"] = max(1, min(5, rating_try))
+
+        if not form.is_valid():
+            base_ctx["review_form"] = form
+            return render(
+                request,
+                _review_panel_template_name(request),
+                base_ctx,
+                status=400,
+            )
+
+        try:
+            review = submit_or_resubmit_review(
+                user=request.user,
+                product=product,
+                rating=form.cleaned_data["rating"],
+                comment=form.cleaned_data["comment"],
+            )
+        except PermissionError:
+            return HttpResponseForbidden()
+        except ValueError:
+            panel_refresh = get_review_panel_context(user=request.user, product=product)
+            base_ctx["review_panel"] = panel_refresh.as_template_dict()
+            base_ctx["review_form"] = None
+            return render(
+                request,
+                _review_panel_template_name(request),
+                base_ctx,
+                status=409,
+            )
+
+        schedule_review_submitted_notifications(review.id)
+        panel_after = get_review_panel_context(user=request.user, product=product)
+        base_ctx["review_panel"] = panel_after.as_template_dict()
+        base_ctx["review_form"] = None
+        base_ctx["review_rating_initial"] = 5
+        response = render(
+            request,
+            _review_panel_template_name(request),
+            base_ctx,
+        )
+        response.headers["HX-Trigger"] = REVIEW_SUBMITTED_NOTIFICATION_EVENT
+        return response
 
 
 class ProductDownloadView(LoginRequiredMixin, View):

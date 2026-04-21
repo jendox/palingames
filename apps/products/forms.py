@@ -7,6 +7,20 @@ from .models import ProductFile
 from .services.s3 import ProductStorageConfigurationError, validate_storage_bucket_access
 
 
+class ProductReviewForm(forms.Form):
+    rating = forms.TypedChoiceField(
+        label="Оценка",
+        choices=[(i, str(i)) for i in range(1, 6)],
+        coerce=int,
+    )
+    comment = forms.CharField(
+        label="Текст отзыва",
+        widget=forms.Textarea(attrs={"rows": 6}),
+        min_length=10,
+        max_length=4000,
+    )
+
+
 class ProductFileAdminForm(forms.ModelForm):
     upload = forms.FileField(label="Файл", required=False)
 

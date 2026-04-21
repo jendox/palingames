@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import caches
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
@@ -10,7 +11,7 @@ from django.urls import reverse
 
 from apps.access.models import UserProductAccess
 from apps.orders.models import Order
-from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, SubType
+from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, Review, ReviewStatus, SubType
 from apps.products.services.s3 import (
     ProductFileDownloadUrlError,
     ProductFileMetadataError,
@@ -572,3 +573,157 @@ class ProductDetailDownloadContextTests(TestCase):
             reverse("product-download", kwargs={"product_id": self.product.id}),
         )
         self.assertContains(response, "data-product-download-link")
+
+
+class ProductReviewFlowTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(email="rev@example.com", password="secret12345")
+        cls.product = Product.objects.create(title="Reviewed", slug="reviewed-game", price=Decimal("10.00"))
+        UserProductAccess.objects.create(user=cls.user, product=cls.product, order=None)
+
+    @patch("apps.products.views.schedule_review_submitted_notifications")
+    def test_submit_review_creates_pending(self, mock_sched):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+        response = self.client.post(
+            url,
+            {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_sched.assert_called_once()
+        review = Review.objects.get(product=self.product, user=self.user)
+        self.assertEqual(review.status, ReviewStatus.PENDING)
+        self.assertEqual(review.rating, 5)
+        self.assertEqual(response.headers["HX-Trigger"], "review:submitted")
+        self.assertContains(response, "Ваш отзыв принят и появится на сайте после проверки модератором.")
+        self.assertNotContains(response, "data-review-form", html=False)
+
+    def test_submit_without_purchase_forbidden(self):
+        other = Product.objects.create(title="Other", slug="other-game", price=Decimal("1.00"))
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": other.slug})
+        response = self.client.post(
+            url,
+            {"rating": "4", "comment": "Достаточно длинный текст отзыва для прохождения валидации."},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_detail_shows_review_form_for_purchaser(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("product-detail", kwargs={"slug": self.product.slug}),
+            {"tab": "reviews"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["review_panel"]["show_form"])
+        self.assertContains(response, "Пока отзывов нет.", count=2)
+        self.assertContains(response, 'hx-target="closest #product-review-panel"', count=2, html=False)
+
+    def test_detail_shows_prefilled_form_without_rejection_hint_for_rejected_review(self):
+        Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=3,
+            comment="Нужно немного переработать и отправить ещё раз.",
+            status=ReviewStatus.REJECTED,
+            rejection_reason="Причина для письма пользователю.",
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("product-detail", kwargs={"slug": self.product.slug}),
+            {"tab": "reviews"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["review_panel"]["show_form"])
+        self.assertNotContains(response, "Отзыв не прошёл модерацию")
+        self.assertContains(response, "Нужно немного переработать и отправить ещё раз.")
+
+    def test_detail_hides_review_panel_for_published_review(self):
+        Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=5,
+            comment="Уже опубликованный отзыв для проверки витрины.",
+            status=ReviewStatus.PUBLISHED,
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("product-detail", kwargs={"slug": self.product.slug}),
+            {"tab": "reviews"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["review_panel"]["show_published"])
+        self.assertNotContains(response, "Спасибо! Вы уже оставили отзыв к этой игре.")
+        self.assertNotContains(response, "Оставить отзыв")
+
+    @override_settings(
+        REVIEW_ADMIN_EMAILS=["ops@example.com"],
+        SITE_BASE_URL="https://example.com",
+    )
+    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
+    def test_submit_review_sends_admin_email(self, mock_notify_telegram):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                url,
+                {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, ["ops@example.com"])
+        self.assertIn("Новый отзыв на", email.subject)
+        self.assertIn("Reviewed", email.body)
+        mock_notify_telegram.assert_called_once()
+
+    @override_settings(SITE_BASE_URL="https://example.com")
+    def test_admin_rejection_sends_user_email(self):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=4,
+            comment="Достаточно длинный текст отзыва для прохождения модерации.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        response = self.client.post(
+            reverse("admin:products_review_change", args=[review.id]),
+            {
+                "product": str(self.product.id),
+                "user": str(self.user.id),
+                "rating": "4",
+                "comment": review.comment,
+                "status": ReviewStatus.REJECTED,
+                "rejection_reason": "Нужно убрать рекламный текст.",
+                "moderated_at_0": "",
+                "moderated_at_1": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        review.refresh_from_db()
+        self.assertEqual(review.status, ReviewStatus.REJECTED)
+        self.assertEqual(review.rejection_reason, "Нужно убрать рекламный текст.")
+        self.assertIsNotNone(review.moderated_at)
+        self.assertIsNotNone(review.rejection_notified_at)
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, [self.user.email])
+        self.assertIn("не прошёл модерацию", email.subject)
+        self.assertIn("Нужно убрать рекламный текст.", email.body)

@@ -1,0 +1,102 @@
+{% load i18n static %}
+
+<div id="product-review-panel">
+  {% if review_panel.show_login %}
+    <div class="mt-[40px] rounded-[12px] border border-[var(--color-grey)] bg-[var(--color-white)] px-[20px] py-[24px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+      <a
+        href="/?dialog=login&amp;next={{ review_panel.login_next_url|urlencode }}"
+        class="font-bold text-[var(--color-purple)] underline underline-offset-2"
+      >
+        {% trans "Войдите" %}
+      </a>
+      {% trans ", чтобы оставить отзыв к купленной игре." %}
+    </div>
+  {% elif review_panel.show_purchase_required %}
+    <p class="mt-[40px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+      {% trans "Отзыв могут оставить только покупатели этой игры." %}
+    </p>
+  {% elif review_panel.show_pending %}
+    <p class="mt-[40px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
+      {% trans "Ваш отзыв принят и появится на сайте после проверки модератором." %}
+    </p>
+  {% elif review_panel.show_form %}
+    <details class="group mt-[40px]" data-review-form-disclosure {% if review_form and review_form.is_bound and review_form.errors %}open{% endif %}>
+      <summary class="list-none [&::-webkit-details-marker]:hidden">
+        <div class="flex justify-center">
+          <div class="btn-purple flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px]">
+            {% trans "Оставить отзыв" %}
+            <img
+              src="{% static 'images/icons/arrow-down-white.svg' %}"
+              alt=""
+              class="account-disclosure-arrow w-[10px] shrink-0"
+              aria-hidden="true"
+              draggable="false"
+            >
+          </div>
+        </div>
+      </summary>
+
+      <form
+        class="mt-[16px]"
+        hx-post="{{ product_review_submit_url }}"
+        hx-target="closest #product-review-panel"
+        hx-swap="outerHTML"
+        data-review-form
+      >
+        <input type="hidden" name="review_form_variant" value="desktop" />
+        {% csrf_token %}
+
+        {% if review_form.non_field_errors %}
+          <div class="mb-[16px] rounded-[8px] border border-red-200 bg-red-50 px-[14px] py-[12px] text-[13px] text-red-800">
+            {{ review_form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div>
+          <div class="text-[14px] font-bold text-[var(--color-black)]">{% trans "Текст отзыва" %}</div>
+          <input type="hidden" name="rating" value="{{ review_rating_initial }}" data-review-rating-input />
+          <div
+            class="mt-[20px] flex items-center gap-[10px]"
+            data-review-stars
+            data-star-filled-src="{% static 'images/icons/star-bold.svg' %}"
+            data-star-empty-src="{% static 'images/icons/star-empty.svg' %}"
+          >
+            {% for _ in "12345" %}
+              <button
+                type="button"
+                class="inline-flex size-[20px] cursor-pointer items-center justify-center"
+                data-review-star
+                data-rating-value="{{ forloop.counter }}"
+                aria-label="{% trans 'Оценка' %} {{ forloop.counter }}"
+              >
+                {% if forloop.counter <= review_rating_initial %}
+                  <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[20px]" aria-hidden="true" />
+                {% else %}
+                  <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[20px]" aria-hidden="true" />
+                {% endif %}
+              </button>
+            {% endfor %}
+          </div>
+          {% if review_form.rating.errors %}
+            <p class="mt-[8px] text-[14px] text-red-700">{{ review_form.rating.errors|join:", " }}</p>
+          {% endif %}
+
+          <textarea
+            name="comment"
+            rows="6"
+            class="account-input mt-[20px] h-[170px] w-full rounded-[12px] border-[0.5px] border-[var(--color-grey)] bg-transparent px-[20px] py-[16px] text-[20px]"
+          >{{ review_form.comment.value|default_if_none:"" }}</textarea>
+          {% if review_form.comment.errors %}
+            <p class="mt-[8px] text-[14px] text-red-700">{{ review_form.comment.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <div class="mt-[40px] flex justify-center">
+          <button type="submit" class="btn-purple h-[60px] w-[211px]">
+            {% trans "Отправить" %}
+          </button>
+        </div>
+      </form>
+    </details>
+  {% endif %}
+</div>

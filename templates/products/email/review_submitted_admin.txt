@@ -1,0 +1,9 @@
+Новый отзыв ждёт модерации.
+
+Товар: {{ product.title }}
+Пользователь: {{ user.email }}
+Оценка: {{ review.rating }}/5
+Текст:
+{{ review.comment }}
+
+Админка: {{ admin_review_url }}

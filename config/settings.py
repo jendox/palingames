@@ -281,6 +281,9 @@ EMAIL_HOST = "localhost"  # или 'mailhog' при использовании D
 EMAIL_PORT = 25
 DEFAULT_FROM_EMAIL = "noreply@palingames.by"
 CUSTOM_GAME_ADMIN_EMAILS = env.list("CUSTOM_GAME_ADMIN_EMAILS", default=[])
+REVIEW_ADMIN_EMAILS = env.list("REVIEW_ADMIN_EMAILS", default=[])
+REVIEW_TELEGRAM_BOT_TOKEN = env.str("REVIEW_TELEGRAM_BOT_TOKEN", default="")
+REVIEW_TELEGRAM_CHAT_ID = env.str("REVIEW_TELEGRAM_CHAT_ID", default="")
 
 TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind.css"

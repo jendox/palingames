@@ -1,5 +1,6 @@
 import markdown
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg, Q
@@ -271,3 +272,10 @@ class Review(TimeStampedModel):
     @property
     def customer_should_see_published_copy(self) -> bool:
         return self.status == ReviewStatus.PUBLISHED
+
+    def clean(self):
+        super().clean()
+        if self.status == ReviewStatus.REJECTED and not (self.rejection_reason or "").strip():
+            raise ValidationError(
+                {"rejection_reason": _("Укажите причину отклонения для пользователя.")},
+            )

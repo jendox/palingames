@@ -11,47 +11,5 @@
     {% include "pages/product/desktop/tabs/_reviews_empty.html" %}
   {% endif %}
 
-  {# TODO: when reviews are wired to real product/order data, replace this auth-only check
-     with a dedicated permission flag (e.g. user can review only if purchased this product). #}
-  {% if request.user.is_authenticated %}
-    <details class="group mt-[40px]">
-      <summary class="list-none [&::-webkit-details-marker]:hidden">
-        <div class="flex justify-center">
-          <div class="btn-purple flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px]">
-            {% trans "Оставить отзыв" %}
-            <img
-              src="{% static 'images/icons/arrow-down-white.svg' %}"
-              alt=""
-              class="account-disclosure-arrow w-[10px] shrink-0"
-              aria-hidden="true"
-              draggable="false"
-            >
-          </div>
-        </div>
-      </summary>
-
-      <form class="mt-[16px]">
-        <div>
-          <div class="text-[14px] font-bold text-[var(--color-black)]">{% trans "Текст отзыва" %}</div>
-          <div class="mt-[20px] flex items-center gap-[10px]">
-            {% for _ in "12345" %}
-              <button type="button" class="inline-flex size-[20px] items-center justify-center" aria-label="{% trans 'Оценка' %}">
-                <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[20px]" aria-hidden="true">
-              </button>
-            {% endfor %}
-          </div>
-          <textarea
-            rows="6"
-            class="account-input mt-[20px] h-[170px] rounded-[12px] border-[0.5px] border-[var(--color-grey)] bg-transparent px-[20px] py-[16px] text-[20px]"
-          ></textarea>
-        </div>
-
-        <div class="mt-[40px] flex justify-center">
-          <button type="button" class="btn-purple h-[60px] w-[211px]">
-            {% trans "Отправить" %}
-          </button>
-        </div>
-      </form>
-    </details>
-  {% endif %}
+  {% include "pages/product/partials/review_panel_desktop.html" %}
 </div>

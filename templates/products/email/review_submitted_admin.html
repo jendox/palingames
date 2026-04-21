@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #222">
+    <p>Новый отзыв ждёт модерации.</p>
+    <p><strong>Товар:</strong> {{ product.title }}</p>
+    <p><strong>Пользователь:</strong> {{ user.email }}</p>
+    <p><strong>Оценка:</strong> {{ review.rating }}/5</p>
+    <p><strong>Текст:</strong></p>
+    <p style="white-space: pre-wrap">{{ review.comment }}</p>
+    <p><a href="{{ admin_review_url }}">Открыть в админке</a></p>
+  </body>
+</html>

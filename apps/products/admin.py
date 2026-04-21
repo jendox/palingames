@@ -1,8 +1,12 @@
+import logging
+
 import admin_thumbnails
+from django import forms
 from django.contrib import admin
 from django.db import transaction
 from django.db.models import Count, Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
@@ -15,8 +19,9 @@ from .models import (
     ProductFile,
     ProductImage,
     Review,
+    ReviewStatus,
     SubType,
-    Theme, ReviewStatus,
+    Theme,
 )
 from .services.s3 import delete_product_file, upload_product_file
 
@@ -301,12 +306,89 @@ class ProductFileAdmin(admin.ModelAdmin):
             delete_product_file(file_key=previous_file_key)
 
 
+class ReviewAdminForm(forms.ModelForm):
+    class Meta:
+        model = Review
+        fields = (
+            "product",
+            "user",
+            "rating",
+            "comment",
+            "status",
+            "rejection_reason",
+            "moderated_at",
+            "rejection_notified_at",
+        )
+        widgets = {
+            "comment": forms.Textarea(attrs={"rows": 5}),
+            "rejection_reason": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("product", "user", "rating", "status", "created_at")
+    form = ReviewAdminForm
+    list_display = ("product", "user", "rating", "status", "created_at", "moderated_at")
     list_filter = ("status", "rating", "created_at")
-    search_fields = ("product__title", "user__email", "user__username", "comment")
+    search_fields = ("product__title", "user__email", "user__username", "comment", "rejection_reason")
     autocomplete_fields = ("product", "user")
-    readonly_fields = ("created_at", "updated_at")
-    list_editable = ("status",)
+    readonly_fields = ("created_at", "updated_at", "rejection_notified_at")
     ordering = ("-created_at",)
+    save_on_top = True
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("product", "user", "rating", "comment", "status"),
+            },
+        ),
+        (
+            _("Модерация"),
+            {
+                "fields": ("rejection_reason", "moderated_at", "rejection_notified_at"),
+            },
+        ),
+        (
+            _("Даты"),
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
+    )
+
+    def save_model(self, request, obj, form, change):
+        prev = None
+        if change:
+            prev = Review.objects.get(pk=obj.pk)
+        if change and prev is not None:
+            if prev.status == ReviewStatus.PENDING and obj.status in {
+                ReviewStatus.PUBLISHED,
+                ReviewStatus.REJECTED,
+            }:
+                obj.moderated_at = obj.moderated_at or timezone.now()
+        super().save_model(request, obj, form, change)
+        if change and prev is not None and prev.status != ReviewStatus.REJECTED and obj.status == ReviewStatus.REJECTED:
+            send_review_rejected_user_or_log(obj)
+
+
+logger_review_admin = logging.getLogger("apps.products.admin.reviews")
+
+
+def send_review_rejected_user_or_log(review: Review) -> None:
+    from apps.core.logging import log_event
+    from apps.products.emails import send_review_rejected_user_email
+
+    try:
+        send_review_rejected_user_email(review=review)
+    except Exception:
+        log_event(
+            logger_review_admin,
+            logging.ERROR,
+            "review.rejection_email.failed",
+            exc_info=True,
+            review_id=review.id,
+        )
+        return
+    Review.objects.filter(pk=review.pk).update(
+        rejection_notified_at=timezone.now(),
+    )
