@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 from allauth.account.models import EmailAddress
 from allauth.account.signals import email_confirmed
 from django.contrib.auth import get_user_model
+from django.contrib.auth.signals import user_logged_in
 from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
 
@@ -181,3 +182,43 @@ class GuestOrderMergeTests(TestCase):
         guest_order.refresh_from_db()
         self.assertEqual(guest_order.user, self.user)
         self.assertEqual(reward_promo.assigned_user, self.user)
+
+    def test_login_merges_guest_orders_for_verified_email(self):
+        guest_order = Order.objects.create(
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=guest_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        EmailAddress.objects.create(
+            user=self.user,
+            email=self.user.email,
+            verified=True,
+            primary=True,
+        )
+
+        user_logged_in.send(sender=self.user.__class__, request=None, user=self.user)
+
+        guest_order.refresh_from_db()
+        self.assertEqual(guest_order.user, self.user)
+        self.assertTrue(
+            UserProductAccess.objects.filter(
+                user=self.user,
+                product=self.product,
+                order=guest_order,
+            ).exists(),
+        )
