@@ -13,6 +13,7 @@ from apps.custom_games.models import CustomGameRequest
 from apps.custom_games.services import send_custom_game_download_link
 from apps.notifications.services import enqueue_notification_outbox
 from apps.orders.models import Order
+from apps.orders.reward_services import issue_order_reward_after_payment
 from libs.payments.models import InvoiceStatus
 
 from .models import Invoice
@@ -155,6 +156,8 @@ def mark_order_paid(
             user_id=order.user_id,
         )
         inc_order_paid_duplicate(checkout_type=order.checkout_type, source=order.source)
+
+    issue_order_reward_after_payment(order.id)
 
 
 def mark_custom_game_request_paid(

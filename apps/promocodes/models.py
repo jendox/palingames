@@ -13,6 +13,7 @@ class PromoCode(TimeStampedModel):
         _("Скидка, %"),
         validators=[MinValueValidator(1), MaxValueValidator(99)],
     )
+    is_reward = models.BooleanField(_("Промокод-награда"), default=False)
     is_active = models.BooleanField(_("Активен"), default=True)
     starts_at = models.DateTimeField(_("Действует с"), null=True, blank=True)
     ends_at = models.DateTimeField(_("Действует до"), null=True, blank=True)

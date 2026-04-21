@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from pathlib import Path
 
 import dj_database_url
@@ -286,6 +287,9 @@ REVIEW_TELEGRAM_BOT_TOKEN = env.str("REVIEW_TELEGRAM_BOT_TOKEN", default="")
 REVIEW_TELEGRAM_CHAT_ID = env.str("REVIEW_TELEGRAM_CHAT_ID", default="")
 REVIEW_REWARD_DISCOUNT_PERCENT = env.int("REVIEW_REWARD_DISCOUNT_PERCENT", default=10)
 REVIEW_REWARD_VALID_DAYS = env.int("REVIEW_REWARD_VALID_DAYS", default=14)
+ORDER_REWARD_DISCOUNT_PERCENT = env.int("ORDER_REWARD_DISCOUNT_PERCENT", default=10)
+ORDER_REWARD_VALID_DAYS = env.int("ORDER_REWARD_VALID_DAYS", default=14)
+ORDER_REWARD_MIN_TOTAL_AMOUNT = Decimal(env.str("ORDER_REWARD_MIN_TOTAL_AMOUNT", default="25"))
 
 TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind.css"

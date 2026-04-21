@@ -84,6 +84,16 @@ class Order(TimeStampedModel):
         decimal_places=2,
         default=Decimal("0.00"),
     )
+    reward_promo_code = models.ForeignKey(
+        "promocodes.PromoCode",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rewarded_orders",
+        verbose_name=_("Выданный промокод за заказ"),
+    )
+    reward_issued_at = models.DateTimeField(_("Промокод за заказ выдан в"), null=True, blank=True)
+    reward_email_sent_at = models.DateTimeField(_("Письмо с промокодом за заказ отправлено в"), null=True, blank=True)
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
     items_count = models.PositiveSmallIntegerField(_("Количество позиций"), default=0)
     paid_at = models.DateTimeField(_("Оплачен в"), null=True, blank=True)

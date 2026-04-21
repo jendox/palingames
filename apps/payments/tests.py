@@ -15,6 +15,7 @@ from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
+from apps.promocodes.models import PromoCode
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStatusResult
@@ -148,6 +149,219 @@ class ExpressPayNotificationViewTests(TestCase):
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         SITE_BASE_URL="http://127.0.0.1:8000",
+        ORDER_REWARD_MIN_TOTAL_AMOUNT="25.00",
+        ORDER_REWARD_DISCOUNT_PERCENT=10,
+        ORDER_REWARD_VALID_DAYS=14,
+    )
+    def test_notification_issues_reward_promo_for_authenticated_order(self):
+        user = get_user_model().objects.create_user(email="reward-auth@example.com", password="test-pass-123")
+        order = Order.objects.create(
+            user=user,
+            email=user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no="88880001",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/88880001",
+            amount=Decimal("25.00"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(
+                    invoice_no=int(invoice.provider_invoice_no),
+                    account_no=order.payment_account_no,
+                    payment_no=777701,
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        order.refresh_from_db()
+        self.assertIsNotNone(order.reward_promo_code)
+        self.assertIsNotNone(order.reward_issued_at)
+        self.assertIsNotNone(order.reward_email_sent_at)
+        promo_code = order.reward_promo_code
+        self.assertTrue(promo_code.is_reward)
+        self.assertEqual(promo_code.assigned_user, user)
+        self.assertEqual(promo_code.assigned_email, user.email)
+        self.assertEqual(promo_code.max_redemptions_per_user, 1)
+        self.assertEqual(promo_code.max_redemptions_per_email, 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(promo_code.code, mail.outbox[0].body)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        GUEST_ACCESS_EXPIRE_HOURS=24,
+        GUEST_ACCESS_MAX_DOWNLOADS=3,
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+        ORDER_REWARD_MIN_TOTAL_AMOUNT="25.00",
+        ORDER_REWARD_DISCOUNT_PERCENT=10,
+        ORDER_REWARD_VALID_DAYS=14,
+    )
+    def test_notification_issues_reward_promo_for_guest_order(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload(payment_no=777702))
+
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.reward_promo_code)
+        self.assertIsNone(self.order.reward_promo_code.assigned_user)
+        self.assertEqual(self.order.reward_promo_code.assigned_email, self.order.email)
+        self.assertEqual(self.order.reward_promo_code.max_redemptions_per_user, None)
+        self.assertEqual(len(mail.outbox), 2)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        ORDER_REWARD_MIN_TOTAL_AMOUNT="25.00",
+        ORDER_REWARD_DISCOUNT_PERCENT=10,
+        ORDER_REWARD_VALID_DAYS=14,
+    )
+    def test_notification_does_not_issue_reward_below_total_amount_threshold(self):
+        low_product = Product.objects.create(title="Cheap", slug="cheap-paid-product", price=Decimal("24.99"))
+        order = Order.objects.create(
+            email="cheap@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("24.99"),
+            total_amount=Decimal("24.99"),
+            items_count=1,
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no="88880002",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/88880002",
+            amount=Decimal("24.99"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=low_product,
+            title_snapshot=low_product.title,
+            category_snapshot="",
+            unit_price_amount=low_product.price,
+            quantity=1,
+            line_total_amount=low_product.price,
+            product_slug_snapshot=low_product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(
+                    invoice_no=int(invoice.provider_invoice_no),
+                    account_no=order.payment_account_no,
+                    payment_no=777703,
+                    amount="24,99",
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        order.refresh_from_db()
+        self.assertIsNone(order.reward_promo_code)
+        self.assertEqual(PromoCode.objects.count(), 0)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+        ORDER_REWARD_MIN_TOTAL_AMOUNT="25.00",
+        ORDER_REWARD_DISCOUNT_PERCENT=10,
+        ORDER_REWARD_VALID_DAYS=14,
+    )
+    def test_notification_does_not_issue_reward_when_paid_with_reward_promo(self):
+        reward_promo = PromoCode.objects.create(
+            code="RWDPROMO",
+            discount_percent=10,
+            is_reward=True,
+            assigned_email="used-reward@example.com",
+        )
+        order = Order.objects.create(
+            email="used-reward@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("30.00"),
+            total_amount=Decimal("27.00"),
+            items_count=1,
+            promo_code=reward_promo,
+            promo_code_snapshot=reward_promo.code,
+            discount_percent_snapshot=10,
+            promo_eligible_amount=Decimal("30.00"),
+            discount_amount=Decimal("3.00"),
+        )
+        invoice = Invoice.objects.create(
+            order=order,
+            provider_invoice_no="88880003",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/88880003",
+            amount=Decimal("27.00"),
+            currency=933,
+        )
+        rewarded_product = Product.objects.create(
+            title="Reward paid",
+            slug="reward-paid-product",
+            price=Decimal("30.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=rewarded_product,
+            title_snapshot=rewarded_product.title,
+            category_snapshot="",
+            unit_price_amount=rewarded_product.price,
+            quantity=1,
+            line_total_amount=rewarded_product.price,
+            promo_eligible=True,
+            discount_amount=Decimal("3.00"),
+            discounted_line_total_amount=Decimal("27.00"),
+            product_slug_snapshot=rewarded_product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(
+                    invoice_no=int(invoice.provider_invoice_no),
+                    account_no=order.payment_account_no,
+                    payment_no=777704,
+                    amount="27,00",
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        order.refresh_from_db()
+        self.assertIsNone(order.reward_promo_code)
+        self.assertEqual(PromoCode.objects.filter(is_reward=True).count(), 1)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="http://127.0.0.1:8000",
         GUEST_ACCESS_EXPIRE_HOURS=24,
         GUEST_ACCESS_MAX_DOWNLOADS=3,
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
@@ -159,8 +373,10 @@ class ExpressPayNotificationViewTests(TestCase):
             response = self.client.post(self.notification_url, data=self._build_request_payload())
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(self.order.payment_account_no, mail.outbox[0].subject)
+        self.assertEqual(len(mail.outbox), 2)
+        subjects = {message.subject for message in mail.outbox}
+        self.assertTrue(any(self.order.payment_account_no in subject for subject in subjects))
+        self.assertTrue(any("промокод" in subject.lower() for subject in subjects))
         outbox = NotificationOutbox.objects.get(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id)
         self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
 
@@ -205,7 +421,10 @@ class ExpressPayNotificationViewTests(TestCase):
             NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
             1,
         )
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 2)
+        subjects = [message.subject for message in mail.outbox]
+        self.assertEqual(sum(self.order.payment_account_no in subject for subject in subjects), 1)
+        self.assertEqual(sum("промокод" in subject.lower() for subject in subjects), 1)
 
     def test_notification_rejects_invalid_signature(self):
         response = self.client.post(self.notification_url, data=self._build_request_payload(signature="INVALID"))
@@ -469,7 +688,10 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
             NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
             1,
         )
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 2)
+        subjects = [message.subject for message in mail.outbox]
+        self.assertEqual(sum(self.order.payment_account_no in subject for subject in subjects), 1)
+        self.assertEqual(sum("промокод" in subject.lower() for subject in subjects), 1)
 
     def test_settlement_notification_normalizes_provider_account_prefix(self):
         prefixed_account_number = f"36586-1-{self.order.payment_account_no}"

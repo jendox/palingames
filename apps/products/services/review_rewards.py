@@ -89,6 +89,7 @@ def _create_review_reward_promo_code(review: Review) -> PromoCode:
             return PromoCode.objects.create(
                 code=code,
                 discount_percent=settings.REVIEW_REWARD_DISCOUNT_PERCENT,
+                is_reward=True,
                 starts_at=timezone.now(),
                 ends_at=timezone.now() + timedelta(days=settings.REVIEW_REWARD_VALID_DAYS),
                 max_total_redemptions=1,

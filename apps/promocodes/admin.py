@@ -1,3 +1,4 @@
+
 from django.contrib import admin
 from django.db.models import Count
 from django.utils.translation import gettext_lazy as _
@@ -12,6 +13,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
         "code",
         "discount_percent",
+        "is_reward",
         "is_active",
         "min_order_amount",
         "max_total_redemptions",
@@ -19,7 +21,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
         "starts_at",
         "ends_at",
     )
-    list_filter = ("is_active", "starts_at", "ends_at", "created_at")
+    list_filter = ("is_reward", "is_active", "starts_at", "ends_at", "created_at")
     search_fields = ("code", "assigned_email", "assigned_user__email", "note")
     autocomplete_fields = ("assigned_user",)
     filter_horizontal = ("categories", "products")
@@ -31,6 +33,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
                 "fields": (
                     "code",
                     "discount_percent",
+                    "is_reward",
                     "is_active",
                     "starts_at",
                     "ends_at",
