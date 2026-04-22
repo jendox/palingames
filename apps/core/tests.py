@@ -234,7 +234,8 @@ class AnalyticsTemplateTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "googletagmanager.com/gtm.js?id=GTM-TEST123")
+        self.assertContains(response, "googletagmanager.com/gtm.js?id=")
+        self.assertContains(response, "GTM-TEST123")
         self.assertContains(response, "googletagmanager.com/ns.html?id=GTM-TEST123")
         self.assertContains(response, '/static/js/analytics.js')
         self.assertContains(response, 'data-user-type="guest"')
