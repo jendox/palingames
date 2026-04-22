@@ -1,6 +1,7 @@
 import json
 import logging
 from http import HTTPStatus
+from typing import Any
 
 from django.db import transaction
 from django.db.models import Q
@@ -48,6 +49,7 @@ from .helpers import (
     validate_invoice_payment_payload,
     verify_webhook_signature,
 )
+from ..alerts import record_payment_webhook_failure_incident
 
 logger = logging.getLogger("apps.payments")
 
@@ -83,57 +85,61 @@ def save_invoice_target(invoice: Invoice) -> None:
         )
 
 
+def _get_cmd_type(payload: dict[str, Any], provider: str):
+    try:
+        cmd_type = int(payload.get("CmdType"))
+        inc_payment_webhook_received(provider=provider, cmd_type=cmd_type)
+        return cmd_type, None
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        inc_payment_webhook_rejected(provider=provider, reason="invalid_payload")
+        log_event(
+            logger,
+            logging.WARNING,
+            "payment.notification.rejected",
+            exc_info=exc,
+            provider=provider,
+            reason="invalid_payload",
+        )
+        return None, ("FAILED | Invalid payload", HTTPStatus.BAD_REQUEST)
+
+
+def _parse_signed_notification_request(
+    request: HttpRequest,
+    *,
+    provider: str,
+) -> tuple[dict[str, Any] | None, int | None, HttpResponse | None]:
+    try:
+        _, payload = verify_webhook_signature(request)
+        cmd_type, error = _get_cmd_type(payload, provider)
+    except ExpressPaySignatureError as exc:
+        inc_payment_webhook_rejected(provider=provider, reason="invalid_signature")
+        log_event(
+            logger,
+            logging.WARNING,
+            "payment.notification.rejected",
+            exc_info=exc,
+            provider=provider,
+            reason="invalid_signature",
+        )
+        return None, None, HttpResponse("FAILED | Incorrect digital signature", status=HTTPStatus.FORBIDDEN)
+
+    if error is not None:
+        detail, status = error
+        return None, None, HttpResponse(content=detail, status=status)
+    return payload, cmd_type, None
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class ExpressPayNotificationView(View):
     http_method_names = ["post"]
 
-    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:  # noqa: PLR0911
-        provider = PaymentProvider.EXPRESS_PAY.value
-        log_event(
-            logger,
-            logging.INFO,
-            "payment.notification.received",
-            provider=provider,
-        )
-
-        try:
-            _, payload = verify_webhook_signature(request)
-            cmd_type = int(payload.get("CmdType"))
-            inc_payment_webhook_received(provider=provider, cmd_type=cmd_type)
-        except ExpressPaySignatureError as exc:
-            inc_payment_webhook_rejected(provider=provider, reason="invalid_signature")
-            log_event(
-                logger,
-                logging.WARNING,
-                "payment.notification.rejected",
-                exc_info=exc,
-                provider=provider,
-                reason="invalid_signature",
-            )
-            return HttpResponse("FAILED | Incorrect digital signature", status=HTTPStatus.FORBIDDEN)
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
-            inc_payment_webhook_rejected(provider=provider, reason="invalid_payload")
-            log_event(
-                logger,
-                logging.WARNING,
-                "payment.notification.rejected",
-                exc_info=exc,
-                provider=provider,
-                reason="invalid_payload",
-            )
-            return HttpResponse("FAILED | Invalid payload", status=HTTPStatus.BAD_REQUEST)
-
-        if cmd_type != ExpressPayCommandType.INVOICE_STATUS_CHANGED:
-            log_event(
-                logger,
-                logging.INFO,
-                "payment.notification.ignored",
-                provider=provider,
-                cmd_type=cmd_type,
-                reason="unsupported_cmd_type",
-            )
-            return success_response()
-
+    def _handle_status_change_notification(
+        self,
+        *,
+        payload: dict[str, Any],
+        provider: str,
+        cmd_type: int,
+    ) -> tuple[Invoice | None, HttpResponse | None]:
         try:
             notification = ExpressPayWebhookNotification.model_validate(payload)
             invoice = self._process_status_change(notification)
@@ -148,7 +154,7 @@ class ExpressPayNotificationView(View):
                 reason="invalid_payload",
                 cmd_type=cmd_type,
             )
-            return HttpResponse("FAILED | Invalid payload", status=HTTPStatus.BAD_REQUEST)
+            return None, HttpResponse("FAILED | Invalid payload", status=HTTPStatus.BAD_REQUEST)
         except Invoice.DoesNotExist as exc:
             inc_payment_webhook_failed(provider=provider, reason="invoice_not_found")
             log_event(
@@ -161,7 +167,11 @@ class ExpressPayNotificationView(View):
                 cmd_type=cmd_type,
                 provider_invoice_no=str(notification.invoice_no) if notification.invoice_no is not None else None,
             )
-            return HttpResponse("FAILED | Invoice not found", status=HTTPStatus.NOT_FOUND)
+            record_payment_webhook_failure_incident(
+                provider=provider,
+                reason="invoice_not_found",
+            )
+            return None, HttpResponse("FAILED | Invoice not found", status=HTTPStatus.NOT_FOUND)
         except PaymentNotificationMismatch as exc:
             inc_payment_webhook_rejected(provider=provider, reason="payment_data_mismatch")
             log_event(
@@ -175,7 +185,59 @@ class ExpressPayNotificationView(View):
                 provider_invoice_no=str(notification.invoice_no) if notification.invoice_no is not None else None,
                 account_no=notification.account_no,
             )
-            return HttpResponse("FAILED | Payment data mismatch", status=HTTPStatus.BAD_REQUEST)
+            return None, HttpResponse("FAILED | Payment data mismatch", status=HTTPStatus.BAD_REQUEST)
+        except Exception as exc:
+            inc_payment_webhook_failed(provider=provider, reason="processing_error")
+            log_event(
+                logger,
+                logging.ERROR,
+                "payment.notification.failed",
+                exc_info=exc,
+                provider=provider,
+                reason="processing_error",
+                cmd_type=cmd_type,
+                provider_invoice_no=str(notification.invoice_no) if notification.invoice_no is not None else None,
+                account_no=notification.account_no,
+                error_type=type(exc).__name__,
+            )
+            record_payment_webhook_failure_incident(
+                provider=provider,
+                reason="processing_error",
+            )
+            raise
+        return invoice, None
+
+    def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        provider = PaymentProvider.EXPRESS_PAY.value
+        log_event(
+            logger,
+            logging.INFO,
+            "payment.notification.received",
+            provider=provider,
+        )
+
+        payload, cmd_type, error_response = _parse_signed_notification_request(request, provider=provider)
+        if error_response is not None:
+            return error_response
+
+        if cmd_type != ExpressPayCommandType.INVOICE_STATUS_CHANGED:
+            log_event(
+                logger,
+                logging.INFO,
+                "payment.notification.ignored",
+                provider=provider,
+                cmd_type=cmd_type,
+                reason="unsupported_cmd_type",
+            )
+            return success_response()
+
+        invoice, error_response = self._handle_status_change_notification(
+            payload=payload,
+            provider=provider,
+            cmd_type=cmd_type,
+        )
+        if error_response is not None:
+            return error_response
 
         log_event(
             logger,
@@ -328,15 +390,19 @@ class ExpressPaySettlementNotificationView(View):
             )
             return HttpResponse("FAILED | Invalid payload", status=HTTPStatus.BAD_REQUEST)
         except Invoice.DoesNotExist as exc:
-            inc_payment_webhook_failed(provider=provider, reason="order_not_found")
+            inc_payment_webhook_failed(provider=provider, reason="invoice_not_found")
             log_event(
                 logger,
                 logging.WARNING,
                 "payment.settlement_notification.failed",
                 exc_info=exc,
                 provider=provider,
-                reason="order_not_found",
+                reason="invoice_not_found",
                 cmd_type=cmd_type,
+            )
+            record_payment_webhook_failure_incident(
+                provider=provider,
+                reason="invoice_not_found",
             )
             return HttpResponse("FAILED | Order not found", status=HTTPStatus.NOT_FOUND)
         except PaymentNotificationMismatch as exc:
@@ -351,6 +417,23 @@ class ExpressPaySettlementNotificationView(View):
                 cmd_type=cmd_type,
             )
             return HttpResponse("FAILED | Payment data mismatch", status=HTTPStatus.BAD_REQUEST)
+        except Exception as exc:
+            inc_payment_webhook_failed(provider=provider, reason="processing_error")
+            log_event(
+                logger,
+                logging.ERROR,
+                "payment.notification.failed",
+                exc_info=exc,
+                provider=provider,
+                reason="processing_error",
+                cmd_type=cmd_type,
+                error_type=type(exc).__name__,
+            )
+            record_payment_webhook_failure_incident(
+                provider=provider,
+                reason="processing_error",
+            )
+            raise
 
     def _handle_cmd_type(self, request: HttpRequest, cmd_type: int) -> HttpResponse:
         if cmd_type == ExpressPayCommandType.EPOS_SETTLEMENT:

@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -12,7 +13,8 @@ from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
-from apps.payments.models import Invoice, PaymentEvent
+from apps.payments.alerts import record_payment_webhook_failure_incident
+from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
@@ -583,6 +585,111 @@ class ExpressPayNotificationViewTests(TestCase):
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
+class ExpressPayNotificationIncidentTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.product = Product.objects.create(title="Товар для оплаты", slug="paid-product-2", price=Decimal("25.00"))
+        cls.order = Order.objects.create(
+            email="guest2@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        cls.invoice = Invoice.objects.create(
+            order=cls.order,
+            provider_invoice_no="22345678",
+            status=Invoice.InvoiceStatus.PENDING,
+            invoice_url="https://example.com/pay/22345678",
+            amount=Decimal("25.00"),
+            currency=933,
+        )
+        OrderItem.objects.create(
+            order=cls.order,
+            product=cls.product,
+            title_snapshot=cls.product.title,
+            category_snapshot="",
+            unit_price_amount=cls.product.price,
+            quantity=1,
+            line_total_amount=cls.product.price,
+            product_slug_snapshot=cls.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        cls.notification_url = reverse("express-pay-notification")
+
+    def setUp(self):
+        self.client_helper = ExpressPayClient(
+            ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
+        )
+
+    def _build_request_payload(
+        self,
+        *,
+        signature=None,
+        invoice_no=22345678,
+        account_no=None,
+        status=3,
+        payment_no=555001,
+        amount="25,00",
+    ):
+        data = json.dumps(
+            {
+                "CmdType": 3,
+                "Status": status,
+                "AccountNo": account_no or self.order.payment_account_no,
+                "InvoiceNo": invoice_no,
+                "PaymentNo": payment_no,
+                "Amount": amount,
+                "Currency": "933",
+                "Created": "20260322153000",
+            },
+            separators=(",", ":"),
+        )
+        return {
+            "Data": data,
+            "Signature": signature or self.client_helper._compute_raw_signature(data),
+        }
+
+    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
+    def test_notification_invoice_not_found_records_incident_failure(
+        self,
+        record_payment_webhook_failure_incident_mock,
+    ):
+        response = self.client.post(
+            self.notification_url,
+            data=self._build_request_payload(invoice_no=87654321),
+        )
+
+        self.assertEqual(response.status_code, 404)
+        record_payment_webhook_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+
+    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
+    @patch("apps.payments.views.express_pay.ExpressPayNotificationView._process_status_change")
+    def test_notification_processing_error_records_incident_failure_and_reraises(
+        self,
+        process_status_change_mock,
+        record_payment_webhook_failure_incident_mock,
+    ):
+        process_status_change_mock.side_effect = RuntimeError("processing failed")
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(),
+            )
+
+        record_payment_webhook_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="processing_error",
+        )
+
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
 class ExpressPaySettlementNotificationViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -783,6 +890,42 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.content.decode(), "FAILED | Order not found")
+
+    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
+    def test_settlement_notification_invoice_not_found_records_incident_failure(
+        self,
+        record_payment_webhook_failure_incident_mock,
+    ):
+        response = self.client.post(
+            self.settlement_url,
+            data=self._build_epos_payload(account_number="UNKNOWN-ACCOUNT"),
+        )
+
+        self.assertEqual(response.status_code, 404)
+        record_payment_webhook_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+
+    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
+    @patch("apps.payments.views.express_pay.ExpressPaySettlementNotificationView._process_epos_notification")
+    def test_settlement_notification_processing_error_records_incident_failure_and_reraises(
+        self,
+        process_epos_notification_mock,
+        record_payment_webhook_failure_incident_mock,
+    ):
+        process_epos_notification_mock.side_effect = RuntimeError("processing failed")
+
+        with self.assertRaises(RuntimeError):
+            self.client.post(
+                self.settlement_url,
+                data=self._build_epos_payload(),
+            )
+
+        record_payment_webhook_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="processing_error",
+        )
 
     def test_settlement_notification_rejects_amount_mismatch(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -1060,3 +1203,74 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(first_order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
         self.assertEqual(second_invoice.status, Invoice.InvoiceStatus.PAID)
         self.assertEqual(second_order.status, Order.OrderStatus.PAID)
+
+
+@override_settings(
+    PAYMENT_WEBHOOK_INCIDENT_THRESHOLD=3,
+    PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS=600,
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+        "templates": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+    },
+)
+class PaymentWebhookIncidentAlertTests(TestCase):
+    def tearDown(self):
+        caches["default"].clear()
+
+    @patch("apps.payments.alerts.send_incident_alert")
+    def test_below_threshold_does_not_send_incident_alert(self, send_incident_alert_mock):
+        sent = record_payment_webhook_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+
+        self.assertFalse(sent)
+        send_incident_alert_mock.assert_not_called()
+
+    @patch("apps.payments.alerts.send_incident_alert")
+    def test_threshold_sends_incident_alert_once(self, send_incident_alert_mock):
+        send_incident_alert_mock.return_value = True
+
+        self.assertFalse(
+            record_payment_webhook_failure_incident(
+                provider=PaymentProvider.EXPRESS_PAY.value,
+                reason="invoice_not_found",
+            ),
+        )
+        self.assertFalse(
+            record_payment_webhook_failure_incident(
+                provider=PaymentProvider.EXPRESS_PAY.value,
+                reason="invoice_not_found",
+            ),
+        )
+        self.assertTrue(
+            record_payment_webhook_failure_incident(
+                provider=PaymentProvider.EXPRESS_PAY.value,
+                reason="invoice_not_found",
+            ),
+        )
+
+        send_incident_alert_mock.assert_called_once_with(
+            key="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+            title="Repeated payment webhook failures",
+            details={
+                "provider": "EXPRESS_PAY",
+                "reason": "invoice_not_found",
+                "failures": 3,
+                "window_minutes": 10,
+            },
+        )
+
+    @patch("apps.payments.alerts.send_incident_alert")
+    def test_non_alertable_reason_is_ignored(self, send_incident_alert_mock):
+        sent = record_payment_webhook_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invalid_signature",
+        )
+
+        self.assertFalse(sent)
+        send_incident_alert_mock.assert_not_called()
