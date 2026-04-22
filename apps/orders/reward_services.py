@@ -70,9 +70,6 @@ def _has_order_reward_email_notification(order: Order) -> bool:
 
 
 def ensure_order_reward_email(order: Order) -> None:
-    if _get_order_reward_skip_reason(order) is not None:
-        return
-
     promo_code = ensure_order_reward(order)
     if promo_code is None or order.reward_email_sent_at:
         return

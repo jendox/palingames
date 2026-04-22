@@ -120,7 +120,7 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
-        send_ga4_purchase_event_for_order_mock.assert_called_once_with(order_id=self.order.id, source="notification")
+        send_ga4_purchase_event_for_order_mock.assert_called_once_with(order_id=self.order.id, source="webhook")
 
     @patch("apps.payments.services.observe_payment_webhook_processing_duration")
     def test_notification_observes_payment_webhook_processing_duration(
@@ -134,9 +134,9 @@ class ExpressPayNotificationViewTests(TestCase):
         observe_payment_webhook_processing_duration_mock.assert_called_once()
         self.assertEqual(
             observe_payment_webhook_processing_duration_mock.call_args.kwargs["provider"],
-            Invoice.Provider.EXPRESS_PAY,
+            PaymentProvider.EXPRESS_PAY.value,
         )
-        self.assertEqual(observe_payment_webhook_processing_duration_mock.call_args.kwargs["source"], "notification")
+        self.assertEqual(observe_payment_webhook_processing_duration_mock.call_args.kwargs["source"], "webhook")
         self.assertEqual(observe_payment_webhook_processing_duration_mock.call_args.kwargs["result"], "success")
         self.assertGreaterEqual(
             observe_payment_webhook_processing_duration_mock.call_args.kwargs["duration_seconds"],
