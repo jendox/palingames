@@ -13,7 +13,7 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import inc_review_reward_issued
 from apps.notifications.models import NotificationOutbox
-from apps.notifications.services import enqueue_notification
+from apps.notifications.services import enqueue_email_notification
 from apps.notifications.types import NotificationType
 from apps.products.models import Review, ReviewStatus
 from apps.promocodes.models import PromoCode
@@ -89,7 +89,7 @@ def ensure_review_reward_email(review: Review) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.REVIEW_REWARD_USER,
             recipient=to_email,
             payload={

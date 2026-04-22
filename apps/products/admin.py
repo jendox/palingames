@@ -12,6 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.admin_site import admin_site
 from apps.core.metrics import inc_review_published, inc_review_rejected
+from apps.notifications.services import enqueue_email_notification
+from apps.notifications.types import NotificationType
 
 from .forms import ProductFileAdminForm
 from .models import (
@@ -28,8 +30,6 @@ from .models import (
 )
 from .services.review_rewards import issue_review_reward_after_publish
 from .services.s3 import delete_product_file, upload_product_file
-from ..notifications.services import enqueue_notification
-from ..notifications.types import NotificationType
 
 
 @admin.register(Category, site=admin_site)
@@ -419,7 +419,7 @@ def send_review_rejected_user_or_log(review: Review) -> None:
         )
         return
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.REVIEW_REJECTED_USER,
             recipient=review.user.email,
             payload={"review_id": review.id},

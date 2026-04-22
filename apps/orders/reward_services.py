@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_reward_issued, inc_order_reward_skipped
 from apps.notifications.models import NotificationOutbox
-from apps.notifications.services import enqueue_notification
+from apps.notifications.services import enqueue_email_notification
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.promocodes.models import PromoCode
@@ -81,7 +81,7 @@ def ensure_order_reward_email(order: Order) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.ORDER_REWARD_USER,
             recipient=order.email,
             payload={

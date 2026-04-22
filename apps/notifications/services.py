@@ -146,6 +146,22 @@ def enqueue_telegram_notification(
     )
 
 
+def enqueue_email_notification(
+    *,
+    notification_type: NotificationType,
+    recipient: str,
+    payload: dict[str, Any] | list[dict],
+    target,
+) -> NotificationOutbox:
+    return enqueue_notification(
+        notification_type=notification_type,
+        channel=NotificationOutbox.Channel.EMAIL,
+        recipient=recipient,
+        payload=payload,
+        target=target,
+    )
+
+
 def _truncate_error(error: Exception) -> str:
     return str(error)[:MAX_LAST_ERROR_LENGTH]
 

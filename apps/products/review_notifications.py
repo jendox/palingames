@@ -7,7 +7,7 @@ from django.db import transaction
 
 from apps.core.logging import log_event
 from apps.notifications.destinations import TelegramDestination
-from apps.notifications.services import enqueue_notification, enqueue_telegram_notification
+from apps.notifications.services import enqueue_email_notification, enqueue_telegram_notification
 from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
 from apps.products.models import Review
@@ -28,7 +28,7 @@ def _notify_admin_email(review: Review) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
             recipient=",".join(recipients),
             payload={"review_id": review.id},

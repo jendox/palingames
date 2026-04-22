@@ -15,7 +15,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import observe_custom_game_request_creation_duration
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
 from apps.notifications.destinations import TelegramDestination
-from apps.notifications.services import enqueue_notification, enqueue_telegram_notification
+from apps.notifications.services import enqueue_email_notification, enqueue_telegram_notification
 from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
 
@@ -63,7 +63,7 @@ def _notify_customer_email(custom_game_request: CustomGameRequest) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
             recipient=custom_game_request.contact_email,
             payload={"custom_game_request_id": custom_game_request.id},
@@ -93,7 +93,7 @@ def _notify_admin_email(custom_game_request: CustomGameRequest) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_email_notification(
             notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
             recipient=",".join(recipients),
             payload={"custom_game_request_id": custom_game_request.id},
@@ -174,7 +174,7 @@ def send_custom_game_download_link(*, custom_game_request: CustomGameRequest) ->
         raise ValueError("Custom game request must have an active file before sending a download link")
 
     download_token, raw_token = create_custom_game_download_token(custom_game_request)
-    outbox = enqueue_notification(
+    outbox = enqueue_email_notification(
         notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
         recipient=custom_game_request.contact_email,
         payload={
