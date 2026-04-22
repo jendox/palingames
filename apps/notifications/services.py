@@ -283,7 +283,7 @@ def _send_custom_game_request_customer_notification(*, outbox: NotificationOutbo
     send_custom_game_request_customer_email(custom_game_request=custom_game_request)
 
 
-def _send_custom_game_request_admin_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_request_admin_email_notification(*, outbox: NotificationOutbox, payload) -> None:
     from apps.custom_games.emails import send_custom_game_request_admin_email
     from apps.custom_games.models import CustomGameRequest
 
@@ -291,25 +291,47 @@ def _send_custom_game_request_admin_notification(*, outbox: NotificationOutbox, 
     send_custom_game_request_admin_email(custom_game_request=custom_game_request)
 
 
-EMAIL_NOTIFICATION_HANDLERS = {
-    NotificationType.GUEST_ORDER_DOWNLOAD: _send_guest_order_download_notification,
-    NotificationType.CUSTOM_GAME_DOWNLOAD: _send_custom_game_download_notification,
-    NotificationType.ORDER_REWARD_USER: _send_order_reward_user_notification,
-    NotificationType.REVIEW_REJECTED_USER: _send_review_rejected_user_notification,
-    NotificationType.REVIEW_REWARD_USER: _send_review_reward_user_notification,
-    NotificationType.REVIEW_SUBMITTED_ADMIN: _send_review_submitted_admin_notification,
-    NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER: _send_custom_game_request_customer_notification,
-    NotificationType.CUSTOM_GAME_REQUEST_ADMIN: _send_custom_game_request_admin_notification,
+def _send_custom_game_request_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.custom_games.models import CustomGameRequest
+    from apps.notifications.destinations import TelegramDestination
+    from apps.notifications.formatters import format_custom_game_request_admin_telegram
+    from apps.notifications.telegram import send_telegram_message
+
+    custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
+    destination = TelegramDestination(payload["destination"])
+    text = format_custom_game_request_admin_telegram(custom_game_request=custom_game_request)
+    send_telegram_message(destination=destination, text=text)
+
+
+NOTIFICATION_HANDLERS = {
+    (NotificationOutbox.Channel.EMAIL, NotificationType.GUEST_ORDER_DOWNLOAD):
+        _send_guest_order_download_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.CUSTOM_GAME_DOWNLOAD):
+        _send_custom_game_download_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.ORDER_REWARD_USER):
+        _send_order_reward_user_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.REVIEW_REJECTED_USER):
+        _send_review_rejected_user_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.REVIEW_REWARD_USER):
+        _send_review_reward_user_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.REVIEW_SUBMITTED_ADMIN):
+        _send_review_submitted_admin_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER):
+        _send_custom_game_request_customer_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.CUSTOM_GAME_REQUEST_ADMIN):
+        _send_custom_game_request_admin_email_notification,
+    (NotificationOutbox.Channel.TELEGRAM, NotificationType.CUSTOM_GAME_REQUEST_ADMIN):
+        _send_custom_game_request_admin_telegram_notification,
 }
 
 
 def send_notification(*, outbox: NotificationOutbox, payload):
-    if outbox.channel != NotificationOutbox.Channel.EMAIL:
-        raise NotificationOutboxError(f"Unsupported notification channel: {outbox.channel}")
-
-    handler = EMAIL_NOTIFICATION_HANDLERS.get(outbox.notification_type)
+    handler = NOTIFICATION_HANDLERS.get((outbox.channel, outbox.notification_type))
     if handler is None:
-        raise NotificationOutboxError(f"Unsupported notification type: {outbox.notification_type}")
+        raise NotificationOutboxError(
+            "Unsupported notification handler: "
+            f"channel={outbox.channel}, notification_type={outbox.notification_type}",
+        )
     handler(outbox=outbox, payload=payload)
 
 

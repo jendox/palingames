@@ -1,13 +1,15 @@
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
+from apps.notifications.destinations import TelegramDestination
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import (
     create_notification_outbox,
     enqueue_notification_outbox,
     process_notification_outbox,
 )
+from apps.notifications.telegram import TelegramConfigurationError, get_telegram_route
 from apps.notifications.types import NotificationType
 
 
@@ -43,3 +45,24 @@ class NotificationOutboxLoggingTests(TestCase):
         outbox.refresh_from_db()
         self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         send_notification_mock.assert_called_once()
+
+
+class TelegramRouteTests(TestCase):
+    @override_settings(
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+        TELEGRAM_SUPPORT_THREAD_ID=7,
+    )
+    def test_get_telegram_route_returns_notifications_topic(self):
+        route = get_telegram_route(TelegramDestination.NOTIFICATIONS)
+
+        self.assertEqual(route.chat_id, "-1001234567890")
+        self.assertEqual(route.message_thread_id, 3)
+
+    @override_settings(
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
+    )
+    def test_get_telegram_route_raises_for_missing_thread(self):
+        with self.assertRaises(TelegramConfigurationError):
+            get_telegram_route(TelegramDestination.NOTIFICATIONS)

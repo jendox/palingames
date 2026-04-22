@@ -8,7 +8,8 @@ from apps.core.models import TimeStampedModel
 
 class NotificationOutbox(TimeStampedModel):
     class Channel(models.TextChoices):
-        EMAIL = "EMAIL", _("Email")
+        EMAIL = "EMAIL", "Email"
+        TELEGRAM = "TELEGRAM", "Telegram"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", _("Ожидает отправки")

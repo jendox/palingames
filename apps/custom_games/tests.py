@@ -18,6 +18,7 @@ from apps.custom_games.services import (
     notify_custom_game_request_created,
     send_custom_game_download_link,
 )
+from apps.notifications.destinations import TelegramDestination
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
@@ -234,6 +235,9 @@ class CustomGamePageTests(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     def test_guest_can_submit_custom_game_request(self, delay_mock):
@@ -246,15 +250,25 @@ class CustomGamePageTests(TestCase):
         self.assertEqual(custom_game_request.contact_email, "anna@example.com")
         customer_outbox = NotificationOutbox.objects.get(
             notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+            channel=NotificationOutbox.Channel.EMAIL,
         )
-        admin_outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+        admin_email_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+        admin_telegram_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+        )
         self.assertEqual(customer_outbox.recipient, custom_game_request.contact_email)
         self.assertEqual(customer_outbox.status, NotificationOutbox.Status.PENDING)
-        self.assertEqual(admin_outbox.recipient, "admin@example.com")
-        self.assertEqual(admin_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(admin_email_outbox.recipient, "admin@example.com")
+        self.assertEqual(admin_email_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(admin_telegram_outbox.recipient, "notifications")
+        self.assertEqual(admin_telegram_outbox.status, NotificationOutbox.Status.PENDING)
         self.assertCountEqual(
             [call.args[0] for call in delay_mock.call_args_list],
-            [customer_outbox.id, admin_outbox.id],
+            [customer_outbox.id, admin_email_outbox.id, admin_telegram_outbox.id],
         )
         self.assertEqual(len(mail.outbox), 0)
         self.assertContains(response, 'data-checkout-order-created="true"')
@@ -271,7 +285,10 @@ class CustomGamePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
-        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
 
         self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
 
@@ -292,7 +309,10 @@ class CustomGamePageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
-        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
 
         self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
 
@@ -302,6 +322,34 @@ class CustomGamePageTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ["admin@example.com"])
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
         self.assertIn("Новая заявка на игру", mail.outbox[0].subject)
+
+    @override_settings(
+        CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+    )
+    @patch("apps.notifications.telegram.send_telegram_message")
+    def test_process_custom_game_request_admin_telegram_notification_sends_message(self, send_telegram_message_mock):
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+        )
+
+        self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
+
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        send_telegram_message_mock.assert_called_once()
+        self.assertEqual(
+            send_telegram_message_mock.call_args.kwargs["destination"],
+            TelegramDestination.NOTIFICATIONS,
+        )
+        self.assertIn("Новая заявка на игру", send_telegram_message_mock.call_args.kwargs["text"])
 
     @patch("apps.custom_games.services.observe_custom_game_request_creation_duration")
     def test_guest_submit_observes_creation_duration(self, observe_custom_game_request_creation_duration_mock):
@@ -326,6 +374,9 @@ class CustomGamePageTests(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=[],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     def test_authenticated_submit_links_request_to_user(self, delay_mock):
@@ -352,7 +403,46 @@ class CustomGamePageTests(TestCase):
         self.assertContains(response, 'data-checkout-order-created="true"')
         self.assertContains(response, custom_game_request.payment_account_no)
 
-    @override_settings(CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"])
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_submit_without_telegram_settings_skips_admin_telegram_outbox(self, delay_mock):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+                channel=NotificationOutbox.Channel.EMAIL,
+            ).exists(),
+        )
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+                channel=NotificationOutbox.Channel.EMAIL,
+            ).exists(),
+        )
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+                channel=NotificationOutbox.Channel.TELEGRAM,
+            ).exists(),
+        )
+        self.assertEqual(delay_mock.call_count, 2)
+
+    @override_settings(
+        CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
+    )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     def test_notify_custom_game_request_created_without_contact_email_skips_customer_notification_outbox(
         self,
@@ -368,7 +458,10 @@ class CustomGamePageTests(TestCase):
                 notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
             ).exists(),
         )
-        admin_outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+        admin_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
         delay_mock.assert_called_once_with(admin_outbox.id)
         self.assertEqual(len(mail.outbox), 0)
 

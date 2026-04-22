@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import observe_custom_game_request_creation_duration
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
+from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import enqueue_notification
 from apps.notifications.types import NotificationType
 
@@ -49,66 +50,107 @@ def create_custom_game_request(*, form, user=None) -> CustomGameRequest:
     return custom_game_request
 
 
+def _notify_customer_email(custom_game_request: CustomGameRequest) -> None:
+    if not custom_game_request.contact_email:
+        log_event(
+            logger,
+            logging.WARNING,
+            "custom_game_request.customer_email.enqueue_skipped",
+            custom_game_request_id=custom_game_request.id,
+            reason="empty_contact_email",
+        )
+        return
+
+    try:
+        enqueue_notification(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+            recipient=custom_game_request.contact_email,
+            payload={"custom_game_request_id": custom_game_request.id},
+            target=custom_game_request,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_request.customer_email.enqueue_failed",
+            exc_info=True,
+            custom_game_request_id=custom_game_request.id,
+            payment_account_no=custom_game_request.payment_account_no,
+        )
+
+
+def _notify_admin_email(custom_game_request: CustomGameRequest) -> None:
+    recipients = [email for email in settings.CUSTOM_GAME_ADMIN_EMAILS if email]
+    if not recipients:
+        log_event(
+            logger,
+            logging.WARNING,
+            "custom_game_request.admin_email.enqueue_skipped",
+            custom_game_request_id=custom_game_request.id,
+            reason="empty_recipients",
+        )
+        return
+
+    try:
+        enqueue_notification(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            recipient=",".join(recipients),
+            payload={"custom_game_request_id": custom_game_request.id},
+            target=custom_game_request,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_request.admin_email.enqueue_failed",
+            exc_info=True,
+            custom_game_request_id=custom_game_request.id,
+            payment_account_no=custom_game_request.payment_account_no,
+        )
+
+
+def _notify_admin_telegram(custom_game_request: CustomGameRequest) -> None:
+    reason: str | None = None
+    if not settings.TELEGRAM_BOT_TOKEN:
+        reason = "telegram_bot_token_not_configured"
+    if not settings.TELEGRAM_FORUM_CHAT_ID or not settings.TELEGRAM_NOTIFICATIONS_THREAD_ID:
+        reason = "telegram_notifications_route_not_configured"
+    if reason is not None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "custom_game_request.admin_telegram.enqueue_skipped",
+            custom_game_request_id=custom_game_request.id,
+            reason=reason,
+        )
+        return
+
+    try:
+        enqueue_notification(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient="notifications",
+            payload={
+                "custom_game_request_id": custom_game_request.id,
+                "destination": "notifications",
+            },
+            target=custom_game_request,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_request.admin_telegram.enqueue_failed",
+            exc_info=True,
+            custom_game_request_id=custom_game_request.id,
+            payment_account_no=custom_game_request.payment_account_no,
+        )
+
+
 def notify_custom_game_request_created(custom_game_request: CustomGameRequest) -> None:
-    def _notify_customer_email() -> None:
-        if not custom_game_request.contact_email:
-            log_event(
-                logger,
-                logging.WARNING,
-                "custom_game_request.customer_email.enqueue_skipped",
-                custom_game_request_id=custom_game_request.id,
-                reason="empty_contact_email",
-            )
-            return
-
-        try:
-            enqueue_notification(
-                notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
-                recipient=custom_game_request.contact_email,
-                payload={"custom_game_request_id": custom_game_request.id},
-                target=custom_game_request,
-            )
-        except Exception:
-            log_event(
-                logger,
-                logging.ERROR,
-                "custom_game_request.customer_email.enqueue_failed",
-                exc_info=True,
-                custom_game_request_id=custom_game_request.id,
-                payment_account_no=custom_game_request.payment_account_no,
-            )
-
-    def _notify_admin_email() -> None:
-        recipients = [email for email in settings.CUSTOM_GAME_ADMIN_EMAILS if email]
-        if not recipients:
-            log_event(
-                logger,
-                logging.WARNING,
-                "custom_game_request.admin_email.enqueue_skipped",
-                custom_game_request_id=custom_game_request.id,
-                reason="empty_recipients",
-            )
-            return
-
-        try:
-            enqueue_notification(
-                notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
-                recipient=",".join(recipients),
-                payload={"custom_game_request_id": custom_game_request.id},
-                target=custom_game_request,
-            )
-        except Exception:
-            log_event(
-                logger,
-                logging.ERROR,
-                "custom_game_request.admin_email.enqueue_failed",
-                exc_info=True,
-                custom_game_request_id=custom_game_request.id,
-                payment_account_no=custom_game_request.payment_account_no,
-            )
-
-    _notify_customer_email()
-    _notify_admin_email()
+    _notify_customer_email(custom_game_request)
+    _notify_admin_email(custom_game_request)
+    _notify_admin_telegram(custom_game_request)
 
 
 def hash_custom_game_download_token(token: str) -> str:
