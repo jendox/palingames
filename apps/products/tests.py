@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
+from apps.notifications.destinations import TelegramDestination
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
@@ -758,10 +759,12 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
-    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
-    def test_submit_review_creates_admin_email_notification_outbox(self, mock_notify_telegram, delay_mock):
+    def test_submit_review_creates_admin_notification_outboxes(self, delay_mock):
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
 
@@ -772,20 +775,33 @@ class ProductReviewFlowTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        delay_mock.assert_called_once()
-        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN)
-        self.assertEqual(outbox.recipient, "ops@example.com")
-        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        email_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+        telegram_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+        )
+        self.assertEqual(email_outbox.recipient, "ops@example.com")
+        self.assertEqual(email_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(telegram_outbox.recipient, "notifications")
+        self.assertEqual(telegram_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertCountEqual(
+            [call.args[0] for call in delay_mock.call_args_list],
+            [email_outbox.id, telegram_outbox.id],
+        )
         self.assertEqual(len(mail.outbox), 0)
-        mock_notify_telegram.assert_called_once()
 
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
-    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
-    def test_process_review_submitted_admin_notification_sends_email(self, mock_notify_telegram, delay_mock):
+    def test_process_review_submitted_admin_email_notification_sends_email(self, delay_mock):
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
 
@@ -797,7 +813,10 @@ class ProductReviewFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         delay_mock.assert_called_once()
-        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
 
         processed = process_notification_outbox(outbox_id=outbox.id)
 
@@ -809,15 +828,21 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(email.to, ["ops@example.com"])
         self.assertIn("Новый отзыв на", email.subject)
         self.assertIn("Reviewed", email.body)
-        mock_notify_telegram.assert_called_once()
 
     @override_settings(
-        REVIEW_ADMIN_EMAILS=[],
+        REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
-    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
-    def test_submit_review_without_admin_recipients_skips_email_outbox(self, mock_notify_telegram, delay_mock):
+    @patch("apps.notifications.telegram.send_telegram_message")
+    def test_process_review_submitted_admin_telegram_notification_sends_message(
+        self,
+        send_telegram_message_mock,
+        delay_mock,
+    ):
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
 
@@ -828,12 +853,91 @@ class ProductReviewFlowTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        delay_mock.assert_not_called()
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+        )
+        self.assertEqual(delay_mock.call_count, 2)
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        send_telegram_message_mock.assert_called_once()
+        self.assertEqual(
+            send_telegram_message_mock.call_args.kwargs["destination"],
+            TelegramDestination.NOTIFICATIONS,
+        )
+        self.assertIn("Новый отзыв на товар", send_telegram_message_mock.call_args.kwargs["text"])
+
+    @override_settings(
+        REVIEW_ADMIN_EMAILS=[],
+        SITE_BASE_URL="https://example.com",
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_submit_review_without_admin_recipients_skips_email_outbox(self, delay_mock):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                url,
+                {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        delay_mock.assert_called_once()
         self.assertFalse(
-            NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN).exists(),
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+                channel=NotificationOutbox.Channel.EMAIL,
+            ).exists(),
+        )
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+                channel=NotificationOutbox.Channel.TELEGRAM,
+            ).exists(),
         )
         self.assertEqual(len(mail.outbox), 0)
-        mock_notify_telegram.assert_called_once()
+
+    @override_settings(
+        REVIEW_ADMIN_EMAILS=["ops@example.com"],
+        SITE_BASE_URL="https://example.com",
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_submit_review_without_telegram_settings_skips_telegram_outbox(self, delay_mock):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                url,
+                {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        delay_mock.assert_called_once()
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+                channel=NotificationOutbox.Channel.EMAIL,
+            ).exists(),
+        )
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+                channel=NotificationOutbox.Channel.TELEGRAM,
+            ).exists(),
+        )
+        self.assertEqual(len(mail.outbox), 0)
 
     @override_settings(SITE_BASE_URL="https://example.com")
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")

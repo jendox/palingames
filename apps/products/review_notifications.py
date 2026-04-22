@@ -6,10 +6,10 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.core.logging import log_event
+from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import enqueue_notification
 from apps.notifications.types import NotificationType
 from apps.products.models import Review
-from apps.products.telegram_notify import notify_review_submitted_telegram
 
 logger = logging.getLogger("apps.products.review_notifications")
 
@@ -44,13 +44,37 @@ def _notify_admin_email(review: Review) -> None:
 
 
 def _notify_admin_telegram(review: Review) -> None:
+    reason: str | None = None
+    if not settings.TELEGRAM_BOT_TOKEN:
+        reason = "telegram_bot_token_not_configured"
+    if not settings.TELEGRAM_FORUM_CHAT_ID or not settings.TELEGRAM_NOTIFICATIONS_THREAD_ID:
+        reason = "telegram_notifications_route_not_configured"
+    if reason is not None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "review.notify.admin_telegram.enqueue_skipped",
+            review_id=review.id,
+            reason=reason,
+        )
+        return
+
     try:
-        notify_review_submitted_telegram(review)
+        enqueue_notification(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient="notifications",
+            payload={
+                "review_id": review.id,
+                "destination": "notifications",
+            },
+            target=review,
+        )
     except Exception:
         log_event(
             logger,
             logging.ERROR,
-            "review.notify.telegram.failed",
+            "review.notify.telegram.enqueue_failed",
             exc_info=True,
             review_id=review.id,
         )
