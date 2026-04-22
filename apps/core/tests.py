@@ -9,6 +9,7 @@ from django.http import HttpRequest
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
+from apps.core.alerts import send_incident_alert
 from apps.core.analytics import send_ga4_purchase_event_for_order
 from apps.core.context_processors import analytics
 from apps.core.logging import (
@@ -151,6 +152,68 @@ class CoreTasksTests(TestCase):
         clear_expired_sessions_task.apply(args=())
 
         call_command_mock.assert_called_once_with("clearsessions")
+
+
+class IncidentAlertTests(TestCase):
+    def tearDown(self):
+        caches["default"].clear()
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=0,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_alert_returns_false_when_incidents_route_is_not_configured(self, send_mock):
+        sent = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            details={"failures": 5},
+        )
+
+        self.assertFalse(sent)
+        send_mock.assert_not_called()
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=9,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_alert_sends_message_when_configured(self, send_mock):
+        sent = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            details={"failures": 5},
+        )
+
+        self.assertTrue(sent)
+        send_mock.assert_called_once()
+        self.assertEqual(send_mock.call_args.kwargs["destination"].value, "incidents")
+        self.assertIn("CRITICAL: Repeated payment webhook failures", send_mock.call_args.kwargs["text"])
+        self.assertIn("failures: 5", send_mock.call_args.kwargs["text"])
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=9,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_alert_deduplicates_same_alert_within_ttl(self, send_mock):
+        first = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            details={"failures": 5},
+        )
+        second = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            details={"failures": 5},
+        )
+
+        self.assertTrue(first)
+        self.assertFalse(second)
+        send_mock.assert_called_once()
 
 
 class AnalyticsTemplateTests(TestCase):

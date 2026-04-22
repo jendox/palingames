@@ -30,7 +30,9 @@ def get_telegram_route(destination: TelegramDestination) -> TelegramRoute:
     telegram_thread_map: dict[TelegramDestination, int] = {
         TelegramDestination.NOTIFICATIONS: settings.TELEGRAM_NOTIFICATIONS_THREAD_ID,
         TelegramDestination.SUPPORT: settings.TELEGRAM_SUPPORT_THREAD_ID,
+        TelegramDestination.INCIDENTS: settings.TELEGRAM_INCIDENTS_THREAD_ID,
     }
+
     try:
         thread_id = telegram_thread_map[destination]
     except KeyError as error:
@@ -54,6 +56,9 @@ def get_telegram_destination_skip_reason(destination: TelegramDestination) -> st
 
     if destination == TelegramDestination.SUPPORT and not settings.TELEGRAM_SUPPORT_THREAD_ID:
         return "telegram_support_route_not_configured"
+
+    if destination == TelegramDestination.INCIDENTS and not settings.TELEGRAM_INCIDENTS_THREAD_ID:
+        return "telegram_incidents_route_not_configured"
 
     return None
 
