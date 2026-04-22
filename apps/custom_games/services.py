@@ -14,8 +14,9 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import observe_custom_game_request_creation_duration
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
-from apps.notifications.models import NotificationOutbox
-from apps.notifications.services import enqueue_notification
+from apps.notifications.destinations import TelegramDestination
+from apps.notifications.services import enqueue_notification, enqueue_telegram_notification
+from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
 
 logger = logging.getLogger("apps.custom_games")
@@ -110,11 +111,7 @@ def _notify_admin_email(custom_game_request: CustomGameRequest) -> None:
 
 
 def _notify_admin_telegram(custom_game_request: CustomGameRequest) -> None:
-    reason: str | None = None
-    if not settings.TELEGRAM_BOT_TOKEN:
-        reason = "telegram_bot_token_not_configured"
-    if not settings.TELEGRAM_FORUM_CHAT_ID or not settings.TELEGRAM_NOTIFICATIONS_THREAD_ID:
-        reason = "telegram_notifications_route_not_configured"
+    reason: str | None = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
     if reason is not None:
         log_event(
             logger,
@@ -126,14 +123,10 @@ def _notify_admin_telegram(custom_game_request: CustomGameRequest) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_telegram_notification(
             notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
-            channel=NotificationOutbox.Channel.TELEGRAM,
-            recipient="notifications",
-            payload={
-                "custom_game_request_id": custom_game_request.id,
-                "destination": "notifications",
-            },
+            destination=TelegramDestination.NOTIFICATIONS,
+            payload={"custom_game_request_id": custom_game_request.id},
             target=custom_game_request,
         )
     except Exception:

@@ -6,8 +6,9 @@ from django.conf import settings
 from django.db import transaction
 
 from apps.core.logging import log_event
-from apps.notifications.models import NotificationOutbox
-from apps.notifications.services import enqueue_notification
+from apps.notifications.destinations import TelegramDestination
+from apps.notifications.services import enqueue_notification, enqueue_telegram_notification
+from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
 from apps.products.models import Review
 
@@ -44,11 +45,7 @@ def _notify_admin_email(review: Review) -> None:
 
 
 def _notify_admin_telegram(review: Review) -> None:
-    reason: str | None = None
-    if not settings.TELEGRAM_BOT_TOKEN:
-        reason = "telegram_bot_token_not_configured"
-    if not settings.TELEGRAM_FORUM_CHAT_ID or not settings.TELEGRAM_NOTIFICATIONS_THREAD_ID:
-        reason = "telegram_notifications_route_not_configured"
+    reason: str | None = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
     if reason is not None:
         log_event(
             logger,
@@ -60,14 +57,10 @@ def _notify_admin_telegram(review: Review) -> None:
         return
 
     try:
-        enqueue_notification(
+        enqueue_telegram_notification(
             notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
-            channel=NotificationOutbox.Channel.TELEGRAM,
-            recipient="notifications",
-            payload={
-                "review_id": review.id,
-                "destination": "notifications",
-            },
+            destination=TelegramDestination.NOTIFICATIONS,
+            payload={"review_id": review.id},
             target=review,
         )
     except Exception:

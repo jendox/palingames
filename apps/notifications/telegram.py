@@ -42,6 +42,22 @@ def get_telegram_route(destination: TelegramDestination) -> TelegramRoute:
     return TelegramRoute(chat_id=chat_id, message_thread_id=thread_id)
 
 
+def get_telegram_destination_skip_reason(destination: TelegramDestination) -> str | None:
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return "telegram_bot_token_not_configured"
+
+    if not settings.TELEGRAM_FORUM_CHAT_ID:
+        return "telegram_forum_chat_not_configured"
+
+    if destination == TelegramDestination.NOTIFICATIONS and not settings.TELEGRAM_NOTIFICATIONS_THREAD_ID:
+        return "telegram_notifications_route_not_configured"
+
+    if destination == TelegramDestination.SUPPORT and not settings.TELEGRAM_SUPPORT_THREAD_ID:
+        return "telegram_support_route_not_configured"
+
+    return None
+
+
 def send_telegram_message(*, destination: TelegramDestination, text: str) -> None:
     token = settings.TELEGRAM_BOT_TOKEN
     if not token:

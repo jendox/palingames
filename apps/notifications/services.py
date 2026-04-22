@@ -15,6 +15,7 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
 
+from .destinations import TelegramDestination
 from .models import NotificationOutbox
 from .types import NotificationType
 
@@ -123,6 +124,26 @@ def enqueue_notification(
         channel=channel,
     )
     return enqueue_notification_outbox(outbox)
+
+
+def enqueue_telegram_notification(
+    *,
+    notification_type: NotificationType,
+    destination: TelegramDestination,
+    payload: dict[str, Any] | list[dict],
+    target,
+    recipient: str | None = None,
+) -> NotificationOutbox:
+    return enqueue_notification(
+        notification_type=notification_type,
+        channel=NotificationOutbox.Channel.TELEGRAM,
+        recipient=recipient or destination.value,
+        payload={
+            **payload,
+            "destination": destination.value,
+        },
+        target=target,
+    )
 
 
 def _truncate_error(error: Exception) -> str:
