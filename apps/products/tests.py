@@ -837,7 +837,7 @@ class ProductReviewFlowTests(TestCase):
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
-    @patch("apps.notifications.telegram.send_telegram_message")
+    @patch("apps.notifications.handlers.send_telegram_message")
     def test_process_review_submitted_admin_telegram_notification_sends_message(
         self,
         send_telegram_message_mock,

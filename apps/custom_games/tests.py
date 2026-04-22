@@ -330,7 +330,7 @@ class CustomGamePageTests(TestCase):
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
-    @patch("apps.notifications.telegram.send_telegram_message")
+    @patch("apps.notifications.handlers.send_telegram_message")
     def test_process_custom_game_request_admin_telegram_notification_sends_message(self, send_telegram_message_mock):
         response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
 
