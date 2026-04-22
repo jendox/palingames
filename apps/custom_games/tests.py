@@ -13,10 +13,14 @@ from django.utils import timezone
 from apps.core.models import OrderSource
 from apps.custom_games.forms import AUDIENCE_OTHER, AUDIENCE_PRESET_67, CustomGameRequestForm
 from apps.custom_games.models import CustomGameFile, CustomGameRequest
-from apps.custom_games.services import create_custom_game_download_token, send_custom_game_download_link
+from apps.custom_games.services import (
+    create_custom_game_download_token,
+    notify_custom_game_request_created,
+    send_custom_game_download_link,
+)
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
-from apps.notifications.types import CUSTOM_GAME_DOWNLOAD
+from apps.notifications.types import NotificationType
 from apps.products.models import Currency
 from apps.products.services.s3 import upload_custom_game_file
 
@@ -185,7 +189,7 @@ class CustomGameDownloadTests(TestCase):
         )
 
         download_token = send_custom_game_download_link(custom_game_request=custom_game_request)
-        outbox = NotificationOutbox.objects.get(notification_type=CUSTOM_GAME_DOWNLOAD)
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD)
 
         self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
         self.assertEqual(outbox.object_id, custom_game_request.id)
@@ -229,19 +233,75 @@ class CustomGamePageTests(TestCase):
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
     )
-    def test_guest_can_submit_custom_game_request(self):
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_guest_can_submit_custom_game_request(self, delay_mock):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
 
         self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
         self.assertIsNone(custom_game_request.user)
         self.assertEqual(custom_game_request.contact_email, "anna@example.com")
-        self.assertEqual(len(mail.outbox), 2)
-        self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
-        self.assertIn(custom_game_request.payment_account_no, mail.outbox[1].subject)
+        customer_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+        )
+        admin_outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+        self.assertEqual(customer_outbox.recipient, custom_game_request.contact_email)
+        self.assertEqual(customer_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(admin_outbox.recipient, "admin@example.com")
+        self.assertEqual(admin_outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertCountEqual(
+            [call.args[0] for call in delay_mock.call_args_list],
+            [customer_outbox.id, admin_outbox.id],
+        )
+        self.assertEqual(len(mail.outbox), 0)
         self.assertContains(response, 'data-checkout-order-created="true"')
         self.assertContains(response, custom_game_request.payment_account_no)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        SITE_BASE_URL="https://example.com",
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    )
+    def test_process_custom_game_request_customer_notification_sends_email(self):
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        custom_game_request = CustomGameRequest.objects.get()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER)
+
+        self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
+
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [custom_game_request.contact_email])
+        self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
+        self.assertIn("Мы получили вашу заявку", mail.outbox[0].body)
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    )
+    def test_process_custom_game_request_admin_notification_sends_email(self):
+        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        custom_game_request = CustomGameRequest.objects.get()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+
+        self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
+
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["admin@example.com"])
+        self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
+        self.assertIn("Новая заявка на игру", mail.outbox[0].subject)
 
     @patch("apps.custom_games.services.observe_custom_game_request_creation_duration")
     def test_guest_submit_observes_creation_duration(self, observe_custom_game_request_creation_duration_mock):
@@ -265,19 +325,52 @@ class CustomGamePageTests(TestCase):
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=[],
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
     )
-    def test_authenticated_submit_links_request_to_user(self):
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_authenticated_submit_links_request_to_user(self, delay_mock):
         user = get_user_model().objects.create_user(email="user@example.com", password="test-pass-123")
         self.client.force_login(user)
 
-        response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse("custom-game"), data=CUSTOM_GAME_POST_DATA, follow=True)
 
         self.assertEqual(response.status_code, 200)
         custom_game_request = CustomGameRequest.objects.get()
         self.assertEqual(custom_game_request.user, user)
-        self.assertEqual(len(mail.outbox), 1)
+        customer_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+        )
+        self.assertEqual(customer_outbox.recipient, custom_game_request.contact_email)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            ).exists(),
+        )
+        delay_mock.assert_called_once_with(customer_outbox.id)
+        self.assertEqual(len(mail.outbox), 0)
         self.assertContains(response, 'data-checkout-order-created="true"')
         self.assertContains(response, custom_game_request.payment_account_no)
+
+    @override_settings(CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"])
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_notify_custom_game_request_created_without_contact_email_skips_customer_notification_outbox(
+        self,
+        delay_mock,
+    ):
+        custom_game_request = CustomGameRequest.objects.create(**{**CUSTOM_GAME_MODEL_DATA, "contact_email": ""})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notify_custom_game_request_created(custom_game_request)
+
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+            ).exists(),
+        )
+        admin_outbox = NotificationOutbox.objects.get(notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN)
+        delay_mock.assert_called_once_with(admin_outbox.id)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_invalid_post_does_not_create_request(self):
         response = self.client.post(reverse("custom-game"), data={**CUSTOM_GAME_POST_DATA, "contact_email": "bad"})

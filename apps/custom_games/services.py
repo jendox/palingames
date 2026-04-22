@@ -13,13 +13,9 @@ from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.core.metrics import observe_custom_game_request_creation_duration
-from apps.custom_games.emails import (
-    send_custom_game_request_admin_email,
-    send_custom_game_request_customer_email,
-)
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
 from apps.notifications.services import enqueue_notification
-from apps.notifications.types import CUSTOM_GAME_DOWNLOAD
+from apps.notifications.types import NotificationType
 
 logger = logging.getLogger("apps.custom_games")
 CUSTOM_GAME_DOWNLOAD_TOKEN_BYTES = 32
@@ -54,29 +50,65 @@ def create_custom_game_request(*, form, user=None) -> CustomGameRequest:
 
 
 def notify_custom_game_request_created(custom_game_request: CustomGameRequest) -> None:
-    try:
-        send_custom_game_request_customer_email(custom_game_request=custom_game_request)
-    except Exception:
-        log_event(
-            logger,
-            logging.ERROR,
-            "custom_game_request.customer_email.failed",
-            exc_info=True,
-            custom_game_request_id=custom_game_request.id,
-            payment_account_no=custom_game_request.payment_account_no,
-        )
+    def _notify_customer_email() -> None:
+        if not custom_game_request.contact_email:
+            log_event(
+                logger,
+                logging.WARNING,
+                "custom_game_request.customer_email.enqueue_skipped",
+                custom_game_request_id=custom_game_request.id,
+                reason="empty_contact_email",
+            )
+            return
 
-    try:
-        send_custom_game_request_admin_email(custom_game_request=custom_game_request)
-    except Exception:
-        log_event(
-            logger,
-            logging.ERROR,
-            "custom_game_request.admin_email.failed",
-            exc_info=True,
-            custom_game_request_id=custom_game_request.id,
-            payment_account_no=custom_game_request.payment_account_no,
-        )
+        try:
+            enqueue_notification(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER,
+                recipient=custom_game_request.contact_email,
+                payload={"custom_game_request_id": custom_game_request.id},
+                target=custom_game_request,
+            )
+        except Exception:
+            log_event(
+                logger,
+                logging.ERROR,
+                "custom_game_request.customer_email.enqueue_failed",
+                exc_info=True,
+                custom_game_request_id=custom_game_request.id,
+                payment_account_no=custom_game_request.payment_account_no,
+            )
+
+    def _notify_admin_email() -> None:
+        recipients = [email for email in settings.CUSTOM_GAME_ADMIN_EMAILS if email]
+        if not recipients:
+            log_event(
+                logger,
+                logging.WARNING,
+                "custom_game_request.admin_email.enqueue_skipped",
+                custom_game_request_id=custom_game_request.id,
+                reason="empty_recipients",
+            )
+            return
+
+        try:
+            enqueue_notification(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+                recipient=",".join(recipients),
+                payload={"custom_game_request_id": custom_game_request.id},
+                target=custom_game_request,
+            )
+        except Exception:
+            log_event(
+                logger,
+                logging.ERROR,
+                "custom_game_request.admin_email.enqueue_failed",
+                exc_info=True,
+                custom_game_request_id=custom_game_request.id,
+                payment_account_no=custom_game_request.payment_account_no,
+            )
+
+    _notify_customer_email()
+    _notify_admin_email()
 
 
 def hash_custom_game_download_token(token: str) -> str:
@@ -108,7 +140,7 @@ def send_custom_game_download_link(*, custom_game_request: CustomGameRequest) ->
 
     download_token, raw_token = create_custom_game_download_token(custom_game_request)
     outbox = enqueue_notification(
-        notification_type=CUSTOM_GAME_DOWNLOAD,
+        notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
         recipient=custom_game_request.contact_email,
         payload={
             "custom_game_request_id": custom_game_request.id,

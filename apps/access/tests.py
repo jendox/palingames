@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.notifications.models import NotificationOutbox
-from apps.notifications.types import GUEST_ORDER_DOWNLOAD
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.products.models import Product, ProductFile
 from apps.products.services.s3 import ProductFileDownloadUrlError
@@ -370,7 +370,7 @@ class GuestAccessEmailOutboxTests(TestCase):
         outbox = create_guest_access_email_outbox(order=order, guest_access_payloads=payload)
 
         self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
-        self.assertEqual(outbox.notification_type, GUEST_ORDER_DOWNLOAD)
+        self.assertEqual(outbox.notification_type, NotificationType.GUEST_ORDER_DOWNLOAD)
         self.assertNotIn(b"token-abc", outbox.payload_encrypted)
         self.assertEqual(decrypt_outbox_payload(outbox.payload_encrypted), payload)
 
@@ -445,14 +445,14 @@ class GuestAccessEmailOutboxTests(TestCase):
             items_count=1,
         )
         old_sent = NotificationOutbox.objects.create(
-            notification_type=GUEST_ORDER_DOWNLOAD,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient=order.email,
             payload_encrypted=b"encrypted-1",
             status=NotificationOutbox.Status.SENT,
             sent_at=timezone.now() - timedelta(days=40),
         )
         old_failed = NotificationOutbox.objects.create(
-            notification_type=GUEST_ORDER_DOWNLOAD,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient=order.email,
             payload_encrypted=b"encrypted-2",
             status=NotificationOutbox.Status.FAILED,
@@ -461,7 +461,7 @@ class GuestAccessEmailOutboxTests(TestCase):
             updated_at=timezone.now() - timedelta(days=100),
         )
         fresh_sent = NotificationOutbox.objects.create(
-            notification_type=GUEST_ORDER_DOWNLOAD,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient=order.email,
             payload_encrypted=b"encrypted-3",
             status=NotificationOutbox.Status.SENT,

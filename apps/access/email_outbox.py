@@ -8,7 +8,7 @@ from apps.notifications.services import (
     encrypt_outbox_payload as notification_encrypt_outbox_payload,
     process_notification_outbox,
 )
-from apps.notifications.types import GUEST_ORDER_DOWNLOAD
+from apps.notifications.types import NotificationType
 
 
 class GuestAccessEmailOutboxError(Exception):
@@ -29,7 +29,7 @@ def decrypt_outbox_payload(payload_encrypted: bytes) -> list[dict]:
 
 def create_guest_access_email_outbox(*, order, guest_access_payloads: list[dict]) -> NotificationOutbox:
     return create_notification_outbox(
-        notification_type=GUEST_ORDER_DOWNLOAD,
+        notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
         recipient=order.email,
         payload=guest_access_payloads,
         target=order,
@@ -46,7 +46,7 @@ def cleanup_old_guest_access_email_outboxes(
     failed_retention_days: int | None = None,
 ) -> dict[str, int]:
     return cleanup_old_notification_outboxes(
-        notification_type=GUEST_ORDER_DOWNLOAD,
+        notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
         sent_retention_days=sent_retention_days,
         failed_retention_days=failed_retention_days,
     )

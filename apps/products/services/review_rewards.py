@@ -6,12 +6,15 @@ import string
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_review_reward_issued
-from apps.products.emails import send_review_reward_user_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.services import enqueue_notification
+from apps.notifications.types import NotificationType
 from apps.products.models import Review, ReviewStatus
 from apps.promocodes.models import PromoCode
 
@@ -48,6 +51,20 @@ def ensure_review_reward(review: Review) -> PromoCode | None:
     return review.reward_promo_code
 
 
+def _has_review_reward_email_notification(review: Review) -> bool:
+    content_type = ContentType.objects.get_for_model(review, for_concrete_model=False)
+    return NotificationOutbox.objects.filter(
+        notification_type=NotificationType.REVIEW_REWARD_USER,
+        content_type=content_type,
+        object_id=review.pk,
+        status__in=[
+            NotificationOutbox.Status.PENDING,
+            NotificationOutbox.Status.PROCESSING,
+            NotificationOutbox.Status.SENT,
+        ],
+    ).exists()
+
+
 def ensure_review_reward_email(review: Review) -> None:
     if review.status != ReviewStatus.PUBLISHED:
         return
@@ -56,24 +73,40 @@ def ensure_review_reward_email(review: Review) -> None:
     if promo_code is None or review.reward_email_sent_at:
         return
 
+    to_email = review.user.email
+    if not to_email:
+        log_event(
+            logger,
+            logging.WARNING,
+            "review.reward.email.enqueue_skipped",
+            review_id=review.pk,
+            promo_code_id=promo_code.pk,
+            reason="empty_user_email",
+        )
+        return
+
+    if _has_review_reward_email_notification(review):
+        return
+
     try:
-        send_review_reward_user_email(review=review, promo_code=promo_code)
+        enqueue_notification(
+            notification_type=NotificationType.REVIEW_REWARD_USER,
+            recipient=to_email,
+            payload={
+                "review_id": review.id,
+                "promo_code_id": promo_code.id,
+            },
+            target=review,
+        )
     except Exception:
         log_event(
             logger,
             logging.ERROR,
-            "review.reward.email.failed",
+            "review.reward.email.enqueue_failed",
             exc_info=True,
             review_id=review.id,
             promo_code_id=promo_code.id,
         )
-        return
-
-    now = timezone.now()
-    Review.objects.filter(pk=review.pk, reward_email_sent_at__isnull=True).update(
-        reward_email_sent_at=now,
-    )
-    review.reward_email_sent_at = now
 
 
 def issue_review_reward_after_publish(review_id: int) -> None:

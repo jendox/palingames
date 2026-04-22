@@ -7,7 +7,7 @@ from apps.orders.models import Order
 from .models import NotificationOutbox
 from .services import enqueue_notification_outbox
 from .tasks import send_notification_outbox_task
-from .types import GUEST_ORDER_DOWNLOAD
+from .types import NotificationType
 
 
 @admin.register(NotificationOutbox, site=admin_site)
@@ -92,7 +92,7 @@ class NotificationOutboxAdmin(admin.ModelAdmin):
         queued = 0
         skipped = 0
         for outbox in queryset:
-            if outbox.notification_type != GUEST_ORDER_DOWNLOAD:
+            if outbox.notification_type != NotificationType.GUEST_ORDER_DOWNLOAD:
                 skipped += 1
                 continue
             order = outbox.target

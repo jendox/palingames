@@ -7,12 +7,15 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_reward_issued, inc_order_reward_skipped
-from apps.orders.emails import send_order_reward_user_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.services import enqueue_notification
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.promocodes.models import PromoCode
 
@@ -52,6 +55,20 @@ def ensure_order_reward(order: Order) -> PromoCode | None:
     return order.reward_promo_code
 
 
+def _has_order_reward_email_notification(order: Order) -> bool:
+    content_type = ContentType.objects.get_for_model(order, for_concrete_model=False)
+    return NotificationOutbox.objects.filter(
+        notification_type=NotificationType.ORDER_REWARD_USER,
+        content_type=content_type,
+        object_id=order.pk,
+        status__in=[
+            NotificationOutbox.Status.PENDING,
+            NotificationOutbox.Status.PROCESSING,
+            NotificationOutbox.Status.SENT,
+        ],
+    ).exists()
+
+
 def ensure_order_reward_email(order: Order) -> None:
     if _get_order_reward_skip_reason(order) is not None:
         return
@@ -60,24 +77,28 @@ def ensure_order_reward_email(order: Order) -> None:
     if promo_code is None or order.reward_email_sent_at:
         return
 
+    if _has_order_reward_email_notification(order):
+        return
+
     try:
-        send_order_reward_user_email(order=order, promo_code=promo_code)
+        enqueue_notification(
+            notification_type=NotificationType.ORDER_REWARD_USER,
+            recipient=order.email,
+            payload={
+                "order_id": order.id,
+                "promo_code_id": promo_code.id,
+            },
+            target=order,
+        )
     except Exception:
         log_event(
             logger,
             logging.ERROR,
-            "order.reward.email.failed",
+            "order.reward.email.enqueue_failed",
             exc_info=True,
             order_id=order.id,
             promo_code_id=promo_code.id,
         )
-        return
-
-    now = timezone.now()
-    Order.objects.filter(pk=order.pk, reward_email_sent_at__isnull=True).update(
-        reward_email_sent_at=now,
-    )
-    order.reward_email_sent_at = now
 
 
 def issue_order_reward_after_payment(order_id: int) -> None:

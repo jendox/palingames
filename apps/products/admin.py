@@ -28,6 +28,8 @@ from .models import (
 )
 from .services.review_rewards import issue_review_reward_after_publish
 from .services.s3 import delete_product_file, upload_product_file
+from ..notifications.services import enqueue_notification
+from ..notifications.types import NotificationType
 
 
 @admin.register(Category, site=admin_site)
@@ -405,19 +407,29 @@ logger_review_admin = logging.getLogger("apps.products.admin.reviews")
 
 def send_review_rejected_user_or_log(review: Review) -> None:
     from apps.core.logging import log_event
-    from apps.products.emails import send_review_rejected_user_email
 
+    to_email = review.user.email
+    if not to_email:
+        log_event(
+            logger_review_admin,
+            logging.WARNING,
+            "review.rejection_email.enqueue_skipped",
+            review_id=review.id,
+            reason="empty_user_email",
+        )
+        return
     try:
-        send_review_rejected_user_email(review=review)
+        enqueue_notification(
+            notification_type=NotificationType.REVIEW_REJECTED_USER,
+            recipient=review.user.email,
+            payload={"review_id": review.id},
+            target=review,
+        )
     except Exception:
         log_event(
             logger_review_admin,
             logging.ERROR,
-            "review.rejection_email.failed",
+            "review.rejection_email.enqueue_failed",
             exc_info=True,
             review_id=review.id,
         )
-        return
-    Review.objects.filter(pk=review.pk).update(
-        rejection_notified_at=timezone.now(),
-    )

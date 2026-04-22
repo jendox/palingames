@@ -8,7 +8,7 @@ from apps.notifications.services import (
     enqueue_notification_outbox,
     process_notification_outbox,
 )
-from apps.notifications.types import GUEST_ORDER_DOWNLOAD
+from apps.notifications.types import NotificationType
 
 
 class NotificationOutboxLoggingTests(TestCase):
@@ -16,7 +16,7 @@ class NotificationOutboxLoggingTests(TestCase):
     @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     def test_enqueue_notification_outbox_logs_enqueued_event(self, delay_mock, log_event_mock):
         outbox = create_notification_outbox(
-            notification_type=GUEST_ORDER_DOWNLOAD,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient="guest@example.com",
             payload=[],
         )
@@ -30,7 +30,7 @@ class NotificationOutboxLoggingTests(TestCase):
     @patch("apps.notifications.services.send_notification")
     def test_process_notification_outbox_logs_processing_started_event(self, send_notification_mock, log_event_mock):
         outbox = create_notification_outbox(
-            notification_type=GUEST_ORDER_DOWNLOAD,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient="guest@example.com",
             payload=[],
         )

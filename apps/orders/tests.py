@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -10,7 +11,11 @@ from django.utils import timezone
 from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.services import process_notification_outbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
+from apps.orders.reward_services import ensure_order_reward_email
 from apps.orders.services import CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY
 from apps.payments.models import Invoice
 from apps.payments.tasks import create_invoice_task
@@ -728,3 +733,62 @@ class OrderModelTests(TestCase):
         )
 
         self.assertTrue(order.payment_account_no.startswith(Order.Source.TELEGRAM))
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    ORDER_REWARD_MIN_TOTAL_AMOUNT="25",
+    ORDER_REWARD_DISCOUNT_PERCENT=10,
+    ORDER_REWARD_VALID_DAYS=14,
+)
+class OrderRewardNotificationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="buyer@example.com",
+            password="secret12345",
+        )
+        self.order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("50.00"),
+            total_amount=Decimal("50.00"),
+            items_count=1,
+        )
+
+    def test_ensure_order_reward_email_creates_notification_outbox(self):
+        ensure_order_reward_email(self.order)
+
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.ORDER_REWARD_USER)
+        self.assertEqual(outbox.recipient, self.order.email)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        self.order.refresh_from_db()
+        self.assertIsNone(self.order.reward_email_sent_at)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_process_notification_outbox_sends_reward_email_and_marks_sent_at(self):
+        ensure_order_reward_email(self.order)
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.ORDER_REWARD_USER)
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.reward_email_sent_at)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.order.email])
+        self.assertIn("Ваш промокод", mail.outbox[0].subject)
+
+    def test_ensure_order_reward_email_does_not_create_duplicate_outbox(self):
+        ensure_order_reward_email(self.order)
+        ensure_order_reward_email(self.order)
+
+        self.assertEqual(
+            NotificationOutbox.objects.filter(notification_type=NotificationType.ORDER_REWARD_USER).count(),
+            1,
+        )

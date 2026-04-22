@@ -10,7 +10,7 @@ from django.urls import reverse
 from apps.access.models import GuestAccess, UserProductAccess
 from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
-from apps.notifications.types import GUEST_ORDER_DOWNLOAD
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice, PaymentEvent
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
@@ -421,7 +421,10 @@ class ExpressPayNotificationViewTests(TestCase):
         subjects = {message.subject for message in mail.outbox}
         self.assertTrue(any(self.order.payment_account_no in subject for subject in subjects))
         self.assertTrue(any("промокод" in subject.lower() for subject in subjects))
-        outbox = NotificationOutbox.objects.get(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            object_id=self.order.id,
+        )
         self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
 
     def test_notification_is_idempotent_for_same_notification(self):
@@ -462,7 +465,10 @@ class ExpressPayNotificationViewTests(TestCase):
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.token_hash, first_token_hash)
         self.assertEqual(
-            NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+                object_id=self.order.id,
+            ).count(),
             1,
         )
         self.assertEqual(len(mail.outbox), 2)
@@ -729,7 +735,10 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.token_hash, first_token_hash)
         self.assertEqual(
-            NotificationOutbox.objects.filter(notification_type=GUEST_ORDER_DOWNLOAD, object_id=self.order.id).count(),
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+                object_id=self.order.id,
+            ).count(),
             1,
         )
         self.assertEqual(len(mail.outbox), 2)

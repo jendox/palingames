@@ -16,7 +16,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
 
 from .models import NotificationOutbox
-from .types import CUSTOM_GAME_DOWNLOAD, GUEST_ORDER_DOWNLOAD
+from .types import NotificationType
 
 logger = logging.getLogger("apps.notifications")
 MAX_LAST_ERROR_LENGTH = 512
@@ -54,7 +54,7 @@ def decrypt_outbox_payload(payload_encrypted: bytes) -> dict[str, Any] | list[di
 
 def create_notification_outbox(
     *,
-    notification_type: str,
+    notification_type: NotificationType,
     recipient: str,
     payload: dict[str, Any] | list[dict],
     target=None,
@@ -86,7 +86,7 @@ def create_notification_outbox(
         target_model=content_type.model if content_type else None,
         target_id=object_id,
     )
-    if notification_type == GUEST_ORDER_DOWNLOAD:
+    if notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
         inc_guest_email_outbox_created()
     return outbox
 
@@ -109,7 +109,7 @@ def enqueue_notification_outbox(outbox: NotificationOutbox) -> NotificationOutbo
 
 def enqueue_notification(
     *,
-    notification_type: str,
+    notification_type: NotificationType,
     recipient: str,
     payload: dict[str, Any] | list[dict],
     target=None,
@@ -180,7 +180,7 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
             attempts=outbox.attempts,
             error_type=type(exc).__name__,
         )
-        if outbox.notification_type == GUEST_ORDER_DOWNLOAD:
+        if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
             inc_guest_email_failed()
         raise
 
@@ -200,35 +200,117 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
         recipient=outbox.recipient,
         attempts=outbox.attempts,
     )
-    if outbox.notification_type == GUEST_ORDER_DOWNLOAD:
+    if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
         inc_guest_email_sent()
     return True
+
+
+def _send_guest_order_download_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.access.emails import send_guest_order_download_email
+
+    send_guest_order_download_email(order=outbox.target, guest_access_payloads=payload)
+
+
+def _send_custom_game_download_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.custom_games.emails import send_custom_game_download_email
+    from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
+
+    custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
+    download_token = CustomGameDownloadToken.objects.get(pk=payload["download_token_id"])
+    send_custom_game_download_email(
+        custom_game_request=custom_game_request,
+        download_token=download_token,
+        raw_token=payload["raw_token"],
+    )
+
+
+def _send_order_reward_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.orders.emails import send_order_reward_user_email
+    from apps.orders.models import Order
+    from apps.promocodes.models import PromoCode
+
+    order = outbox.target or Order.objects.select_related("reward_promo_code").get(pk=payload["order_id"])
+    promo_code = order.reward_promo_code
+    if promo_code is None:
+        promo_code = PromoCode.objects.get(pk=payload["promo_code_id"])
+
+    send_order_reward_user_email(order=order, promo_code=promo_code)
+    Order.objects.filter(pk=order.pk, reward_email_sent_at__isnull=True).update(
+        reward_email_sent_at=timezone.now(),
+    )
+
+
+def _send_review_rejected_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.products.emails import send_review_rejected_user_email
+    from apps.products.models import Review
+
+    review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
+    send_review_rejected_user_email(review=review)
+    Review.objects.filter(pk=review.pk).update(rejection_notified_at=timezone.now())
+
+
+def _send_review_reward_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.products.emails import send_review_reward_user_email
+    from apps.products.models import Review
+    from apps.promocodes.models import PromoCode
+
+    review = outbox.target or Review.objects.select_related("reward_promo_code", "product", "user").get(
+        pk=payload["review_id"],
+    )
+    promo_code = review.reward_promo_code
+    if promo_code is None:
+        promo_code = PromoCode.objects.get(pk=payload["promo_code_id"])
+
+    send_review_reward_user_email(review=review, promo_code=promo_code)
+    Review.objects.filter(pk=review.pk, reward_email_sent_at__isnull=True).update(
+        reward_email_sent_at=timezone.now(),
+    )
+
+
+def _send_review_submitted_admin_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.products.emails import send_review_submitted_admin_email
+    from apps.products.models import Review
+
+    review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
+    send_review_submitted_admin_email(review=review)
+
+
+def _send_custom_game_request_customer_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.custom_games.emails import send_custom_game_request_customer_email
+    from apps.custom_games.models import CustomGameRequest
+
+    custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
+    send_custom_game_request_customer_email(custom_game_request=custom_game_request)
+
+
+def _send_custom_game_request_admin_notification(*, outbox: NotificationOutbox, payload) -> None:
+    from apps.custom_games.emails import send_custom_game_request_admin_email
+    from apps.custom_games.models import CustomGameRequest
+
+    custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
+    send_custom_game_request_admin_email(custom_game_request=custom_game_request)
+
+
+EMAIL_NOTIFICATION_HANDLERS = {
+    NotificationType.GUEST_ORDER_DOWNLOAD: _send_guest_order_download_notification,
+    NotificationType.CUSTOM_GAME_DOWNLOAD: _send_custom_game_download_notification,
+    NotificationType.ORDER_REWARD_USER: _send_order_reward_user_notification,
+    NotificationType.REVIEW_REJECTED_USER: _send_review_rejected_user_notification,
+    NotificationType.REVIEW_REWARD_USER: _send_review_reward_user_notification,
+    NotificationType.REVIEW_SUBMITTED_ADMIN: _send_review_submitted_admin_notification,
+    NotificationType.CUSTOM_GAME_REQUEST_CUSTOMER: _send_custom_game_request_customer_notification,
+    NotificationType.CUSTOM_GAME_REQUEST_ADMIN: _send_custom_game_request_admin_notification,
+}
 
 
 def send_notification(*, outbox: NotificationOutbox, payload):
     if outbox.channel != NotificationOutbox.Channel.EMAIL:
         raise NotificationOutboxError(f"Unsupported notification channel: {outbox.channel}")
 
-    if outbox.notification_type == GUEST_ORDER_DOWNLOAD:
-        from apps.access.emails import send_guest_order_download_email
-
-        send_guest_order_download_email(order=outbox.target, guest_access_payloads=payload)
-        return
-
-    if outbox.notification_type == CUSTOM_GAME_DOWNLOAD:
-        from apps.custom_games.emails import send_custom_game_download_email
-        from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
-
-        custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
-        download_token = CustomGameDownloadToken.objects.get(pk=payload["download_token_id"])
-        send_custom_game_download_email(
-            custom_game_request=custom_game_request,
-            download_token=download_token,
-            raw_token=payload["raw_token"],
-        )
-        return
-
-    raise NotificationOutboxError(f"Unsupported notification type: {outbox.notification_type}")
+    handler = EMAIL_NOTIFICATION_HANDLERS.get(outbox.notification_type)
+    if handler is None:
+        raise NotificationOutboxError(f"Unsupported notification type: {outbox.notification_type}")
+    handler(outbox=outbox, payload=payload)
 
 
 def cleanup_old_notification_outboxes(

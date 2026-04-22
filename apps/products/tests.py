@@ -10,6 +10,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.services import process_notification_outbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, Review, ReviewStatus, SubType
 from apps.products.services.s3 import (
@@ -756,8 +759,9 @@ class ProductReviewFlowTests(TestCase):
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
     )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     @patch("apps.products.review_notifications.notify_review_submitted_telegram")
-    def test_submit_review_sends_admin_email(self, mock_notify_telegram):
+    def test_submit_review_creates_admin_email_notification_outbox(self, mock_notify_telegram, delay_mock):
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
 
@@ -768,6 +772,38 @@ class ProductReviewFlowTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
+        delay_mock.assert_called_once()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN)
+        self.assertEqual(outbox.recipient, "ops@example.com")
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(len(mail.outbox), 0)
+        mock_notify_telegram.assert_called_once()
+
+    @override_settings(
+        REVIEW_ADMIN_EMAILS=["ops@example.com"],
+        SITE_BASE_URL="https://example.com",
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
+    def test_process_review_submitted_admin_notification_sends_email(self, mock_notify_telegram, delay_mock):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                url,
+                {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        delay_mock.assert_called_once()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN)
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
         self.assertEqual(email.to, ["ops@example.com"])
@@ -775,9 +811,34 @@ class ProductReviewFlowTests(TestCase):
         self.assertIn("Reviewed", email.body)
         mock_notify_telegram.assert_called_once()
 
+    @override_settings(
+        REVIEW_ADMIN_EMAILS=[],
+        SITE_BASE_URL="https://example.com",
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.review_notifications.notify_review_submitted_telegram")
+    def test_submit_review_without_admin_recipients_skips_email_outbox(self, mock_notify_telegram, delay_mock):
+        self.client.force_login(self.user)
+        url = reverse("product-review-submit", kwargs={"slug": self.product.slug})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                url,
+                {"rating": "5", "comment": "Отличная игра для ребёнка, рекомендую."},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        delay_mock.assert_not_called()
+        self.assertFalse(
+            NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN).exists(),
+        )
+        self.assertEqual(len(mail.outbox), 0)
+        mock_notify_telegram.assert_called_once()
+
     @override_settings(SITE_BASE_URL="https://example.com")
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     @patch("apps.products.admin.inc_review_rejected")
-    def test_admin_rejection_sends_user_email(self, inc_review_rejected_mock):
+    def test_admin_rejection_creates_notification_outbox(self, inc_review_rejected_mock, delay_mock):
         admin_user = get_user_model().objects.create_user(
             email="admin@example.com",
             password="secret12345",
@@ -793,45 +854,158 @@ class ProductReviewFlowTests(TestCase):
         )
 
         self.client.force_login(admin_user)
-        response = self.client.post(
-            reverse("admin:products_review_change", args=[review.id]),
-            {
-                "product": str(self.product.id),
-                "user": str(self.user.id),
-                "rating": "4",
-                "comment": review.comment,
-                "status": ReviewStatus.REJECTED,
-                "rejection_reason": "Нужно убрать рекламный текст.",
-                "moderated_at_0": "",
-                "moderated_at_1": "",
-                "_save": "Save",
-            },
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "4",
+                    "comment": review.comment,
+                    "status": ReviewStatus.REJECTED,
+                    "rejection_reason": "Нужно убрать рекламный текст.",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
 
         self.assertEqual(response.status_code, 302)
         review.refresh_from_db()
         self.assertEqual(review.status, ReviewStatus.REJECTED)
         self.assertEqual(review.rejection_reason, "Нужно убрать рекламный текст.")
         self.assertIsNotNone(review.moderated_at)
-        self.assertIsNotNone(review.rejection_notified_at)
+        self.assertIsNone(review.rejection_notified_at)
         inc_review_rejected_mock.assert_called_once()
+        delay_mock.assert_called_once()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_REJECTED_USER)
+        self.assertEqual(outbox.recipient, self.user.email)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(outbox.object_id, review.id)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(SITE_BASE_URL="https://example.com")
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.admin.inc_review_rejected")
+    def test_process_review_rejection_notification_sends_user_email(
+        self,
+        inc_review_rejected_mock,
+        delay_mock,
+    ):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=4,
+            comment="Достаточно длинный текст отзыва для прохождения модерации.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "4",
+                    "comment": review.comment,
+                    "status": ReviewStatus.REJECTED,
+                    "rejection_reason": "Нужно убрать рекламный текст.",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        inc_review_rejected_mock.assert_called_once()
+        delay_mock.assert_called_once()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_REJECTED_USER)
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        review.refresh_from_db()
+        self.assertIsNotNone(review.rejection_notified_at)
         self.assertEqual(len(mail.outbox), 1)
         email = mail.outbox[0]
         self.assertEqual(email.to, [self.user.email])
         self.assertIn("не прошёл модерацию", email.subject)
         self.assertIn("Нужно убрать рекламный текст.", email.body)
 
+    @override_settings(SITE_BASE_URL="https://example.com")
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.admin.inc_review_rejected")
+    def test_admin_rejection_with_empty_user_email_skips_notification_enqueue(
+        self,
+        inc_review_rejected_mock,
+        delay_mock,
+    ):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.user.email = ""
+        self.user.save(update_fields=["email"])
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=4,
+            comment="Достаточно длинный текст отзыва для прохождения модерации.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "4",
+                    "comment": review.comment,
+                    "status": ReviewStatus.REJECTED,
+                    "rejection_reason": "Нужно убрать рекламный текст.",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        review.refresh_from_db()
+        self.assertEqual(review.status, ReviewStatus.REJECTED)
+        self.assertIsNone(review.rejection_notified_at)
+        inc_review_rejected_mock.assert_called_once()
+        delay_mock.assert_not_called()
+        self.assertFalse(
+            NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_REJECTED_USER).exists(),
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
     @override_settings(
         SITE_BASE_URL="https://example.com",
         REVIEW_REWARD_DISCOUNT_PERCENT=10,
         REVIEW_REWARD_VALID_DAYS=14,
     )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
     @patch("apps.products.services.review_rewards.inc_review_reward_issued")
     @patch("apps.products.admin.inc_review_published")
-    def test_admin_publish_creates_reward_promo_and_sends_user_email_once(
+    def test_admin_publish_creates_reward_promo_and_notification_outbox(
         self,
         inc_review_published_mock,
         inc_review_reward_issued_mock,
+        delay_mock,
     ):
         admin_user = get_user_model().objects.create_user(
             email="admin@example.com",
@@ -869,10 +1043,11 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(review.status, ReviewStatus.PUBLISHED)
         inc_review_published_mock.assert_called_once()
         inc_review_reward_issued_mock.assert_called_once()
+        delay_mock.assert_called_once()
         self.assertIsNotNone(review.moderated_at)
         self.assertIsNotNone(review.reward_promo_code)
         self.assertIsNotNone(review.reward_issued_at)
-        self.assertIsNotNone(review.reward_email_sent_at)
+        self.assertIsNone(review.reward_email_sent_at)
 
         promo_code = review.reward_promo_code
         self.assertEqual(promo_code.discount_percent, 10)
@@ -884,11 +1059,11 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual((promo_code.ends_at - promo_code.starts_at).days, 14)
         self.assertIn(f"Reward for published review #{review.id}", promo_code.note)
 
-        self.assertEqual(len(mail.outbox), 1)
-        email = mail.outbox[0]
-        self.assertEqual(email.to, [self.user.email])
-        self.assertIn("промокод на 10%", email.subject)
-        self.assertIn(promo_code.code, email.body)
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_REWARD_USER)
+        self.assertEqual(outbox.recipient, self.user.email)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PENDING)
+        self.assertEqual(outbox.object_id, review.id)
+        self.assertEqual(len(mail.outbox), 0)
 
         with self.captureOnCommitCallbacks(execute=True):
             response_repeat = self.client.post(
@@ -910,4 +1085,129 @@ class ProductReviewFlowTests(TestCase):
         review.refresh_from_db()
         self.assertEqual(PromoCode.objects.filter(id=promo_code.id).count(), 1)
         self.assertEqual(PromoCode.objects.count(), 1)
+        self.assertEqual(
+            NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_REWARD_USER).count(),
+            1,
+        )
+
+    @override_settings(
+        SITE_BASE_URL="https://example.com",
+        REVIEW_REWARD_DISCOUNT_PERCENT=10,
+        REVIEW_REWARD_VALID_DAYS=14,
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.services.review_rewards.inc_review_reward_issued")
+    @patch("apps.products.admin.inc_review_published")
+    def test_process_review_reward_notification_sends_user_email_once(
+        self,
+        inc_review_published_mock,
+        inc_review_reward_issued_mock,
+        delay_mock,
+    ):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=5,
+            comment="Достаточно длинный текст отзыва для публикации и награды.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "5",
+                    "comment": review.comment,
+                    "status": ReviewStatus.PUBLISHED,
+                    "rejection_reason": "",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        inc_review_published_mock.assert_called_once()
+        inc_review_reward_issued_mock.assert_called_once()
+        delay_mock.assert_called_once()
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.REVIEW_REWARD_USER)
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        review.refresh_from_db()
+        self.assertIsNotNone(review.reward_email_sent_at)
         self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, [self.user.email])
+        self.assertIn("промокод на 10%", email.subject)
+        self.assertIn(review.reward_promo_code.code, email.body)
+
+    @override_settings(
+        SITE_BASE_URL="https://example.com",
+        REVIEW_REWARD_DISCOUNT_PERCENT=10,
+        REVIEW_REWARD_VALID_DAYS=14,
+    )
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    @patch("apps.products.services.review_rewards.inc_review_reward_issued")
+    @patch("apps.products.admin.inc_review_published")
+    def test_admin_publish_with_empty_user_email_skips_reward_notification_enqueue(
+        self,
+        inc_review_published_mock,
+        inc_review_reward_issued_mock,
+        delay_mock,
+    ):
+        admin_user = get_user_model().objects.create_user(
+            email="admin@example.com",
+            password="secret12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.user.email = ""
+        self.user.save(update_fields=["email"])
+        review = Review.objects.create(
+            product=self.product,
+            user=self.user,
+            rating=5,
+            comment="Достаточно длинный текст отзыва для публикации и награды.",
+            status=ReviewStatus.PENDING,
+        )
+
+        self.client.force_login(admin_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin:products_review_change", args=[review.id]),
+                {
+                    "product": str(self.product.id),
+                    "user": str(self.user.id),
+                    "rating": "5",
+                    "comment": review.comment,
+                    "status": ReviewStatus.PUBLISHED,
+                    "rejection_reason": "",
+                    "moderated_at_0": "",
+                    "moderated_at_1": "",
+                    "_save": "Save",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        review.refresh_from_db()
+        self.assertEqual(review.status, ReviewStatus.PUBLISHED)
+        self.assertIsNotNone(review.reward_promo_code)
+        self.assertIsNone(review.reward_email_sent_at)
+        inc_review_published_mock.assert_called_once()
+        inc_review_reward_issued_mock.assert_called_once()
+        delay_mock.assert_not_called()
+        self.assertFalse(NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_REWARD_USER).exists())
+        self.assertEqual(len(mail.outbox), 0)
