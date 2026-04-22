@@ -9,7 +9,11 @@ from apps.notifications.services import (
     enqueue_notification_outbox,
     process_notification_outbox,
 )
-from apps.notifications.telegram import TelegramConfigurationError, get_telegram_route
+from apps.notifications.telegram import (
+    TelegramConfigurationError,
+    get_telegram_destination_skip_reason,
+    get_telegram_route,
+)
 from apps.notifications.types import NotificationType
 
 
@@ -66,3 +70,56 @@ class TelegramRouteTests(TestCase):
     def test_get_telegram_route_raises_for_missing_thread(self):
         with self.assertRaises(TelegramConfigurationError):
             get_telegram_route(TelegramDestination.NOTIFICATIONS)
+
+
+class TelegramDestinationSkipReasonTests(TestCase):
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+    )
+    def test_returns_reason_when_bot_token_is_missing(self):
+        reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+
+        self.assertEqual(reason, "telegram_bot_token_not_configured")
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+    )
+    def test_returns_reason_when_forum_chat_is_missing(self):
+        reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+
+        self.assertEqual(reason, "telegram_forum_chat_not_configured")
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
+    )
+    def test_returns_reason_when_notifications_thread_is_missing(self):
+        reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+
+        self.assertEqual(reason, "telegram_notifications_route_not_configured")
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_SUPPORT_THREAD_ID=0,
+    )
+    def test_returns_reason_when_support_thread_is_missing(self):
+        reason = get_telegram_destination_skip_reason(TelegramDestination.SUPPORT)
+
+        self.assertEqual(reason, "telegram_support_route_not_configured")
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+        TELEGRAM_SUPPORT_THREAD_ID=7,
+    )
+    def test_returns_none_when_destination_is_fully_configured(self):
+        reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+
+        self.assertIsNone(reason)
