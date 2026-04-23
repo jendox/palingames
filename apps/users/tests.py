@@ -7,8 +7,9 @@ from allauth.account.models import EmailAddress
 from allauth.account.signals import email_confirmed, password_reset, user_signed_up
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.contrib.messages import constants as message_constants
 from django.template.loader import render_to_string
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 
 from apps.access.models import UserProductAccess
 from apps.orders.models import Order, OrderItem
@@ -391,3 +392,40 @@ class AccountAdapterMetricsTests(TestCase):
 
         inc_auth_password_reset_requested_mock.assert_called_once_with()
         super_mock.assert_called_once()
+
+    def test_add_message_skips_headless_requests(self):
+        from apps.users.adapters import AccountAdapter
+
+        adapter = AccountAdapter(request=None)
+        request = RequestFactory().post("/_allauth/browser/v1/auth/login")
+
+        with patch("allauth.account.adapter.DefaultAccountAdapter.add_message") as super_mock:
+            adapter.add_message(
+                request,
+                message_constants.SUCCESS,
+                message_template="account/messages/logged_in.txt",
+            )
+
+        super_mock.assert_not_called()
+
+    def test_add_message_keeps_non_headless_requests(self):
+        from apps.users.adapters import AccountAdapter
+
+        adapter = AccountAdapter(request=None)
+        request = RequestFactory().get("/account/")
+
+        with patch("allauth.account.adapter.DefaultAccountAdapter.add_message") as super_mock:
+            adapter.add_message(
+                request,
+                message_constants.SUCCESS,
+                message_template="account/messages/logged_in.txt",
+            )
+
+        super_mock.assert_called_once_with(
+            request,
+            message_constants.SUCCESS,
+            message_template="account/messages/logged_in.txt",
+            message_context=None,
+            extra_tags="",
+            message=None,
+        )
