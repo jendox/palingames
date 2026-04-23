@@ -1,11 +1,13 @@
 from django.urls import path
 
+from .consent_views import CookieConsentApiView
 from .views import HealthLiveView, HealthReadyView, MetricsView, RobotsTxtView, SitemapXmlView
 
 urlpatterns = [
     path("health/live/", HealthLiveView.as_view(), name="health-live"),
     path("health/ready/", HealthReadyView.as_view(), name="health-ready"),
     path("metrics/", MetricsView.as_view(), name="metrics"),
+    path("api/consent/", CookieConsentApiView.as_view(), name="cookie-consent-api"),
     path("robots.txt", RobotsTxtView.as_view(), name="robots-txt"),
     path("sitemap.xml", SitemapXmlView.as_view(), name="sitemap-xml"),
 ]

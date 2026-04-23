@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.core.cache import caches
 from django.http import HttpRequest
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.alerts import (
@@ -17,6 +17,7 @@ from apps.core.alerts import (
     send_incident_recovery,
 )
 from apps.core.analytics import send_ga4_purchase_event_for_order
+from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE, SESSION_KEY_CONSENT_POLICY_VERSION
 from apps.core.context_processors import analytics
 from apps.core.logging import (
     JsonFormatter,
@@ -553,6 +554,108 @@ class AnalyticsTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "googletagmanager.com/gtm.js?id=GTM-TEST123")
         self.assertNotContains(response, '/static/js/analytics.js')
+
+
+@override_settings(COOKIE_CONSENT_POLICY_VERSION=7)
+class CookieConsentApiTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = Client(enforce_csrf_checks=True)
+
+    def _csrf_token(self) -> str:
+        self.client.get(reverse("home"))
+        return self.client.cookies["csrftoken"].value
+
+    def test_get_returns_policy_version_and_consent_state(self):
+        response = self.client.get(reverse("cookie-consent-api"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode())
+        self.assertEqual(payload["policy_version"], 7)
+        self.assertIsNone(payload["analytics_storage_consent"])
+
+    def test_post_persists_analytics_choice_in_session(self):
+        token = self._csrf_token()
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data=json.dumps({"analytics_storage": True, "policy_version": 7}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content.decode()), {"ok": True})
+        session = self.client.session
+        self.assertIs(session[SESSION_KEY_ANALYTICS_STORAGE], True)
+        self.assertEqual(session[SESSION_KEY_CONSENT_POLICY_VERSION], 7)
+
+    def test_post_false_clears_analytics_consent(self):
+        token = self._csrf_token()
+        session = self.client.session
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data=json.dumps({"analytics_storage": False, "policy_version": 7}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(self.client.session[SESSION_KEY_ANALYTICS_STORAGE], False)
+
+    def test_post_rejects_policy_version_mismatch(self):
+        token = self._csrf_token()
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data=json.dumps({"analytics_storage": True, "policy_version": 1}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content.decode()),
+            {"error": "policy_version_mismatch"},
+        )
+
+    def test_post_rejects_invalid_json(self):
+        token = self._csrf_token()
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data="{not json",
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "invalid_json"})
+
+    def test_post_rejects_non_bool_analytics_storage(self):
+        token = self._csrf_token()
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data=json.dumps({"analytics_storage": "yes", "policy_version": 7}),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            json.loads(response.content.decode()),
+            {"error": "invalid_analytics_storage"},
+        )
+
+    def test_post_rejects_without_csrf_header(self):
+        self.client.get(reverse("home"))
+        response = self.client.post(
+            reverse("cookie-consent-api"),
+            data=json.dumps({"analytics_storage": True, "policy_version": 7}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
 
 
 @override_settings(SITE_BASE_URL="https://example.com")

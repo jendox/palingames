@@ -1,0 +1,2 @@
+SESSION_KEY_ANALYTICS_STORAGE = "analytics_storage_consent"
+SESSION_KEY_CONSENT_POLICY_VERSION = "cookie_consent_policy_version"
