@@ -168,6 +168,7 @@ class IncidentAlertTests(TestCase):
         sent = send_incident_alert(
             key="payments.webhook.failures",
             title="Repeated payment webhook failures",
+            severity="critical",
             details={"failures": 5},
         )
 
@@ -184,14 +185,17 @@ class IncidentAlertTests(TestCase):
         sent = send_incident_alert(
             key="payments.webhook.failures",
             title="Repeated payment webhook failures",
+            severity="critical",
             details={"failures": 5},
         )
 
         self.assertTrue(sent)
         send_mock.assert_called_once()
         self.assertEqual(send_mock.call_args.kwargs["destination"].value, "incidents")
-        self.assertIn("CRITICAL: Repeated payment webhook failures", send_mock.call_args.kwargs["text"])
-        self.assertIn("failures: 5", send_mock.call_args.kwargs["text"])
+        text = send_mock.call_args.kwargs["text"]
+        self.assertIn("[CRITICAL] Repeated payment webhook failures", text)
+        self.assertIn("key: payments.webhook.failures", text)
+        self.assertIn("failures: 5", text)
 
     @override_settings(
         TELEGRAM_BOT_TOKEN="telegram-token",
@@ -199,21 +203,67 @@ class IncidentAlertTests(TestCase):
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
     @patch("apps.core.alerts.send_telegram_message")
-    def test_send_incident_alert_deduplicates_same_alert_within_ttl(self, send_mock):
+    def test_send_incident_alert_deduplicates_by_key_when_details_change(self, send_mock):
         first = send_incident_alert(
             key="payments.webhook.failures",
             title="Repeated payment webhook failures",
+            severity="critical",
             details={"failures": 5},
         )
         second = send_incident_alert(
             key="payments.webhook.failures",
             title="Repeated payment webhook failures",
-            details={"failures": 5},
+            severity="critical",
+            details={"failures": 6},
         )
 
         self.assertTrue(first)
         self.assertFalse(second)
         send_mock.assert_called_once()
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=9,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_alert_uses_explicit_fingerprint_for_deduplication(self, send_mock):
+        first = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            severity="critical",
+            fingerprint="payments.webhook.failures:express_pay:invoice_not_found",
+            details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+        )
+        second = send_incident_alert(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            severity="critical",
+            fingerprint="payments.webhook.failures:express_pay:processing_error",
+            details={"provider": "EXPRESS_PAY", "reason": "processing_error"},
+        )
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(send_mock.call_count, 2)
+
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=9,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_alert_renders_warning_severity(self, send_mock):
+        sent = send_incident_alert(
+            key="storage.s3.unavailable",
+            title="Storage is unavailable",
+            severity="warning",
+            details={"bucket": "products"},
+        )
+
+        self.assertTrue(sent)
+        text = send_mock.call_args.kwargs["text"]
+        self.assertIn("[WARNING] Storage is unavailable", text)
 
 
 class AnalyticsTemplateTests(TestCase):
