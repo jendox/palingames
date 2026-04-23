@@ -25,7 +25,10 @@ from apps.core.metrics import (
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context, normalize_seo_description
 from apps.favorites.services import get_favorite_product_ids
-from apps.products.alerts import record_download_delivery_failure_incident
+from apps.products.alerts import (
+    record_download_delivery_failure_incident,
+    resolve_download_delivery_failure_incident,
+)
 
 from .forms import ProductReviewForm
 from .models import (
@@ -1149,6 +1152,10 @@ class ProductDownloadView(LoginRequiredMixin, View):
             user_id=request.user.id,
             product_id=product_id,
             file_key=product_file.file_key,
+        )
+        resolve_download_delivery_failure_incident(
+            delivery_type="product",
+            reason="download_unavailable",
         )
         inc_product_download_redirect(access_type="user")
         return JsonResponse({"download_url": download_url})

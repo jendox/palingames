@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident
+from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, resolve_threshold_incident
 
 PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY = "payments.webhook.failures"
 PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY = "payments.status_sync.failures"
@@ -61,11 +61,27 @@ def record_payment_status_sync_failure_incident(*, provider: str, error_type: st
         incident=ThresholdIncidentSpec(
             key=PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY,
             title="Repeated invoice status sync failures",
+            recovery_title="Invoice status sync recovered",
             severity="critical",
             fingerprint=_build_payment_status_sync_failure_fingerprint(provider=provider),
             details={
                 "provider": provider,
                 "error_type": error_type,
+            },
+        ),
+    )
+
+
+def resolve_payment_status_sync_failure_incident(*, provider: str) -> bool:
+    return resolve_threshold_incident(
+        incident=ThresholdIncidentSpec(
+            key=PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY,
+            title="Repeated invoice status sync failures",
+            recovery_title="Invoice status sync recovered",
+            severity="critical",
+            fingerprint=_build_payment_status_sync_failure_fingerprint(provider=provider),
+            details={
+                "provider": provider,
             },
         ),
     )

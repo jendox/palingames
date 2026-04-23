@@ -22,6 +22,7 @@ DEFAULT_ALERT_DEDUPE_TTL_SECONDS = 60 * 15
 class ThresholdIncidentSpec:
     key: str
     title: str
+    recovery_title: str | None = None
     severity: IncidentSeverity = "critical"
     fingerprint: str | None = None
     details: dict[str, Any] | None = None
@@ -63,8 +64,17 @@ def _build_alert_cache_key(*, fingerprint: str) -> str:
     return f"incident-alert:{digest}"
 
 
+def _build_active_incident_cache_key(*, fingerprint: str) -> str:
+    digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
+    return f"incident-active:{digest}"
+
+
 def _build_default_fingerprint(*, key: str) -> str:
     return key
+
+
+def _get_incident_fingerprint(*, key: str, fingerprint: str | None) -> str:
+    return fingerprint or _build_default_fingerprint(key=key)
 
 
 def record_threshold_incident(
@@ -92,13 +102,48 @@ def record_threshold_incident(
         "failures": failures,
         "window_minutes": window_seconds // 60,
     }
-    return send_incident_alert(
+    sent = send_incident_alert(
         key=incident.key,
         title=incident.title,
         severity=incident.severity,
         fingerprint=incident.fingerprint,
         details=alert_details,
     )
+    if sent:
+        cache.set(
+            _build_active_incident_cache_key(
+                fingerprint=_get_incident_fingerprint(key=incident.key, fingerprint=incident.fingerprint),
+            ),
+            "1",
+            timeout=None,
+        )
+    return sent
+
+
+def resolve_threshold_incident(
+    *,
+    incident: ThresholdIncidentSpec,
+    details: dict[str, Any] | None = None,
+) -> bool:
+    if incident.recovery_title is None:
+        raise ValueError("incident recovery_title must be configured")
+
+    resolved_fingerprint = _get_incident_fingerprint(key=incident.key, fingerprint=incident.fingerprint)
+    active_cache_key = _build_active_incident_cache_key(fingerprint=resolved_fingerprint)
+    if not cache.get(active_cache_key):
+        return False
+
+    sent = send_incident_recovery(
+        key=incident.key,
+        title=incident.recovery_title,
+        fingerprint=resolved_fingerprint,
+        details={**(incident.details or {}), **(details or {})},
+    )
+    if not sent:
+        return False
+
+    cache.delete(active_cache_key)
+    return True
 
 
 def send_incident_alert(
@@ -123,7 +168,7 @@ def send_incident_alert(
         )
         return False
 
-    resolved_fingerprint = fingerprint or _build_default_fingerprint(key=key)
+    resolved_fingerprint = _get_incident_fingerprint(key=key, fingerprint=fingerprint)
     resolved_dedup_ttl_seconds = dedupe_ttl_seconds or _get_incident_alert_dedup_ttl_seconds()
     cache_key = _build_alert_cache_key(fingerprint=resolved_fingerprint)
 
@@ -151,6 +196,44 @@ def send_incident_alert(
             "severity": severity,
             "fingerprint": resolved_fingerprint,
             "dedup_ttl_seconds": resolved_dedup_ttl_seconds,
+        },
+    )
+    return True
+
+
+def send_incident_recovery(
+    *,
+    key: str,
+    title: str,
+    fingerprint: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> bool:
+    reason = get_telegram_destination_skip_reason(TelegramDestination.INCIDENTS)
+    if reason is not None:
+        logger.warning(
+            "incident recovery skipped: telegram incidents route is not configured",
+            extra={
+                "event": "incident_recovery.skipped",
+                "alert_key": key,
+                "reason": reason,
+            },
+        )
+        return False
+
+    resolved_fingerprint = _get_incident_fingerprint(key=key, fingerprint=fingerprint)
+    text = _build_incident_message(
+        key=key,
+        title=title,
+        severity="warning",
+        details=details,
+    ).replace("[WARNING]", "[RESOLVED]", 1)
+    send_telegram_message(destination=TelegramDestination.INCIDENTS, text=text)
+    logger.info(
+        "incident recovery sent",
+        extra={
+            "event": "incident_recovery.sent",
+            "alert_key": key,
+            "fingerprint": resolved_fingerprint,
         },
     )
     return True

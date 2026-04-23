@@ -205,8 +205,13 @@ class CustomGameDownloadTests(TestCase):
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
         self.assertIn("https://example.com/custom-game/downloads/", mail.outbox[0].body)
 
+    @patch("apps.custom_games.views.resolve_download_delivery_failure_incident")
     @patch("apps.custom_games.views.generate_presigned_download_url", return_value="https://storage.example/file.zip")
-    def test_download_view_redirects_and_marks_token_used(self, mock_generate_url):
+    def test_download_view_redirects_and_marks_token_used(
+        self,
+        mock_generate_url,
+        resolve_download_delivery_failure_incident_mock,
+    ):
         custom_game_request = CustomGameRequest.objects.create(
             **CUSTOM_GAME_MODEL_DATA,
             status=CustomGameRequest.Status.DELIVERED,
@@ -227,6 +232,10 @@ class CustomGameDownloadTests(TestCase):
         mock_generate_url.assert_called_once_with(
             file_key="custom-games/request.zip",
             original_filename="request.zip",
+        )
+        resolve_download_delivery_failure_incident_mock.assert_called_once_with(
+            delivery_type="custom_game",
+            reason="download_unavailable",
         )
 
     @patch("apps.custom_games.views.record_download_delivery_failure_incident")

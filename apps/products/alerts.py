@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident
+from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, resolve_threshold_incident
 
 DOWNLOAD_DELIVERY_FAILURE_INCIDENT_KEY = "downloads.delivery.failures"
 STORAGE_UNAVAILABLE_INCIDENT_KEY = "storage.s3.unavailable"
@@ -28,6 +28,23 @@ def record_download_delivery_failure_incident(
         incident=ThresholdIncidentSpec(
             key=DOWNLOAD_DELIVERY_FAILURE_INCIDENT_KEY,
             title="Repeated download delivery failures",
+            recovery_title="Download delivery recovered",
+            severity="critical",
+            fingerprint=_build_download_delivery_fingerprint(delivery_type=delivery_type, reason=reason),
+            details={
+                "delivery_type": delivery_type,
+                "reason": reason,
+            },
+        ),
+    )
+
+
+def resolve_download_delivery_failure_incident(*, delivery_type: str, reason: str) -> bool:
+    return resolve_threshold_incident(
+        incident=ThresholdIncidentSpec(
+            key=DOWNLOAD_DELIVERY_FAILURE_INCIDENT_KEY,
+            title="Repeated download delivery failures",
+            recovery_title="Download delivery recovered",
             severity="critical",
             fingerprint=_build_download_delivery_fingerprint(delivery_type=delivery_type, reason=reason),
             details={
@@ -59,6 +76,22 @@ def record_storage_unavailable_incident(
         incident=ThresholdIncidentSpec(
             key=STORAGE_UNAVAILABLE_INCIDENT_KEY,
             title="Storage is unavailable",
+            recovery_title="Storage recovered",
+            severity="critical",
+            fingerprint=_build_storage_unavailable_fingerprint(operation=operation),
+            details={
+                "operation": operation,
+            },
+        ),
+    )
+
+
+def resolve_storage_unavailable_incident(*, operation: str) -> bool:
+    return resolve_threshold_incident(
+        incident=ThresholdIncidentSpec(
+            key=STORAGE_UNAVAILABLE_INCIDENT_KEY,
+            title="Storage is unavailable",
+            recovery_title="Storage recovered",
             severity="critical",
             fingerprint=_build_storage_unavailable_fingerprint(operation=operation),
             details={

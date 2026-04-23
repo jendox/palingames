@@ -215,7 +215,11 @@ class GuestProductDownloadViewTests(TestCase):
         )
 
     @override_settings(SITE_BASE_URL="http://127.0.0.1:8000")
-    def test_guest_download_redirects_to_presigned_url_and_increments_counter(self):
+    @patch("apps.access.views.resolve_download_delivery_failure_incident")
+    def test_guest_download_redirects_to_presigned_url_and_increments_counter(
+        self,
+        resolve_download_delivery_failure_incident_mock,
+    ):
         guest_access, raw_token = create_guest_access(
             order=self.order,
             product=self.product,
@@ -231,6 +235,10 @@ class GuestProductDownloadViewTests(TestCase):
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.downloads_count, 1)
         self.assertIsNotNone(guest_access.last_used_at)
+        resolve_download_delivery_failure_incident_mock.assert_called_once_with(
+            delivery_type="guest_product",
+            reason="download_unavailable",
+        )
 
     def test_guest_download_returns_410_for_exhausted_token(self):
         guest_access, raw_token = create_guest_access(

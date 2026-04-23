@@ -9,7 +9,13 @@ from django.http import HttpRequest
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, send_incident_alert
+from apps.core.alerts import (
+    ThresholdIncidentSpec,
+    record_threshold_incident,
+    resolve_threshold_incident,
+    send_incident_alert,
+    send_incident_recovery,
+)
 from apps.core.analytics import send_ga4_purchase_event_for_order
 from apps.core.context_processors import analytics
 from apps.core.logging import (
@@ -265,6 +271,26 @@ class IncidentAlertTests(TestCase):
         text = send_mock.call_args.kwargs["text"]
         self.assertIn("[WARNING] Storage is unavailable", text)
 
+    @override_settings(
+        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_INCIDENTS_THREAD_ID=9,
+    )
+    @patch("apps.core.alerts.send_telegram_message")
+    def test_send_incident_recovery_sends_resolved_message_when_configured(self, send_mock):
+        sent = send_incident_recovery(
+            key="storage.s3.unavailable",
+            title="Storage recovered",
+            fingerprint="storage.s3.unavailable:generate_presigned_download_url",
+            details={"operation": "generate_presigned_download_url"},
+        )
+
+        self.assertTrue(sent)
+        text = send_mock.call_args.kwargs["text"]
+        self.assertIn("[RESOLVED] Storage recovered", text)
+        self.assertIn("key: storage.s3.unavailable", text)
+        self.assertIn("operation: generate_presigned_download_url", text)
+
     @patch("apps.core.alerts.send_incident_alert")
     def test_record_threshold_incident_below_threshold_does_not_send_alert(self, send_incident_alert_mock):
         sent = record_threshold_incident(
@@ -342,6 +368,102 @@ class IncidentAlertTests(TestCase):
                 "window_minutes": 10,
             },
         )
+
+    @patch("apps.core.alerts.send_incident_alert")
+    @patch("apps.core.alerts.send_incident_recovery")
+    def test_record_threshold_incident_marks_incident_active_when_sent(
+        self,
+        send_incident_recovery_mock,
+        send_incident_alert_mock,
+    ):
+        send_incident_alert_mock.return_value = True
+        send_incident_recovery_mock.return_value = True
+        incident = ThresholdIncidentSpec(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            recovery_title="Payment webhook failures recovered",
+            severity="critical",
+            fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+            details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+        )
+
+        self.assertTrue(
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=1,
+                window_seconds=600,
+                incident=incident,
+            ),
+        )
+        self.assertTrue(resolve_threshold_incident(incident=incident))
+        send_incident_recovery_mock.assert_called_once()
+
+    @patch("apps.core.alerts.send_incident_recovery")
+    def test_resolve_threshold_incident_returns_false_when_incident_is_not_active(self, send_incident_recovery_mock):
+        sent = resolve_threshold_incident(
+            incident=ThresholdIncidentSpec(
+                key="storage.s3.unavailable",
+                title="Storage is unavailable",
+                recovery_title="Storage recovered",
+                severity="critical",
+                fingerprint="storage.s3.unavailable:generate_presigned_download_url",
+                details={"operation": "generate_presigned_download_url"},
+            ),
+        )
+
+        self.assertFalse(sent)
+        send_incident_recovery_mock.assert_not_called()
+
+    @patch("apps.core.alerts.send_incident_alert")
+    @patch("apps.core.alerts.send_incident_recovery")
+    def test_resolve_threshold_incident_sends_recovery_and_clears_active_state(
+        self,
+        send_incident_recovery_mock,
+        send_incident_alert_mock,
+    ):
+        send_incident_alert_mock.return_value = True
+        send_incident_recovery_mock.return_value = True
+        incident = ThresholdIncidentSpec(
+            key="storage.s3.unavailable",
+            title="Storage is unavailable",
+            recovery_title="Storage recovered",
+            severity="critical",
+            fingerprint="storage.s3.unavailable:generate_presigned_download_url",
+            details={"operation": "generate_presigned_download_url"},
+        )
+
+        record_threshold_incident(
+            counter_key="storage-unavailable:generate_presigned_download_url",
+            threshold=1,
+            window_seconds=600,
+            incident=incident,
+        )
+
+        first = resolve_threshold_incident(incident=incident, details={"bucket": "products"})
+        second = resolve_threshold_incident(incident=incident, details={"bucket": "products"})
+
+        self.assertTrue(first)
+        self.assertFalse(second)
+        send_incident_recovery_mock.assert_called_once_with(
+            key="storage.s3.unavailable",
+            title="Storage recovered",
+            fingerprint="storage.s3.unavailable:generate_presigned_download_url",
+            details={
+                "operation": "generate_presigned_download_url",
+                "bucket": "products",
+            },
+        )
+
+    def test_resolve_threshold_incident_requires_recovery_title(self):
+        with self.assertRaisesMessage(ValueError, "incident recovery_title must be configured"):
+            resolve_threshold_incident(
+                incident=ThresholdIncidentSpec(
+                    key="storage.s3.unavailable",
+                    title="Storage is unavailable",
+                    severity="critical",
+                    fingerprint="storage.s3.unavailable:generate_presigned_download_url",
+                ),
+            )
 
     def test_record_threshold_incident_rejects_non_positive_threshold(self):
         with self.assertRaisesMessage(ValueError, "threshold must be greater than zero"):

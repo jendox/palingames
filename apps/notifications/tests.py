@@ -32,9 +32,15 @@ class NotificationOutboxLoggingTests(TestCase):
         self.assertEqual(log_event_mock.call_args.args[2], "notification.outbox.enqueued")
         self.assertEqual(log_event_mock.call_args.kwargs["outbox_id"], outbox.id)
 
+    @patch("apps.notifications.services.resolve_notification_outbox_failure_incident")
     @patch("apps.notifications.services.log_event")
     @patch("apps.notifications.services.send_notification")
-    def test_process_notification_outbox_logs_processing_started_event(self, send_notification_mock, log_event_mock):
+    def test_process_notification_outbox_logs_processing_started_event(
+        self,
+        send_notification_mock,
+        log_event_mock,
+        resolve_notification_outbox_failure_incident_mock,
+    ):
         outbox = create_notification_outbox(
             notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
             recipient="guest@example.com",
@@ -49,6 +55,10 @@ class NotificationOutboxLoggingTests(TestCase):
         outbox.refresh_from_db()
         self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         send_notification_mock.assert_called_once()
+        resolve_notification_outbox_failure_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
 
     @patch("apps.notifications.services.record_notification_outbox_failure_incident")
     @patch("apps.notifications.services.send_notification", side_effect=RuntimeError("boom"))

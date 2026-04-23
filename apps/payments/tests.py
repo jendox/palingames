@@ -1181,12 +1181,14 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(order.status, Order.OrderStatus.FAILED)
         self.assertEqual(order.failure_reason, "invoice_expired")
 
+    @patch("apps.payments.tasks.resolve_payment_status_sync_failure_incident")
     @patch("apps.payments.tasks.record_payment_status_sync_failure_incident")
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_sync_waiting_invoice_statuses_continues_when_one_invoice_fails(
         self,
         mock_get_client,
         record_payment_status_sync_failure_incident_mock,
+        resolve_payment_status_sync_failure_incident_mock,
     ):
         first_order, first_invoice = self._create_waiting_invoice(account_suffix="34567890")
         second_order, second_invoice = self._create_waiting_invoice(account_suffix="45678901", user=self.user)
@@ -1215,6 +1217,37 @@ class InvoiceStatusSyncTaskTests(TestCase):
         record_payment_status_sync_failure_incident_mock.assert_called_once_with(
             provider=PaymentProvider.EXPRESS_PAY,
             error_type="RuntimeError",
+        )
+        resolve_payment_status_sync_failure_incident_mock.assert_not_called()
+
+    @patch("apps.payments.tasks.resolve_payment_status_sync_failure_incident")
+    @patch("apps.payments.tasks.record_payment_status_sync_failure_incident")
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_sync_waiting_invoice_statuses_resolves_active_incident_after_clean_run(
+        self,
+        mock_get_client,
+        record_payment_status_sync_failure_incident_mock,
+        resolve_payment_status_sync_failure_incident_mock,
+    ):
+        order, invoice = self._create_waiting_invoice(account_suffix="56789012")
+        mock_client = Mock()
+        mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
+        mock_get_client.return_value = mock_client
+
+        with self.captureOnCommitCallbacks(execute=True):
+            summary = sync_waiting_invoice_statuses_task()
+
+        invoice.refresh_from_db()
+        order.refresh_from_db()
+
+        self.assertEqual(summary["selected"], 1)
+        self.assertEqual(summary["failed"], 0)
+        self.assertEqual(summary["paid"], 1)
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(order.status, Order.OrderStatus.PAID)
+        record_payment_status_sync_failure_incident_mock.assert_not_called()
+        resolve_payment_status_sync_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY,
         )
 
 

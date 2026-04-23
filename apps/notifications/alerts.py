@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident
+from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, resolve_threshold_incident
 from apps.notifications.types import NotificationType
 
 NOTIFICATION_OUTBOX_FAILURE_INCIDENT_KEY = "notifications.outbox.failures"
@@ -35,6 +35,29 @@ def record_notification_outbox_failure_incident(*, notification_type: str, chann
         incident=ThresholdIncidentSpec(
             key=NOTIFICATION_OUTBOX_FAILURE_INCIDENT_KEY,
             title="Repeated critical notification outbox failures",
+            recovery_title="Critical notification outbox recovered",
+            severity="critical",
+            fingerprint=_build_notification_outbox_failure_fingerprint(
+                notification_type=notification_type,
+                channel=channel,
+            ),
+            details={
+                "notification_type": notification_type,
+                "channel": channel,
+            },
+        ),
+    )
+
+
+def resolve_notification_outbox_failure_incident(*, notification_type: str, channel: str) -> bool:
+    if notification_type not in CRITICAL_NOTIFICATION_TYPES:
+        return False
+
+    return resolve_threshold_incident(
+        incident=ThresholdIncidentSpec(
+            key=NOTIFICATION_OUTBOX_FAILURE_INCIDENT_KEY,
+            title="Repeated critical notification outbox failures",
+            recovery_title="Critical notification outbox recovered",
             severity="critical",
             fingerprint=_build_notification_outbox_failure_fingerprint(
                 notification_type=notification_type,

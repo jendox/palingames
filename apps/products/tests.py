@@ -418,8 +418,13 @@ class ProductS3ServiceTests(TestCase):
         self.assertEqual(len(result["checksum_sha256"]), 64)
         mock_get_s3_client.return_value.upload_fileobj.assert_called_once()
 
+    @patch("apps.products.services.s3.resolve_storage_unavailable_incident")
     @patch("apps.products.services.s3.get_s3_client")
-    def test_generate_presigned_download_url_uses_bucket_and_filename(self, mock_get_s3_client):
+    def test_generate_presigned_download_url_uses_bucket_and_filename(
+        self,
+        mock_get_s3_client,
+        resolve_storage_unavailable_incident_mock,
+    ):
         mock_get_s3_client.return_value.generate_presigned_url.return_value = "https://example.com/download"
 
         result = generate_presigned_download_url(
@@ -429,6 +434,9 @@ class ProductS3ServiceTests(TestCase):
 
         self.assertEqual(result, "https://example.com/download")
         mock_get_s3_client.return_value.generate_presigned_url.assert_called_once()
+        resolve_storage_unavailable_incident_mock.assert_called_once_with(
+            operation="generate_presigned_download_url",
+        )
 
     @patch("apps.products.services.s3.get_s3_client")
     def test_upload_product_file_wraps_storage_errors(self, mock_get_s3_client):
@@ -505,8 +513,13 @@ class ProductDownloadViewTests(TestCase):
     def setUp(self):
         caches["rate_limit"].clear()
 
+    @patch("apps.products.views.resolve_download_delivery_failure_incident")
     @patch("apps.products.views.generate_presigned_download_url")
-    def test_download_returns_presigned_url_json(self, mock_generate_presigned_download_url):
+    def test_download_returns_presigned_url_json(
+        self,
+        mock_generate_presigned_download_url,
+        resolve_download_delivery_failure_incident_mock,
+    ):
         mock_generate_presigned_download_url.return_value = "https://example.com/download"
         self.client.force_login(self.user)
 
@@ -517,6 +530,10 @@ class ProductDownloadViewTests(TestCase):
         mock_generate_presigned_download_url.assert_called_once_with(
             file_key=self.active_file.file_key,
             original_filename=self.active_file.original_filename,
+        )
+        resolve_download_delivery_failure_incident_mock.assert_called_once_with(
+            delivery_type="product",
+            reason="download_unavailable",
         )
 
     def test_download_returns_404_without_access(self):

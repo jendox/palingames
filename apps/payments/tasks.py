@@ -15,7 +15,10 @@ from apps.core.logging import log_event
 from apps.core.metrics import inc_invoice_created, record_invoice_status_sync_summary
 from apps.custom_games.models import CustomGameRequest
 from apps.orders.models import Order
-from apps.payments.alerts import record_payment_status_sync_failure_incident
+from apps.payments.alerts import (
+    record_payment_status_sync_failure_incident,
+    resolve_payment_status_sync_failure_incident,
+)
 from apps.payments.models import Invoice
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
@@ -511,5 +514,9 @@ def sync_waiting_invoice_statuses_task() -> dict[str, int]:
         "invoice.status_sync.completed",
         **summary,
     )
+    if summary["selected"] > 0 and summary["failed"] == 0:
+        resolve_payment_status_sync_failure_incident(
+            provider=Invoice._meta.get_field("provider").default,
+        )
     record_invoice_status_sync_summary(summary)
     return summary

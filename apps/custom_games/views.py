@@ -19,7 +19,10 @@ from apps.custom_games.services import (
     release_custom_game_download_token_use,
     resolve_custom_game_download_token,
 )
-from apps.products.alerts import record_download_delivery_failure_incident
+from apps.products.alerts import (
+    record_download_delivery_failure_incident,
+    resolve_download_delivery_failure_incident,
+)
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.custom_games")
@@ -134,6 +137,10 @@ class CustomGameDownloadView(View):
             download_token_id=download_token.id,
             downloads_count=download_token.downloads_count,
             max_downloads=download_token.max_downloads,
+        )
+        resolve_download_delivery_failure_incident(
+            delivery_type="custom_game",
+            reason="download_unavailable",
         )
         return HttpResponseRedirect(download_url)
 

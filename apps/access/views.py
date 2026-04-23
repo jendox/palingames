@@ -9,7 +9,10 @@ from django.views import View
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
-from apps.products.alerts import record_download_delivery_failure_incident
+from apps.products.alerts import (
+    record_download_delivery_failure_incident,
+    resolve_download_delivery_failure_incident,
+)
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 from .services import mark_guest_access_used, release_guest_access_use, resolve_guest_access
@@ -105,6 +108,10 @@ class GuestProductDownloadView(View):
             product_id=guest_access.product_id,
             downloads_count=guest_access.downloads_count,
             max_downloads=guest_access.max_downloads,
+        )
+        resolve_download_delivery_failure_incident(
+            delivery_type="guest_product",
+            reason="download_unavailable",
         )
         inc_product_download_redirect(access_type="guest")
         return HttpResponseRedirect(download_url)

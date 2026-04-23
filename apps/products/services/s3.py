@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.logging import log_event
-from apps.products.alerts import record_storage_unavailable_incident
+from apps.products.alerts import record_storage_unavailable_incident, resolve_storage_unavailable_incident
 
 logger = logging.getLogger("apps.products.storage")
 ASCII_PRINTABLE_MIN = 32
@@ -370,4 +370,5 @@ def generate_presigned_download_url(
         file_key=file_key,
         expires_seconds=ttl,
     )
+    resolve_storage_unavailable_incident(operation="generate_presigned_download_url")
     return url
