@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from django.conf import settings
@@ -15,6 +16,15 @@ logger = logging.getLogger("apps.alerts")
 IncidentSeverity = Literal["critical", "warning"]
 
 DEFAULT_ALERT_DEDUPE_TTL_SECONDS = 60 * 15
+
+
+@dataclass(frozen=True)
+class ThresholdIncidentSpec:
+    key: str
+    title: str
+    severity: IncidentSeverity = "critical"
+    fingerprint: str | None = None
+    details: dict[str, Any] | None = None
 
 
 def _get_incident_alert_dedup_ttl_seconds() -> int:
@@ -55,6 +65,40 @@ def _build_alert_cache_key(*, fingerprint: str) -> str:
 
 def _build_default_fingerprint(*, key: str) -> str:
     return key
+
+
+def record_threshold_incident(
+    *,
+    counter_key: str,
+    threshold: int,
+    window_seconds: int,
+    incident: ThresholdIncidentSpec,
+) -> bool:
+    if threshold <= 0:
+        raise ValueError("threshold must be greater than zero")
+    if window_seconds <= 0:
+        raise ValueError("window_seconds must be greater than zero")
+
+    if cache.add(counter_key, 1, timeout=window_seconds):
+        failures = 1
+    else:
+        failures = cache.incr(counter_key)
+
+    if failures != threshold:
+        return False
+
+    alert_details = {
+        **(incident.details or {}),
+        "failures": failures,
+        "window_minutes": window_seconds // 60,
+    }
+    return send_incident_alert(
+        key=incident.key,
+        title=incident.title,
+        severity=incident.severity,
+        fingerprint=incident.fingerprint,
+        details=alert_details,
+    )
 
 
 def send_incident_alert(

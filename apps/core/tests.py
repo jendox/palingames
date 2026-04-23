@@ -9,7 +9,7 @@ from django.http import HttpRequest
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from apps.core.alerts import send_incident_alert
+from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, send_incident_alert
 from apps.core.analytics import send_ga4_purchase_event_for_order
 from apps.core.context_processors import analytics
 from apps.core.logging import (
@@ -264,6 +264,108 @@ class IncidentAlertTests(TestCase):
         self.assertTrue(sent)
         text = send_mock.call_args.kwargs["text"]
         self.assertIn("[WARNING] Storage is unavailable", text)
+
+    @patch("apps.core.alerts.send_incident_alert")
+    def test_record_threshold_incident_below_threshold_does_not_send_alert(self, send_incident_alert_mock):
+        sent = record_threshold_incident(
+            counter_key="incident:payments:webhook",
+            threshold=3,
+            window_seconds=600,
+            incident=ThresholdIncidentSpec(
+                key="payments.webhook.failures",
+                title="Repeated payment webhook failures",
+                severity="critical",
+                fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+                details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+            ),
+        )
+
+        self.assertFalse(sent)
+        send_incident_alert_mock.assert_not_called()
+
+    @patch("apps.core.alerts.send_incident_alert")
+    def test_record_threshold_incident_sends_alert_when_threshold_is_reached(self, send_incident_alert_mock):
+        send_incident_alert_mock.return_value = True
+
+        self.assertFalse(
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=3,
+                window_seconds=600,
+                incident=ThresholdIncidentSpec(
+                    key="payments.webhook.failures",
+                    title="Repeated payment webhook failures",
+                    severity="critical",
+                    fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+                    details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+                ),
+            ),
+        )
+        self.assertFalse(
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=3,
+                window_seconds=600,
+                incident=ThresholdIncidentSpec(
+                    key="payments.webhook.failures",
+                    title="Repeated payment webhook failures",
+                    severity="critical",
+                    fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+                    details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+                ),
+            ),
+        )
+        self.assertTrue(
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=3,
+                window_seconds=600,
+                incident=ThresholdIncidentSpec(
+                    key="payments.webhook.failures",
+                    title="Repeated payment webhook failures",
+                    severity="critical",
+                    fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+                    details={"provider": "EXPRESS_PAY", "reason": "invoice_not_found"},
+                ),
+            ),
+        )
+
+        send_incident_alert_mock.assert_called_once_with(
+            key="payments.webhook.failures",
+            title="Repeated payment webhook failures",
+            severity="critical",
+            fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+            details={
+                "provider": "EXPRESS_PAY",
+                "reason": "invoice_not_found",
+                "failures": 3,
+                "window_minutes": 10,
+            },
+        )
+
+    def test_record_threshold_incident_rejects_non_positive_threshold(self):
+        with self.assertRaisesMessage(ValueError, "threshold must be greater than zero"):
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=0,
+                window_seconds=600,
+                incident=ThresholdIncidentSpec(
+                    key="payments.webhook.failures",
+                    title="Repeated payment webhook failures",
+                ),
+            )
+
+    def test_record_threshold_incident_rejects_non_positive_window(self):
+        with self.assertRaisesMessage(ValueError, "window_seconds must be greater than zero"):
+            record_threshold_incident(
+                counter_key="incident:payments:webhook",
+                threshold=3,
+                window_seconds=0,
+                incident=ThresholdIncidentSpec(
+                    key="payments.webhook.failures",
+                    title="Repeated payment webhook failures",
+                ),
+            )
 
 
 class AnalyticsTemplateTests(TestCase):

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from django.conf import settings
-from django.core.cache import cache
 
-from apps.core.alerts import send_incident_alert
+from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident
 
 PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY = "payments.webhook.failures"
 
@@ -25,30 +24,21 @@ def record_payment_webhook_failure_incident(*, provider: str, reason: str) -> bo
     if reason not in PAYMENT_WEBHOOK_ALERTABLE_REASONS:
         return False
 
-    threshold = settings.PAYMENT_WEBHOOK_INCIDENT_THRESHOLD
-    window_seconds = settings.PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS
-    cache_key = _get_payment_webhook_failure_counter_key(provider=provider, reason=reason)
-
-    if cache.add(cache_key, 1, timeout=window_seconds):
-        failures = 1
-    else:
-        failures = cache.incr(cache_key)
-
-    if failures != threshold:
-        return False
-
-    return send_incident_alert(
-        key=PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY,
-        title="Repeated payment webhook failures",
-        severity="critical",
-        fingerprint=_build_payment_webhook_failure_fingerprint(
-            provider=provider,
-            reason=reason,
+    return record_threshold_incident(
+        counter_key=_get_payment_webhook_failure_counter_key(provider=provider, reason=reason),
+        threshold=settings.PAYMENT_WEBHOOK_INCIDENT_THRESHOLD,
+        window_seconds=settings.PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS,
+        incident=ThresholdIncidentSpec(
+            key=PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY,
+            title="Repeated payment webhook failures",
+            severity="critical",
+            fingerprint=_build_payment_webhook_failure_fingerprint(
+                provider=provider,
+                reason=reason,
+            ),
+            details={
+                "provider": provider,
+                "reason": reason,
+            },
         ),
-        details={
-            "provider": provider,
-            "reason": reason,
-            "failures": failures,
-            "window_minutes": window_seconds // 60,
-        },
     )
