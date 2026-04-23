@@ -1,271 +1,272 @@
 # Runbooks
 
-Этот документ нужен для типовых инцидентов, которые вероятнее всего встретятся в проекте.
+Этот документ описывает типовые production-инциденты и порядок реакции на них.
 
-Идея простая:
-- сначала быстро понять масштаб проблемы;
-- потом проверить самые вероятные причины;
+Принцип:
+- сначала быстро подтвердить масштаб;
+- потом проверить наиболее вероятную причину;
 - затем выполнить минимальные безопасные действия;
-- и только после этого уже идти в глубокую диагностику.
+- и только после этого идти в глубокую диагностику.
 
-## 1. Payment Webhook Not Processed
+## 1. Incident Alerts Contract
 
-### Симптомы
+В проекте уже разделены два класса Telegram-сигналов:
+- `notifications` — business/admin events;
+- `incidents` — только production issues, требующие внимания.
 
-- заказ оплачен у провайдера, но в системе остался `WAITING_FOR_PAYMENT`;
-- не появился `UserProductAccess` или `GuestAccess`;
-- в Sentry или логах растут:
+Incident alerts отправляются через отдельный operational layer, а не через business `NotificationType`.
+
+Текущие incident keys:
+- `payments.webhook.failures`
+- `payments.status_sync.failures`
+- `downloads.delivery.failures`
+- `notifications.outbox.failures`
+- `storage.s3.unavailable`
+
+Recovery/resolved alerts сейчас реализованы для:
+- `payments.status_sync.failures`
+- `downloads.delivery.failures`
+- `notifications.outbox.failures`
+- `storage.s3.unavailable`
+
+`payments.webhook.failures` пока без recovery-сигнала, потому что в success path нет надёжного reason-scoped подтверждения восстановления.
+
+## 2. Payment Webhook Failures
+
+Incident key:
+- `payments.webhook.failures`
+
+Симптомы:
+- provider считает заказ оплаченным, но локальный `Order` или `Invoice` остался в `WAITING_FOR_PAYMENT` / `PENDING`;
+- в Telegram topic `Incidents` пришёл alert `Repeated payment webhook failures`;
+- в логах растут:
   - `payment.notification.failed`
-  - `payment.notification.rejected`
   - `payment.settlement_notification.failed`
 
-### Что это обычно значит
-
-Чаще всего одна из причин:
+Что это обычно значит:
 - webhook не дошёл до приложения;
-- подпись webhook не прошла валидацию;
 - локальный `Invoice` не найден;
-- payload от провайдера не соответствует ожидаемой схеме;
-- приложение приняло webhook, но упало внутри обработки.
+- payload обработан, но код упал внутри;
+- provider присылает unexpected payload shape.
 
-### Проверить сначала
+Проверить сначала:
+1. Есть ли входящий лог `payment.notification.received` или `payment.settlement_notification.received`.
+2. Есть ли после него `processed`, `rejected` или `failed`.
+3. Совпадают ли `provider_invoice_no`, `InvoiceNo`, `AccountNo`, локальный `order.payment_account_no`.
+4. Не менялись ли `EXPRESS_PAY_WEBHOOK_SECRET_WORD` и routing до webhook endpoint.
 
-1. Есть ли входящий лог:
-- `payment.notification.received`
-- `payment.settlement_notification.received`
-
-2. Есть ли сразу после него:
-- `processed`
-- `rejected`
-- `failed`
-
-3. Совпадают ли:
-- `provider_invoice_no`
-- `order.payment_account_no`
-- `AccountNo` / `InvoiceNo` в payload
-
-4. Не изменились ли:
-- `EXPRESS_PAY_WEBHOOK_SECRET_WORD`
-- `EXPRESS_PAY_USE_SIGNATURE`
-
-### Быстрые действия
-
+Быстрые действия:
 1. Найти заказ и инвойс в админке или БД.
-2. Проверить, есть ли `PaymentEvent`.
-3. Если webhook не дошёл, дождаться или инициировать fallback через periodic sync.
-4. Если webhook rejected по подписи:
-- проверить секрет;
-- проверить raw payload shape;
-- убедиться, что reverse proxy не портит тело запроса.
+2. Проверить, создался ли `PaymentEvent`.
+3. Если webhook не дошёл, дождаться или вручную инициировать fallback через `sync_waiting_invoice_statuses_task`.
+4. Если проблема массовая, не менять статусы заказов руками до подтверждения провайдера.
 
-### Если нужен временный обход
-
-- не менять статус заказа руками без понимания источника истины;
-- сначала дождаться/запустить `sync_waiting_invoice_statuses_task`;
-- если провайдер уже точно считает инвойс оплаченным, а sync подтверждает это, дальше разбираться, почему не сработал webhook.
-
-### Что смотреть глубже
-
-- Sentry event по webhook endpoint;
+Что смотреть глубже:
+- Sentry events по webhook endpoint;
 - payload webhook;
-- `PaymentEvent` idempotency key;
-- логи reverse proxy / ingress;
-- recent deploy changes в `apps/payments/views/express_pay.py`.
+- последние изменения в [`apps/payments/views/express_pay.py`](/home/jendox/PycharmProjects/palingames/apps/payments/views/express_pay.py);
+- network/reverse proxy logs.
 
-## 2. Invoice Sync Failing Repeatedly
+## 3. Invoice Status Sync Failures
 
-### Симптомы
+Incident key:
+- `payments.status_sync.failures`
 
-- растёт `invoice.status_sync.invoice_failed`;
+Recovery title:
+- `Invoice status sync recovered`
+
+Симптомы:
+- repeated alert `Repeated invoice status sync failures`;
 - pending-инвойсы не двигаются по статусам;
-- fallback-проверка оплаты фактически не работает.
+- fallback reconciliation перестаёт работать.
 
-### Что это обычно значит
-
-Чаще всего:
+Что это обычно значит:
 - Express Pay API недоступен;
-- таймауты или сеть;
-- блок по rate limit;
+- сеть или timeout;
 - невалидный `provider_invoice_no`;
-- ошибка в коде sync-задачи.
+- ошибка в коде sync task.
 
-### Проверить сначала
-
+Проверить сначала:
 1. Есть ли `invoice.status_sync.started` и `invoice.status_sync.completed`.
-2. Сколько в summary:
-- `selected`
-- `processed`
-- `failed`
-- `unknown`
+2. Что в summary:
+  - `selected`
+  - `processed`
+  - `failed`
+  - `unknown`
+3. Ошибка однотипная или плавающая.
+4. Не слишком ли агрессивны `PAYMENTS_STATUS_SYNC_BATCH_SIZE` и `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`.
 
-3. Ошибки однотипные или разные:
-- timeout
-- auth/signature
-- validation
-- conversion `provider_invoice_no`
+Быстрые действия:
+1. Проверить доступность Express Pay вручную.
+2. Проверить несколько конкретных `PENDING` инвойсов.
+3. Если проблема массовая, уменьшить batch или частоту sync, а не отключать задачу полностью.
 
-4. Не слишком ли агрессивные настройки:
-- `PAYMENTS_STATUS_SYNC_BATCH_SIZE`
-- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`
+Когда считать проблему закрытой:
+- есть `resolved` alert `Invoice status sync recovered`;
+- новые прогоны sync завершаются без `failed`;
+- pending-инвойсы снова переходят в финальные статусы.
 
-### Быстрые действия
+Что смотреть глубже:
+- исключения из [`apps/payments/tasks.py`](/home/jendox/PycharmProjects/palingames/apps/payments/tasks.py);
+- provider client;
+- сетевые ограничения хоста.
 
-1. Временно уменьшить нагрузку:
-- снизить `PAYMENTS_STATUS_SYNC_BATCH_SIZE`
-- увеличить `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`
+## 4. Download Delivery Failures
 
-2. Проверить доступность Express Pay вручную.
-3. Проверить несколько конкретных pending-инвойсов:
-- есть ли `provider_invoice_no`;
-- корректно ли он выглядит;
-- не ушёл ли заказ уже в финальный статус локально.
+Incident key:
+- `downloads.delivery.failures`
 
-### Если проблема массовая
+Recovery title:
+- `Download delivery recovered`
 
-- считать webhook основным источником обновления;
-- sync оставить как degraded fallback;
-- не отключать задачу полностью, пока не понятна причина;
-- лучше уменьшить частоту и батч, чем просто выключить reconciliation.
+Симптомы:
+- пользователь оплатил товар, но не может скачать файл;
+- alert `Repeated download delivery failures`;
+- в логах repeated:
+  - `guest_access.download.failed`
+  - `product.download.failed`
+  - `custom_game_request.download.failed`
 
-### Что смотреть глубже
+Что это обычно значит:
+- storage временно недоступен;
+- presigned URL generation падает;
+- runtime path выдачи файла сломан;
+- активный файл существует не для всех товаров.
 
-- Sentry exceptions из `apps.payments.tasks`;
-- сетевые ограничения с сервера;
-- ротацию токенов/секретов;
-- наличие изменений в коде payment provider client.
+Проверить сначала:
+1. Какой `delivery_type` в alert details:
+  - `guest_product`
+  - `product`
+  - `custom_game`
+2. Какой `reason` указан.
+3. Есть ли одновременно ошибки `product_file.download_url.failed`.
+4. Есть ли активный файл у проблемного продукта/request.
 
-## 3. Guest Email Outbox Failing
+Быстрые действия:
+1. Проверить storage/presigned URL path.
+2. Проверить последние ошибки в [`apps/products/services/s3.py`](/home/jendox/PycharmProjects/palingames/apps/products/services/s3.py).
+3. Проверить, что у товара есть активный `ProductFile`, а у custom game есть `CustomGameFile`.
 
-### Симптомы
+Когда считать проблему закрытой:
+- пользователи снова получают redirect/download URL без 503;
+- пришёл `resolved` alert `Download delivery recovered`.
 
-- гостевой заказ оплачен, но письмо не пришло;
-- в логах есть `guest_access.email_outbox.failed`;
-- в БД записи outbox зависают в `FAILED`.
+Что смотреть глубже:
+- [`apps/access/views.py`](/home/jendox/PycharmProjects/palingames/apps/access/views.py)
+- [`apps/products/views.py`](/home/jendox/PycharmProjects/palingames/apps/products/views.py)
+- [`apps/custom_games/views.py`](/home/jendox/PycharmProjects/palingames/apps/custom_games/views.py)
 
-### Что это обычно значит
+## 5. Critical Notification Outbox Failures
 
-Чаще всего:
-- SMTP недоступен;
-- сломан шаблон письма;
+Incident key:
+- `notifications.outbox.failures`
+
+Recovery title:
+- `Critical notification outbox recovered`
+
+Сейчас alerting включён только для critical notification flows:
+- `guest_order_download`
+- `custom_game_download`
+
+Симптомы:
+- пользователь не получил критичное письмо со ссылкой на скачивание;
+- в Telegram пришёл alert `Repeated critical notification outbox failures`;
+- в БД outbox-записи остаются в `FAILED`.
+
+Что это обычно значит:
+- SMTP/transport недоступен;
+- ошибка в payload/template;
 - проблема в Celery worker;
-- ошибка дешифрования payload;
-- проблема в формировании ссылок/контекста письма.
+- ошибка в send path конкретного notification type.
 
-### Проверить сначала
+Проверить сначала:
+1. Какой `notification_type` и `channel` в alert details.
+2. Что в `NotificationOutbox.last_error`.
+3. Жив ли Celery worker.
+4. Есть ли недавние изменения в email/telegram formatter.
 
-1. Есть ли событие `order.paid`.
-2. Создался ли `GuestAccessEmailOutbox`.
-3. Запустилась ли `send_guest_access_email_outbox_task`.
-4. Что в `last_error` у outbox-записи.
+Быстрые действия:
+1. Проверить транспорт:
+  - SMTP для email
+  - Telegram route для telegram
+2. Проверить обработку outbox через [`apps/notifications/services.py`](/home/jendox/PycharmProjects/palingames/apps/notifications/services.py).
+3. После исправления причины повторно обработать failed outbox записи.
 
-### Быстрые действия
+Когда считать проблему закрытой:
+- новые outbox entries переходят в `SENT`;
+- пришёл `resolved` alert `Critical notification outbox recovered`.
 
-1. Проверить SMTP:
-- доступность сервера;
-- корректность `EMAIL_HOST`, `EMAIL_PORT`, `DEFAULT_FROM_EMAIL`
+## 6. Storage Unavailable
 
-2. Проверить Celery worker:
-- жив ли процесс;
-- не застряли ли задачи;
-- нет ли массовых task failures.
+Incident key:
+- `storage.s3.unavailable`
 
-3. Проверить payload:
-- можно ли его расшифровать;
-- не сломан ли `APP_DATA_ENCRYPTION_KEY`.
+Recovery title:
+- `Storage recovered`
 
-### Безопасный workaround
+Симптомы:
+- repeated alert `Storage is unavailable`;
+- presigned download URL generation падает;
+- user-facing download flows получают 503.
 
-- не создавать новые guest token вручную без причины;
-- сначала убедиться, что `GuestAccess` уже выданы;
-- если доступы уже есть, можно переотправить письмо через outbox processing после исправления причины.
+Что это обычно значит:
+- S3-compatible storage недоступен;
+- invalid credentials;
+- bucket/network issue;
+- boto client/runtime error.
 
-### Что смотреть глубже
+Проверить сначала:
+1. Есть ли `product_file.download_url.failed`.
+2. Какой `operation` указан в alert details.
+3. Доступен ли bucket и endpoint из окружения приложения.
+4. Не менялись ли `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`.
 
-- Sentry event из email sending path;
-- шаблоны `access/email/*`;
-- `SITE_BASE_URL`;
-- корректность image/download URLs.
+Быстрые действия:
+1. Проверить storage endpoint и credentials.
+2. Проверить bucket existence и network path.
+3. Убедиться, что проблема не только в одном приложении/инстансе.
 
-## 4. Readiness Endpoint Returns 503
+Когда считать проблему закрытой:
+- `generate_presigned_download_url` снова отрабатывает успешно;
+- пришёл `resolved` alert `Storage recovered`.
 
-### Симптомы
+## 7. Readiness Returns 503
 
+Это не отдельный app-level incident alert, а infrastructure signal через health/Prometheus.
+
+Симптомы:
 - `/health/ready/` отвечает `503`;
-- балансировщик может начать исключать инстанс из трафика;
-- приложение “как будто живое”, но часть функциональности недоступна.
+- load balancer может исключить инстанс из трафика;
+- Prometheus alert `PalingamesReadinessDegraded`.
 
-### Что это обычно значит
+Проверить сначала:
+1. JSON body `/health/ready/`.
+2. Какой check упал:
+  - `database`
+  - `redis`
+  - `s3`
+3. Это один инстанс или все.
 
-Одна из обязательных зависимостей недоступна:
-- PostgreSQL;
-- Redis;
-- S3-compatible storage.
+Быстрые действия:
+1. Для database: проверить доступность PostgreSQL и лимиты соединений.
+2. Для redis: проверить Redis process/container и `REDIS_URL`.
+3. Для s3: проверить endpoint, bucket и credentials.
 
-### Проверить сначала
+Что не делать:
+- не форсить readiness в `200`;
+- не отключать check ради “зелёного” статуса.
 
-1. JSON body `/health/ready/`
-2. Какой именно check упал:
-- `database`
-- `redis`
-- `s3`
+## 8. Как пользоваться runbooks
 
-3. Это один инстанс или все сразу.
-
-### Быстрые действия
-
-#### Если упала database
-
-- проверить доступность PostgreSQL;
-- проверить `DATABASE_URL`;
-- проверить, не исчерпаны ли соединения.
-
-#### Если упал redis
-
-- проверить Redis process/container;
-- проверить `REDIS_URL`;
-- проверить сетевую доступность.
-
-#### Если упал s3
-
-- проверить endpoint и bucket;
-- проверить ключи доступа;
-- проверить, не истёкли ли credentials;
-- проверить доступность object storage provider.
-
-### Что не делать
-
-- не переводить readiness в `200` руками;
-- не отключать проверку только ради “чтобы зеленело”;
-- не перезапускать всё подряд, пока не ясно, какая зависимость реально сломана.
-
-### Что смотреть глубже
-
-- был ли недавний deploy;
-- менялись ли env vars;
-- есть ли одновременный рост ошибок в `product_file.*`, payment sync или Celery.
-
-## 5. Как пользоваться runbooks
-
-Правильный порядок реакции на инцидент:
-
-1. Определи симптом.
-2. Найди подходящий runbook.
-3. Пройди разделы:
-- симптомы
-- быстрые проверки
-- быстрые действия
-
-4. Зафиксируй:
-- время начала;
-- affected scope;
-- root cause hypothesis;
-- что сделал;
-- результат.
-
-5. После инцидента обнови runbook, если он оказался неполным.
-
-## 6. Когда писать новый runbook
-
-Добавляй новый runbook, если одновременно выполняются два условия:
-- инцидент уже случался или очень вероятен;
-- без готового чек-листа на его разбор уходит слишком много времени.
+Правильный порядок реакции:
+1. Определи symptom или incident key.
+2. Найди соответствующий runbook.
+3. Пройди quick checks.
+4. Выполни минимальные безопасные действия.
+5. Зафиксируй:
+  - время начала;
+  - affected scope;
+  - первичную причину;
+  - временный workaround;
+  - время восстановления.
+6. Если инцидент не укладывается в существующие сценарии, дополни этот документ после разбора.

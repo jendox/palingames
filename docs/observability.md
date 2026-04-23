@@ -1,29 +1,43 @@
 # Observability
 
-Этот документ задаёт минимальный operational-контракт проекта:
-- какие события считаются ключевыми;
-- какие поля в них должны быть;
-- какие сигналы стоит алертить в первую очередь.
+Этот документ задаёт operational contract проекта:
+- какие события и сигналы считаются ключевыми;
+- как разделены business notifications и incidents;
+- какие alert families уже реализованы;
+- как связаны logs, metrics, health checks, Telegram incidents и recovery alerts.
 
-## 1. Базовые принципы
+## 1. Observability Layers
 
-Observability в этом проекте строится на трёх слоях:
+В проекте используются четыре слоя:
 - structured JSON logs;
-- Sentry для ошибок и traceback;
-- health endpoints для liveness/readiness.
+- Sentry для traceback и exception grouping;
+- health endpoints и Prometheus metrics;
+- Telegram incident alerts для production issues.
 
-Цель не в том, чтобы логировать всё подряд, а в том, чтобы по инциденту быстро ответить на вопросы:
+Важно:
+- не тащить все исключения из Sentry в Telegram;
+- не смешивать business/admin notifications с incidents;
+- алертить только повторяющиеся или реально impacting problems.
+
+## 2. Global Principles
+
+Нормальный operational flow должен позволять быстро ответить:
 - что сломалось;
-- на каком шаге пайплайна;
-- с каким заказом, инвойсом, задачей или запросом это связано;
-- требуется ли ручное вмешательство.
+- где именно в пайплайне;
+- влияет ли это на деньги или выдачу продукта;
+- нужно ли ручное вмешательство;
+- восстановилось ли уже поведение.
 
-## 2. Обязательные поля контекста
+Отсюда правила:
+- logs отвечают за подробный контекст;
+- Sentry отвечает за traceback и grouping exceptions;
+- metrics отвечают за тренды и массовость;
+- Telegram incidents отвечают за внимание дежурного;
+- recovery/resolved alerts отвечают за явное завершение инцидента.
 
-Ниже поля, которые считаются опорными для диагностики.
+## 3. Required Context Fields
 
-### Глобальные
-
+Базовые поля контекста:
 - `request_id`
 - `task_id`
 - `task_name`
@@ -31,258 +45,277 @@ Observability в этом проекте строится на трёх слоя
 - `http_method`
 - `path`
 - `status_code`
-- `source`
 
-### Платежи и заказы
-
+Платежи и заказы:
 - `order_id`
-- `order_public_id`
 - `invoice_id`
 - `provider_invoice_no`
 - `provider_status`
-- `checkout_type`
 - `payment_provider`
 
-### Доступы и письма
-
+Fulfillment и notifications:
 - `outbox_id`
-- `guest_access_id`
 - `product_id`
-- `email`
+- `guest_access_id`
+- `notification_type`
+- `channel`
 
-Чувствительные поля должны оставаться редактированными через текущий logging layer.
+Чувствительные поля должны оставаться redacted в logging layer.
 
-## 3. Event Taxonomy
+## 4. Event Taxonomy
 
 Имена событий должны быть:
 - короткими;
 - стабильными;
 - в формате `domain.action.result`;
-- без смешения разных смыслов в одном событии.
+- без смешения нескольких смыслов в одном event name.
 
-### Request layer
-
+Request layer:
 - `request.started`
 - `request.finished`
 - `request.failed`
 
-### Task layer
-
+Task layer:
 - `task.started`
 - `task.finished`
 
-### Orders
-
+Orders:
 - `order.creation.started`
 - `order.creation.success`
 - `order.creation.failed`
 - `order.paid`
 
-### Invoices
-
-- `invoice.creation.enqueued`
+Invoices:
 - `invoice.creation.started`
 - `invoice.creation.success`
 - `invoice.creation.failed`
-- `invoice.creation.skipped`
 - `invoice.status_sync.started`
 - `invoice.status_sync.invoice_processed`
 - `invoice.status_sync.invoice_failed`
 - `invoice.status_sync.unknown_status`
 - `invoice.status_sync.completed`
 
-### Payments
-
+Payments:
 - `payment.notification.received`
 - `payment.notification.processed`
 - `payment.notification.rejected`
 - `payment.notification.failed`
-- `payment.notification.ignored`
 - `payment.settlement_notification.received`
 - `payment.settlement_notification.processed`
 - `payment.settlement_notification.rejected`
 - `payment.settlement_notification.failed`
-- `payment.settlement_notification.ignored`
 
-### Guest access / email
-
-- `guest_access.granted`
+Downloads and storage:
 - `guest_access.download.redirected`
 - `guest_access.download.rejected`
 - `guest_access.download.failed`
-- `guest_access.download.unavailable`
-- `guest_access.email.sent`
-- `guest_access.email_outbox.created`
-- `guest_access.email_outbox.sent`
-- `guest_access.email_outbox.failed`
-- `guest_access.email_outbox.skipped`
-- `guest_access.email_outbox.cleanup.started`
-- `guest_access.email_outbox.cleanup.completed`
-
-### Product storage
-
-- `product_storage.client.created`
-- `product_storage.bucket.validated`
-- `product_storage.bucket.validation_failed`
-- `product_file.upload.started`
-- `product_file.upload.success`
-- `product_file.upload.failed`
-- `product_file.delete.success`
-- `product_file.delete.failed`
-- `product_file.metadata.success`
-- `product_file.metadata.failed`
+- `product.download.redirected`
+- `product.download.failed`
+- `custom_game_request.download.redirected`
+- `custom_game_request.download.failed`
 - `product_file.download_url.generated`
 - `product_file.download_url.failed`
 
-### Health / lifecycle
+Notifications:
+- `notification.outbox.created`
+- `notification.outbox.enqueued`
+- `notification.outbox.processing.started`
+- `notification.outbox.failed`
+- `notification.outbox.sent`
 
+Health and lifecycle:
 - `app.started`
 - `health.readiness.checked`
 
-## 4. Severity Guide
+## 5. Severity Guide
 
-### `INFO`
+`INFO`:
+- нормальные state transitions;
+- успешный request/task/payment/download/outbox send.
 
-Использовать для нормальных переходов состояния:
-- старт/финиш запроса;
-- создание заказа;
-- создание инвойса;
-- успешная оплата;
-- успешная фонова задача;
-- успешная выдача доступа.
+`WARNING`:
+- аномалия без обязательного hard failure;
+- rejected webhook;
+- expired token;
+- rate limit;
+- degraded readiness.
 
-### `WARNING`
+`ERROR`:
+- repeated failures;
+- payment processing exceptions;
+- invoice sync invoice failure;
+- outbox send failure;
+- presigned URL generation failure.
 
-Использовать, когда бизнес-поток не обязательно упал, но есть аномалия:
-- некорректный webhook payload;
-- неверная подпись;
-- пропущенный неизвестный статус;
-- попытка использовать истёкший guest token;
-- readiness в degraded-состоянии.
+## 6. Incident Alerts Model
 
-### `ERROR`
+В проекте Telegram alerts разделены так:
+- `notifications` topic: business/admin events;
+- `incidents` topic: production issues.
 
-Использовать, когда требуется диагностика и возможно ручное вмешательство:
-- провал invoice sync на конкретном инвойсе;
-- исключение при webhook processing;
-- провал отправки письма;
-- провал генерации presigned URL;
-- недоступность S3/Redis/DB для readiness.
+Incident alerts реализуются отдельным transport layer через [`apps/core/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/core/alerts.py), а не через business `NotificationType`.
 
-## 5. Mandatory Alerts
+Базовый API:
+- `send_incident_alert(...)`
+- `record_threshold_incident(...)`
+- `resolve_threshold_incident(...)`
+- `send_incident_recovery(...)`
 
-Ниже минимальный набор алертов, который стоит настроить первым.
+Ключевые свойства:
+- explicit `key`
+- optional `fingerprint` для dedupe scope
+- threshold-based alerting
+- dedupe window
+- active incident state
+- explicit resolved alerts
 
-### A. Payment webhook failures
+## 7. Implemented Incident Families
 
-Триггер:
-- repeated `payment.notification.failed`
-- repeated `payment.notification.rejected`
+Текущие incident keys:
 
-Почему важно:
-- можно перестать получать подтверждения оплаты;
-- пользователь оплатит заказ, а система не выдаст доступ автоматически.
+1. `payments.webhook.failures`
+Что считается incident:
+- repeated webhook failures для critical reasons.
 
-Что смотреть:
-- подпись;
-- входной payload;
-- существует ли локальный `Invoice`;
-- не сломался ли routing или CSRF bypass для webhook endpoint.
+Route:
+- [`apps/payments/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/payments/alerts.py)
+- [`apps/payments/views/express_pay.py`](/home/jendox/PycharmProjects/palingames/apps/payments/views/express_pay.py)
 
-### B. Invoice sync failures
+Recovery:
+- пока не реализован.
 
-Триггер:
-- рост `invoice.status_sync.invoice_failed` выше порога за 10-15 минут
+2. `payments.status_sync.failures`
+Что считается incident:
+- repeated exceptions в fallback invoice status sync.
 
-Почему важно:
-- fallback-механизм reconciliation перестаёт работать;
-- система становится зависимой только от webhook.
+Route:
+- [`apps/payments/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/payments/alerts.py)
+- [`apps/payments/tasks.py`](/home/jendox/PycharmProjects/palingames/apps/payments/tasks.py)
 
-Что смотреть:
-- доступность Express Pay API;
-- лимиты запросов;
-- корректность `provider_invoice_no`;
-- таймауты и сетевые ошибки.
+Recovery:
+- `Invoice status sync recovered`
 
-### C. Guest email outbox failures
+3. `downloads.delivery.failures`
+Что считается incident:
+- repeated failures выдачи user-facing download links.
 
-Триггер:
-- repeated `guest_access.email_outbox.failed`
+Route:
+- [`apps/products/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/products/alerts.py)
+- [`apps/access/views.py`](/home/jendox/PycharmProjects/palingames/apps/access/views.py)
+- [`apps/products/views.py`](/home/jendox/PycharmProjects/palingames/apps/products/views.py)
+- [`apps/custom_games/views.py`](/home/jendox/PycharmProjects/palingames/apps/custom_games/views.py)
 
-Почему важно:
-- гость оплатил заказ, но не получил ссылки на скачивание.
+Recovery:
+- `Download delivery recovered`
 
-Что смотреть:
-- SMTP;
-- шифрование payload;
-- ошибки шаблона письма;
-- Celery worker.
+4. `notifications.outbox.failures`
+Что считается incident:
+- repeated failures только для critical notification flows.
 
-### D. Product download failures
+Critical flows:
+- `guest_order_download`
+- `custom_game_download`
 
-Триггер:
-- `product_file.download_url.failed`
-- repeated `guest_access.download.failed`
+Route:
+- [`apps/notifications/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/notifications/alerts.py)
+- [`apps/notifications/services.py`](/home/jendox/PycharmProjects/palingames/apps/notifications/services.py)
 
-Почему важно:
-- оплата прошла, но файл фактически нельзя скачать.
+Recovery:
+- `Critical notification outbox recovered`
 
-Что смотреть:
-- S3 credentials;
-- bucket availability;
-- presigned URL generation;
-- наличие активного `ProductFile`.
+5. `storage.s3.unavailable`
+Что считается incident:
+- repeated runtime failures в download URL generation path.
 
-### E. Readiness degraded
+Route:
+- [`apps/products/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/products/alerts.py)
+- [`apps/products/services/s3.py`](/home/jendox/PycharmProjects/palingames/apps/products/services/s3.py)
 
-Триггер:
-- `/health/ready/` не `200` дольше 2-5 минут
+Recovery:
+- `Storage recovered`
 
-Почему важно:
-- приложение живо, но непригодно для реального трафика.
+## 8. What Must Not Go To Telegram Incidents
 
-Что смотреть:
-- DB connection;
-- Redis availability;
-- S3 availability;
-- недавние deploy changes.
+Не должны попадать в `incidents` topic:
+- новые отзывы;
+- новые заявки;
+- admin/business notifications;
+- единичный failed retry;
+- validation errors;
+- transient user-facing 4xx;
+- все Sentry exceptions без фильтрации;
+- все 500 подряд без threshold и taxonomy.
 
-## 6. Recommended Thresholds
+## 9. Thresholds And Dedupe
 
-Стартовые пороги без тонкой настройки:
+Текущая модель:
+- threshold alerting через cache counters;
+- incident dedupe через `key` или explicit `fingerprint`;
+- active incident state для resolved alerts;
+- dedupe TTL через `INCIDENT_ALERT_DEDUPE_TTL_SECONDS`.
 
-- `payment.notification.failed OR rejected` >= 5 за 10 минут
-- `invoice.status_sync.invoice_failed` >= 5 за 15 минут
-- `guest_access.email_outbox.failed` >= 3 за 15 минут
-- `product_file.download_url.failed` >= 3 за 15 минут
-- `/health/ready/ != 200` дольше 2 минут
+Настройки по incident families:
+- `PAYMENT_WEBHOOK_INCIDENT_THRESHOLD`
+- `PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS`
+- `PAYMENT_STATUS_SYNC_INCIDENT_THRESHOLD`
+- `PAYMENT_STATUS_SYNC_INCIDENT_WINDOW_SECONDS`
+- `DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD`
+- `DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS`
+- `NOTIFICATION_OUTBOX_INCIDENT_THRESHOLD`
+- `NOTIFICATION_OUTBOX_INCIDENT_WINDOW_SECONDS`
+- `STORAGE_INCIDENT_THRESHOLD`
+- `STORAGE_INCIDENT_WINDOW_SECONDS`
 
-Это не идеальные значения, а безопасная стартовая точка. После пары недель реального трафика их лучше откалибровать по фактическому noise level.
+## 10. Recovery/Resolved Semantics
 
-## 7. Как использовать Sentry
+Resolved alert должен отправляться только если:
+- до этого уже был активный incident state;
+- success path действительно подтверждает восстановление.
 
-Sentry лучше использовать для:
-- необработанных исключений;
-- группировки traceback;
+Это важно, чтобы не слать ложные `resolved` на обычный успешный запрос.
+
+Текущие success signals:
+- clean invoice status sync run без `failed`;
+- успешная выдача download URL после предыдущих delivery failures;
+- успешная отправка critical outbox notification;
+- успешная генерация presigned URL после storage incident.
+
+## 11. Relationship With Metrics And Prometheus
+
+App-level incident alerts и Prometheus alerts дополняют друг друга.
+
+App-level incidents лучше подходят для:
+- payment/domain failures;
+- download delivery issues;
+- critical outbox problems;
+- runtime storage errors.
+
+Prometheus alerts лучше подходят для:
+- readiness degradation;
+- широкие инфраструктурные проблемы;
+- массовые request/worker symptoms;
+- dashboards и trends.
+
+Актуальные alert rules лежат в [`monitoring/prometheus/alerts.yml`](/home/jendox/PycharmProjects/palingames/monitoring/prometheus/alerts.yml).
+
+## 12. Sentry Usage
+
+Sentry использовать для:
+- traceback;
+- exception grouping;
 - быстрого поиска по `request_id`, `task_id`, `path`.
 
-Sentry хуже подходит для:
-- подсчёта бизнес-метрик;
-- SLA/SLO дешбордов;
-- readiness polling.
+Sentry не использовать как прямой Telegram incident transport на все exceptions.
 
-То есть:
+Правило:
 - exception -> Sentry;
-- бизнес-сигнал и состояние системы -> logs/monitoring/health checks.
+- trend/mass signal -> metrics/Prometheus;
+- operator attention -> Telegram incident alert.
 
-## 8. Следующий слой после MVP
+## 13. Next Useful Improvements
 
-После текущего этапа логичный следующий шаг:
-- добавить metrics backend (`Prometheus` или аналог);
-- построить dashboard:
-  - orders created / paid;
-  - pending invoices;
-  - invoice sync failures;
-  - guest email failures;
-  - download failures;
-- завести runbooks на 3-5 типовых инцидентов.
+Логичные следующие шаги:
+- добавить docs/runbooks под каждый новый incident key;
+- решить отдельно recovery model для `payments.webhook.failures`;
+- при необходимости добавить Alertmanager -> Telegram только для infra-level alerts;
+- после накопления реального traffic откалибровать thresholds.

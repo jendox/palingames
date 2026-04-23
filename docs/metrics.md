@@ -7,6 +7,11 @@
 - быстро замечать деградацию checkout/payment/download flows;
 - иметь опорную картину по фоновым задачам.
 
+Этот документ относится к metrics/Prometheus слою.
+App-level incident alerts и recovery alerts описаны отдельно:
+- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
+- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
+
 ## 1. Принципы
 
 Не стоит собирать “всё подряд”.
@@ -176,6 +181,11 @@
 - замечать, что пользователь оплатил, но не может скачать товар;
 - отделять проблемы email от проблем storage/download.
 
+Эти метрики сейчас уже дополняются app-level incident families:
+- `downloads.delivery.failures`
+- `notifications.outbox.failures`
+- `storage.s3.unavailable`
+
 ### E. Background tasks
 
 - `celery_task_started_total`
@@ -302,6 +312,14 @@
 - `guest_email_failed_total` > 0 стабильно несколько интервалов
 - `product_download_failed_total` > 0 стабильно несколько интервалов
 - `health_readiness_checks_total{status="failed"}` растет
+
+Важно:
+- эти правила не заменяют app-level Telegram incidents;
+- они дополняют их, особенно для infra-level symptoms и trends.
+
+Текущий рекомендуемый split:
+- payment/download/outbox/storage runtime failures -> app-level incident alerts;
+- readiness degradation, broad infra issues, dashboarding -> Prometheus alerts.
 
 ## 5. What Not To Measure Yet
 

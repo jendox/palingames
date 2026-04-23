@@ -11,6 +11,7 @@
 - хранение архивов игр в S3-compatible storage;
 - скачивание купленных файлов для авторизованных пользователей;
 - гостевой сценарий с email-ссылками на скачивание.
+- operational incident alerts в Telegram с threshold/dedup/recovery semantics.
 
 ## Что реализовано
 
@@ -32,6 +33,7 @@
 - presigned download URLs для скачивания архивов;
 - guest email outbox с шифрованным payload и отправкой через Celery;
 - structured JSON logging.
+- incident alerts для payment, fulfillment, notification delivery и storage failures.
 
 ## Архитектура
 
@@ -182,6 +184,22 @@ make up-develop
 - `SENTRY_ENVIRONMENT`
 - `SENTRY_RELEASE`
 - `SENTRY_TRACES_SAMPLE_RATE`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_FORUM_CHAT_ID`
+- `TELEGRAM_NOTIFICATIONS_THREAD_ID`
+- `TELEGRAM_SUPPORT_THREAD_ID`
+- `TELEGRAM_INCIDENTS_THREAD_ID`
+- `INCIDENT_ALERT_DEDUPE_TTL_SECONDS`
+- `PAYMENT_WEBHOOK_INCIDENT_THRESHOLD`
+- `PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS`
+- `PAYMENT_STATUS_SYNC_INCIDENT_THRESHOLD`
+- `PAYMENT_STATUS_SYNC_INCIDENT_WINDOW_SECONDS`
+- `DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD`
+- `DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS`
+- `NOTIFICATION_OUTBOX_INCIDENT_THRESHOLD`
+- `NOTIFICATION_OUTBOX_INCIDENT_WINDOW_SECONDS`
+- `STORAGE_INCIDENT_THRESHOLD`
+- `STORAGE_INCIDENT_WINDOW_SECONDS`
 
 `APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
 
@@ -194,6 +212,11 @@ make up-develop
 - `SENTRY_ENVIRONMENT` — обычно `development`, `staging` или `production`;
 - `SENTRY_RELEASE` — идентификатор релиза или git SHA;
 - `SENTRY_TRACES_SAMPLE_RATE` — доля транзакций для performance tracing, например `0.0` или `0.1`.
+
+Для Telegram incident alerts:
+- `TELEGRAM_INCIDENTS_THREAD_ID` — отдельный forum topic для production incidents;
+- `INCIDENT_ALERT_DEDUPE_TTL_SECONDS` — окно dedupe для повторных incident alerts;
+- thresholds per family управляют, после скольких ошибок за окно алерт считается incident-worthy.
 
 ### 4. Применить миграции
 
@@ -289,6 +312,31 @@ DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingame
 - `live` отвечает только за то, что Django-процесс жив;
 - `ready` проверяет доступность PostgreSQL, Redis и S3-compatible storage.
 - `metrics` отдаёт Prometheus-метрики приложения.
+
+### Telegram Incident Alerts
+
+В проекте Telegram-сигналы разделены на два класса:
+- business/admin notifications;
+- production incidents.
+
+Incident alerts отправляются в отдельный topic через отдельный operational layer, а не через business `NotificationType`.
+
+Текущие incident keys:
+- `payments.webhook.failures`
+- `payments.status_sync.failures`
+- `downloads.delivery.failures`
+- `notifications.outbox.failures`
+- `storage.s3.unavailable`
+
+Resolved alerts сейчас поддерживаются для:
+- `payments.status_sync.failures`
+- `downloads.delivery.failures`
+- `notifications.outbox.failures`
+- `storage.s3.unavailable`
+
+Подробнее:
+- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
+- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
 
 ### Sentry
 

@@ -2,6 +2,16 @@
 
 Этот документ описывает, как использовать локальный monitoring stack в dev.
 
+Важно: локальный monitoring stack не заменяет app-level incident alerts в Telegram.
+Он нужен для:
+- просмотра метрик и alert rules;
+- локальной отладки scrape и dashboards;
+- проверки Prometheus-based infrastructure signals.
+
+App-level incidents и recovery alerts описаны отдельно:
+- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
+- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
+
 ## 1. Что уже есть в проекте
 
 В `docker-compose.develop.yml` уже добавлены:
@@ -193,6 +203,10 @@ product_download_redirect_total
 - создаются ли заказы;
 - проходят ли оплаты;
 - не ломается ли payment/reconciliation path.
+
+Дополнительно имеет смысл проверить alert rules из [`monitoring/prometheus/alerts.yml`](/home/jendox/PycharmProjects/palingames/monitoring/prometheus/alerts.yml) и не путать их с app-level Telegram incidents:
+- Prometheus alerts больше про infrastructure/trends;
+- Telegram incidents в коде больше про payment/download/outbox/storage runtime failures.
 
 ## 10. Когда это действительно полезно в dev
 
