@@ -66,21 +66,6 @@
           data-icon-inactive="{% static 'images/icons/favorite-inactive.svg' %}"
         >
       </button>
-      <button
-        type="button"
-        class="inline-flex h-[38px] w-[40px] cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
-        aria-label="{% trans 'Быстрый просмотр товара' %}"
-        data-catalog-preview-open
-        data-preview-title="{{ product.title }}"
-        data-preview-category="{{ product.category }}"
-        data-preview-price="{{ product.price }}"
-        data-preview-rating="{{ product.rating }}"
-        data-preview-image="{{ product.image_url }}"
-        data-preview-url="{{ product.url }}"
-        data-preview-content="{{ product.content }}"
-      >
-        <img src="{% static 'images/icons/preview.svg' %}" alt="" class="size-[40px]" aria-hidden="true">
-      </button>
     </div>
 
     <div class="absolute bottom-[18px] right-[20px] z-10">
