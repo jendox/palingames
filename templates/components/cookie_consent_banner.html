@@ -18,36 +18,36 @@
 <div
   id="cookie-consent-panel"
   popover="manual"
-  class="cookie-consent-popover m-0 box-border max-h-[min(85vh,520px)] w-[min(380px,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-white/50 bg-white/75 p-4 text-left shadow-2xl shadow-black/10 backdrop-blur-md supports-[backdrop-filter]:bg-white/65"
+  class="cookie-consent-popover m-0 box-border max-h-[min(85vh,480px)] w-[min(300px,calc(100vw-1.25rem))] max-w-[calc(100vw-1.25rem)] overflow-y-auto rounded-2xl border border-white/30 bg-white/40 p-3 text-left shadow-lg shadow-black/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/32"
   role="dialog"
   aria-modal="false"
   aria-labelledby="cookie-consent-title"
   aria-hidden="true"
 >
-  <div class="flex flex-col gap-3">
-    <div class="text-sm leading-relaxed text-gray-800">
-      <p id="cookie-consent-title" class="font-semibold text-gray-900">
-        {% trans "Файлы cookie и аналитика" %}
+  <div class="flex flex-col gap-2.5">
+    <div class="text-[13px] leading-snug text-gray-800">
+      <p id="cookie-consent-title" class="text-sm font-semibold text-gray-900">
+        {% trans "Мы используем cookie" %}
       </p>
-      <p class="mt-2">
-        {% trans "Необходимые cookie нужны для работы сайта. Аналитику (Google / Яндекс) можно включить отдельно. Подробнее — в" %}
-        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline hover:no-underline">{% trans "политике" %}</a>
+      <p class="mt-1.5">
+        {% trans "Файлы cookie нужны для работы сайта. Если вы согласны, мы также используем их для сбора обезличенной статистики (Google Аналитика, Яндекс.Метрика). Как это устроено — в" %}
+        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике конфиденциальности" %}</a>
         {% trans "и" %}
-        <a href="{% url 'cookie-policy' %}" class="text-[var(--color-turquoise)] underline hover:no-underline">{% trans "cookie" %}</a>.
+        <a href="{% url 'cookie-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике cookie" %}</a>.
       </p>
     </div>
-    <div class="flex flex-col gap-2">
+    <div class="flex flex-col gap-1.5">
       <button
         type="button"
         id="cookie-consent-accept"
-        class="w-full rounded-xl bg-[var(--color-turquoise)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+        class="w-full rounded-xl bg-[var(--color-turquoise)] px-3 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:opacity-90"
       >
-        {% trans "Принять аналитику" %}
+        {% trans "Принять всё" %}
       </button>
       <button
         type="button"
         id="cookie-consent-reject"
-        class="w-full rounded-xl border border-gray-400/60 bg-white/50 px-4 py-3 text-sm font-semibold text-gray-800 backdrop-blur-sm transition hover:bg-white/70"
+        class="w-full rounded-xl border border-gray-500/35 bg-white/35 px-3 py-2.5 text-[13px] font-semibold text-gray-800 backdrop-blur-sm transition hover:bg-white/50"
       >
         {% trans "Только необходимые" %}
       </button>
