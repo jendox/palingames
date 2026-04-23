@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
 from apps.cart.services import SESSION_CART_KEY
+from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
@@ -165,6 +166,28 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         self.assertEqual(success_response.status_code, 200)
         self.assertEqual(success_response.context["checkout_created_order"], order)
+
+    def test_guest_checkout_copies_analytics_storage_consent_from_session(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+
+        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        self.assertTrue(order.analytics_storage_consent)
+
+    def test_guest_checkout_default_analytics_storage_consent_without_session(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        order = Order.objects.get()
+        self.assertFalse(order.analytics_storage_consent)
 
     def test_authenticated_checkout_post_creates_order_for_user(self):
         self.client.force_login(self.user)

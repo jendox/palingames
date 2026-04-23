@@ -101,10 +101,22 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
             logger,
             logging.INFO,
             "analytics.purchase.skipped",
-            order_id=order.id,
+            order_id=order_id,
             order_public_id=str(order.public_id),
             source=source,
             reason="order_not_paid",
+        )
+        return
+
+    if not order.analytics_storage_consent:
+        log_event(
+            logger,
+            logging.INFO,
+            "analytics.purchase.skipped",
+            order_id=order_id,
+            order_public_id=str(order.public_id),
+            source=source,
+            reason="no_analytics_consent",
         )
         return
 
@@ -126,7 +138,7 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
             logging.ERROR,
             "analytics.purchase.failed",
             exc_info=exc,
-            order_id=order.id,
+            order_id=order_id,
             order_public_id=str(order.public_id),
             source=source,
             error_type=type(exc).__name__,
@@ -137,7 +149,7 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
         logger,
         logging.INFO,
         "analytics.purchase.sent",
-        order_id=order.id,
+        order_id=order_id,
         order_public_id=str(order.public_id),
         source=source,
         ga4_measurement_id=settings.GA4_MEASUREMENT_ID,

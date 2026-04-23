@@ -706,6 +706,7 @@ class PurchaseAnalyticsTests(TestCase):
             items_count=1,
             promo_code_snapshot="WELCOME10",
             currency=933,
+            analytics_storage_consent=True,
         )
         Invoice.objects.create(
             order=cls.order,
@@ -764,6 +765,29 @@ class PurchaseAnalyticsTests(TestCase):
     @patch("apps.core.analytics.httpx.post")
     def test_send_ga4_purchase_event_for_order_skips_when_ga4_disabled(self, httpx_post_mock):
         send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        httpx_post_mock.assert_not_called()
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_event_skips_without_storage_consent(self, httpx_post_mock):
+        declined = Order.objects.create(
+            email="declined@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("10.00"),
+            total_amount=Decimal("10.00"),
+            items_count=0,
+            currency=933,
+            analytics_storage_consent=False,
+        )
+
+        send_ga4_purchase_event_for_order(order_id=declined.id, source="notification")
 
         httpx_post_mock.assert_not_called()
 

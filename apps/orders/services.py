@@ -13,6 +13,7 @@ from django.templatetags.static import static
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
+from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
 from apps.products.models import Product
@@ -322,6 +323,7 @@ def _create_new_order_from_products(
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
+        analytics_storage_consent = bool(request.session.get(SESSION_KEY_ANALYTICS_STORAGE, False))
         order = Order.objects.create(
             checkout_idempotency_key=checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
@@ -338,6 +340,7 @@ def _create_new_order_from_products(
             total_amount=total_amount,
             currency=products[0].currency,
             items_count=len(products),
+            analytics_storage_consent=analytics_storage_consent,
         )
 
         order_items = _prepare_order_items(order, products, promo_discount)

@@ -100,6 +100,8 @@ class Order(TimeStampedModel):
     cancelled_at = models.DateTimeField(_("Отменён в"), null=True, blank=True)
     failure_reason = models.CharField(_("Причина ошибки"), max_length=128, null=True, blank=True)
 
+    analytics_storage_consent = models.BooleanField(_("Согласие на аналитику (GA4) при оформлении"), default=False)
+
     class Meta:
         ordering = ["-created_at", "-id"]
         verbose_name = _("Заказ")
