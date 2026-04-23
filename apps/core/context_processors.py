@@ -11,9 +11,15 @@ def default_currency(request):
 def analytics(request):
     from django.conf import settings
 
+    analytics_on = settings.ANALYTICS_ENABLED and bool(settings.GTM_ID)
+
     return {
-        "analytics_enabled": settings.ANALYTICS_ENABLED and bool(settings.GTM_ID),
+        "analytics_enabled": analytics_on,
         "gtm_id": settings.GTM_ID,
+        "cookie_consent_policy_version": settings.COOKIE_CONSENT_POLICY_VERSION,
+        "cookie_consent_max_age_seconds": settings.COOKIE_CONSENT_MAX_AGE_SECONDS,
+        "cookie_consent_ui_enabled": analytics_on,
+        "yandex_metrika_id": settings.YANDEX_METRIKA_ID,
     }
 
 

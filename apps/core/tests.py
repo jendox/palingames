@@ -491,7 +491,13 @@ class IncidentAlertTests(TestCase):
 
 
 class AnalyticsTemplateTests(TestCase):
-    @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GTM_ID="GTM-TEST123",
+        COOKIE_CONSENT_POLICY_VERSION=1,
+        COOKIE_CONSENT_MAX_AGE_SECONDS=15552000,
+        YANDEX_METRIKA_ID="YANDEX-TEST-123",
+    )
     def test_analytics_context_processor_exposes_gtm_settings(self):
         context = analytics(HttpRequest())
 
@@ -500,6 +506,32 @@ class AnalyticsTemplateTests(TestCase):
             {
                 "analytics_enabled": True,
                 "gtm_id": "GTM-TEST123",
+                "cookie_consent_policy_version": 1,
+                "cookie_consent_max_age_seconds": 15552000,
+                "cookie_consent_ui_enabled": True,
+                "yandex_metrika_id": "YANDEX-TEST-123",
+            },
+        )
+
+    @override_settings(
+        ANALYTICS_ENABLED=False,
+        GTM_ID="GTM-TEST123",
+        COOKIE_CONSENT_POLICY_VERSION=2,
+        COOKIE_CONSENT_MAX_AGE_SECONDS=3600,
+        YANDEX_METRIKA_ID="",
+    )
+    def test_analytics_context_processor_disables_ui_when_analytics_off(self):
+        context = analytics(HttpRequest())
+
+        self.assertEqual(
+            context,
+            {
+                "analytics_enabled": False,
+                "gtm_id": "GTM-TEST123",
+                "cookie_consent_policy_version": 2,
+                "cookie_consent_max_age_seconds": 3600,
+                "cookie_consent_ui_enabled": False,
+                "yandex_metrika_id": "",
             },
         )
 
