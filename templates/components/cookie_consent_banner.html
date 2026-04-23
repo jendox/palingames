@@ -1,0 +1,39 @@
+{% load i18n %}
+<div
+  id="cookie-consent-panel"
+  class="fixed inset-x-0 bottom-0 z-[100] hidden border-t border-gray-200 bg-white px-4 py-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] min-[1024px]:px-8"
+  role="dialog"
+  aria-modal="false"
+  aria-labelledby="cookie-consent-title"
+  aria-hidden="true"
+>
+  <div class="mx-auto flex max-w-4xl flex-col gap-3 min-[1024px]:flex-row min-[1024px]:items-center min-[1024px]:justify-between">
+    <div class="text-sm leading-relaxed text-gray-800 min-[1024px]:pr-6">
+      <p id="cookie-consent-title" class="font-semibold text-gray-900">
+        {% trans "Файлы cookie и аналитика" %}
+      </p>
+      <p class="mt-1">
+        {% trans "Мы используем необходимые cookie для работы сайта. Для улучшения сервиса можно включить аналитику (Google / Яндекс). Подробнее в" %}
+        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline hover:no-underline">{% trans "политике конфиденциальности" %}</a>
+        {% trans "и" %}
+        <a href="{% url 'cookie-policy' %}" class="text-[var(--color-turquoise)] underline hover:no-underline">{% trans "политике cookie" %}</a>.
+      </p>
+    </div>
+    <div class="flex flex-shrink-0 flex-col gap-2 min-[640px]:flex-row min-[640px]:justify-end">
+      <button
+        type="button"
+        id="cookie-consent-reject"
+        class="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 min-[640px]:min-w-[160px]"
+      >
+        {% trans "Только необходимые" %}
+      </button>
+      <button
+        type="button"
+        id="cookie-consent-accept"
+        class="rounded-lg bg-[var(--color-turquoise)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 min-[640px]:min-w-[200px]"
+      >
+        {% trans "Принять аналитику" %}
+      </button>
+    </div>
+  </div>
+</div>

@@ -16,7 +16,13 @@
           <li><a href="{% url 'payment' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Оплата" %}</a></li>
           <li><a href="{% url 'privacy-policy' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Политика конфиденциальности" %}</a></li>
           <li><a href="{% url 'cookie-policy' %}" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Политика cookie" %}</a></li>
-          <li><a href="{% url 'cookie-policy' %}#cookie-settings" class="whitespace-nowrap hover:text-[var(--color-turquoise)]">{% trans "Настройки cookie" %}</a></li>
+          <li>
+            <a
+              href="{% url 'cookie-policy' %}#cookie-settings"
+              data-open-cookie-consent
+              class="whitespace-nowrap hover:text-[var(--color-turquoise)]"
+            >{% trans "Настройки cookie" %}</a>
+          </li>
         </ul>
       </div>
 

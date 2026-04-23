@@ -511,6 +511,13 @@ class AnalyticsTemplateTests(TestCase):
                 "cookie_consent_max_age_seconds": 15552000,
                 "cookie_consent_ui_enabled": True,
                 "yandex_metrika_id": "YANDEX-TEST-123",
+                "cookie_consent_client_config": {
+                    "consentApiUrl": "/api/consent/",
+                    "policyVersion": 1,
+                    "maxAgeSeconds": 15552000,
+                    "gtmId": "GTM-TEST123",
+                    "analyticsJsUrl": "/static/js/analytics.js",
+                },
             },
         )
 
@@ -533,19 +540,23 @@ class AnalyticsTemplateTests(TestCase):
                 "cookie_consent_max_age_seconds": 3600,
                 "cookie_consent_ui_enabled": False,
                 "yandex_metrika_id": "",
+                "cookie_consent_client_config": None,
             },
         )
 
     @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
-    def test_home_renders_gtm_and_analytics_script_when_enabled(self):
+    def test_home_defers_gtm_and_defers_analytics_script_until_consent(self):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "googletagmanager.com/gtm.js?id=")
+        self.assertContains(response, 'gtag("consent", "default"')
+        self.assertContains(response, "cookie-consent-config")
+        self.assertContains(response, "/static/js/cookie-consent.js")
         self.assertContains(response, "GTM-TEST123")
-        self.assertContains(response, "googletagmanager.com/ns.html?id=GTM-TEST123")
-        self.assertContains(response, '/static/js/analytics.js')
+        self.assertContains(response, "cookie-consent-panel")
         self.assertContains(response, 'data-user-type="guest"')
+        self.assertNotContains(response, "googletagmanager.com/gtm.js?id=")
+        self.assertNotContains(response, '<script src="/static/js/analytics.js"')
 
     @override_settings(ANALYTICS_ENABLED=False, GTM_ID="GTM-TEST123")
     def test_home_does_not_render_gtm_when_disabled(self):
@@ -553,7 +564,8 @@ class AnalyticsTemplateTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "googletagmanager.com/gtm.js?id=GTM-TEST123")
-        self.assertNotContains(response, '/static/js/analytics.js')
+        self.assertNotContains(response, "/static/js/cookie-consent.js")
+        self.assertNotContains(response, '<script src="/static/js/analytics.js"')
 
 
 @override_settings(COOKIE_CONSENT_POLICY_VERSION=7)

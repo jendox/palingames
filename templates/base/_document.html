@@ -22,20 +22,25 @@
     {% if analytics_enabled %}
       <script>
         window.dataLayer = window.dataLayer || [];
-      </script>
-      <script>
-        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});
-        var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-        j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
-        f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ gtm_id|escapejs }}');
+        function gtag() {
+          dataLayer.push(arguments);
+        }
+        gtag("consent", "default", {
+          analytics_storage: "denied",
+          ad_storage: "denied",
+          ad_user_data: "denied",
+          ad_personalization: "denied",
+          wait_for_update: 500,
+        });
       </script>
     {% endif %}
 
     <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
     <script src="{% static 'js/dialogs.js' %}" defer></script>
     <script src="{% static 'js/header.js' %}" defer></script>
-    {% if analytics_enabled %}
-      <script src="{% static 'js/analytics.js' %}" defer></script>
+    {% if cookie_consent_ui_enabled %}
+      {{ cookie_consent_client_config|json_script:"cookie-consent-config" }}
+      <script src="{% static 'js/cookie-consent.js' %}" defer></script>
     {% endif %}
 
     {% block head %}{% endblock %}
@@ -49,16 +54,10 @@
     data-page-title="{% block page_title %}{% block title_text %}PaliGames{% endblock %}{% endblock %}"
     data-user-type="{% if request.user.is_authenticated %}authenticated{% else %}guest{% endif %}"
     data-catalog-suggest-url="{% url 'catalog-search-suggest' %}"
+    {% if analytics_enabled %}data-gtm-id="{{ gtm_id|escape }}"{% endif %}
   >
-    {% if analytics_enabled %}
-      <noscript>
-        <iframe
-          src="https://www.googletagmanager.com/ns.html?id={{ gtm_id|urlencode }}"
-          height="0"
-          width="0"
-          style="display:none;visibility:hidden"
-        ></iframe>
-      </noscript>
+    {% if cookie_consent_ui_enabled %}
+      {% include "components/cookie_consent_banner.html" %}
     {% endif %}
     {% block body %}{% endblock %}
   </body>

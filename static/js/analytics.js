@@ -272,7 +272,11 @@
     trackViewItemList,
   };
 
-  document.addEventListener("DOMContentLoaded", bootstrapPageAnalytics);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrapPageAnalytics);
+  } else {
+    bootstrapPageAnalytics();
+  }
 
   document.body.addEventListener("htmx:afterSwap", () => {
     window.requestAnimationFrame(() => {
