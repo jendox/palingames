@@ -140,14 +140,57 @@
     }
   }
 
-  function initUi(panel) {
+  function preparePanel(panel) {
+    const usePopover = typeof panel.showPopover === "function";
+    if (!usePopover) {
+      panel.removeAttribute("popover");
+      panel.classList.add("hidden");
+      Object.assign(panel.style, {
+        position: "fixed",
+        zIndex: "2147483647",
+        margin: "0",
+        right: "auto",
+        top: "auto",
+      });
+      const syncLegacyPosition = () => {
+        if (window.matchMedia("(min-width: 1024px)").matches) {
+          panel.style.left = "1.5rem";
+          panel.style.bottom = "1.5rem";
+        } else {
+          panel.style.left = "0.75rem";
+          panel.style.bottom = "7.5rem";
+        }
+      };
+      syncLegacyPosition();
+      window.addEventListener("resize", syncLegacyPosition, { passive: true });
+    }
+    return usePopover;
+  }
+
+  function initUi(panel, usePopover) {
     function showPanel() {
-      panel.classList.remove("hidden");
+      if (usePopover) {
+        try {
+          panel.showPopover();
+        } catch {
+          panel.classList.remove("hidden");
+        }
+      } else {
+        panel.classList.remove("hidden");
+      }
       panel.setAttribute("aria-hidden", "false");
     }
 
     function hidePanel() {
-      panel.classList.add("hidden");
+      if (usePopover) {
+        try {
+          panel.hidePopover();
+        } catch {
+          panel.classList.add("hidden");
+        }
+      } else {
+        panel.classList.add("hidden");
+      }
       panel.setAttribute("aria-hidden", "true");
     }
 
@@ -206,7 +249,8 @@
       return;
     }
 
-    const { showPanel, hidePanel } = initUi(panel);
+    const usePopover = preparePanel(panel);
+    const { showPanel, hidePanel } = initUi(panel, usePopover);
 
     const stored = parseStoredConsent(config);
     if (stored && stored.analyticsStorage === true) {
