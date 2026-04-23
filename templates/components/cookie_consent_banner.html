@@ -1,57 +1,56 @@
 {% load i18n %}
 <style>
   #cookie-consent-panel:popover-open {
-    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    left: 0.75rem;
     right: auto;
     top: auto;
-    bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    bottom: 7.5rem;
     margin: 0;
     position: fixed;
-    width: min(350px, calc(100vw - 1.5rem));
-    max-width: calc(100vw - 1.5rem);
   }
   @media (min-width: 1024px) {
     #cookie-consent-panel:popover-open {
-      left: max(1.5rem, env(safe-area-inset-left, 0px));
-      bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+      left: 1.5rem;
+      bottom: 1.5rem;
     }
   }
 </style>
 <div
   id="cookie-consent-panel"
   popover="manual"
-  class="cookie-consent-popover m-0 box-border max-h-[min(78dvh,560px)] w-[min(350px,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-white/30 bg-white/40 p-4 text-left shadow-lg shadow-black/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/32 min-[1024px]:p-5"
+  class="cookie-consent-popover m-0 box-border max-h-[min(85vh,520px)] w-[min(380px,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-white/50 bg-white/75 p-4 text-left shadow-2xl shadow-black/10 backdrop-blur-md supports-[backdrop-filter]:bg-white/65"
   role="dialog"
   aria-modal="false"
   aria-labelledby="cookie-consent-title"
   aria-hidden="true"
 >
-  <div class="flex flex-col gap-4">
-    <div class="text-sm leading-relaxed text-gray-800 min-[1024px]:text-[15px] min-[1024px]:leading-relaxed">
-      <p id="cookie-consent-title" class="text-base font-semibold text-gray-900 min-[1024px]:text-lg">
+  <div class="flex flex-col gap-3">
+    <div class="text-sm leading-relaxed text-gray-800">
+      <p id="cookie-consent-title" class="font-semibold text-gray-900">
         {% trans "Cookie и статистика" %}
       </p>
       <p class="mt-2">
-        {% trans "Мы используем cookie, чтобы сайт работал стабильно, и — по вашему выбору — для анализа посещаемости. Подробнее в" %}
-        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике конфиденциальности" %}</a>
+        {% trans "Мы используем cookie, чтобы сайт работал стабильно, и — по вашему выбору — для анализа посещаемости." %}
+        {% trans "Подробнее об" %}
+        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "обработке персональных данных" %}</a>
         {% trans "и" %}
         <a href="{% url 'cookie-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике cookie" %}</a>.
       </p>
     </div>
-    <div class="flex flex-col gap-2.5">
+    <div class="flex flex-col gap-2">
       <button
         type="button"
         id="cookie-consent-accept"
-        class="w-full min-h-[48px] rounded-xl bg-[var(--color-turquoise)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 active:opacity-95"
+        class="w-full cursor-pointer rounded-xl bg-[var(--color-turquoise)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
       >
         {% trans "Принять" %}
       </button>
       <button
         type="button"
         id="cookie-consent-reject"
-        class="w-full min-h-[48px] rounded-xl border border-gray-500/35 bg-white/35 px-4 py-3 text-sm font-semibold text-gray-800 backdrop-blur-sm transition hover:bg-white/50 active:bg-white/45"
+        class="w-full cursor-pointer rounded-xl border border-gray-400/60 bg-white/50 px-4 py-3 text-sm font-semibold text-gray-800 backdrop-blur-sm transition hover:bg-white/70"
       >
-        {% trans "Отказаться от аналитики" %}
+        {% trans "Только необходимые" %}
       </button>
     </div>
   </div>
