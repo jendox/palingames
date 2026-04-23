@@ -1255,8 +1255,10 @@ class PaymentWebhookIncidentAlertTests(TestCase):
         )
 
         send_incident_alert_mock.assert_called_once_with(
-            key="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+            key="payments.webhook.failures",
             title="Repeated payment webhook failures",
+            severity="critical",
+            fingerprint="payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
             details={
                 "provider": "EXPRESS_PAY",
                 "reason": "invoice_not_found",
@@ -1264,6 +1266,31 @@ class PaymentWebhookIncidentAlertTests(TestCase):
                 "window_minutes": 10,
             },
         )
+
+    @patch("apps.payments.alerts.send_incident_alert")
+    def test_threshold_uses_stable_incident_key_and_reason_scoped_fingerprint(self, send_incident_alert_mock):
+        send_incident_alert_mock.return_value = True
+
+        record_payment_webhook_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+        record_payment_webhook_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+        record_payment_webhook_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            reason="invoice_not_found",
+        )
+
+        kwargs = send_incident_alert_mock.call_args.kwargs
+        self.assertEqual(kwargs["key"], "payments.webhook.failures")
+        self.assertEqual(
+            kwargs["fingerprint"],
+            "payments.webhook.failures:EXPRESS_PAY:invoice_not_found",
+        )
+        self.assertEqual(kwargs["severity"], "critical")
 
     @patch("apps.payments.alerts.send_incident_alert")
     def test_non_alertable_reason_is_ignored(self, send_incident_alert_mock):
