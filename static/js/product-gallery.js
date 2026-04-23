@@ -472,6 +472,14 @@ function initProductCartButtons() {
           }
           return;
         }
+        if (payload.already_pending_purchase) {
+          window.PaliGamesDownloads?.showNotification?.(
+            payload.message ||
+              "У вас уже есть неоплаченный заказ с этим товаром. Завершите оплату текущего заказа или дождитесь истечения срока оплаты.",
+          );
+          setProductCartState(button, false);
+          return;
+        }
         const isInCart = Boolean(payload.in_cart);
         setProductCartState(button, isInCart);
         if (isInCart) {

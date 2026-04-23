@@ -39,6 +39,8 @@ class CartViewsTests(TestCase):
                 "ok": True,
                 "in_cart": True,
                 "already_purchased": False,
+                "already_pending_purchase": False,
+                "message": "",
                 "cart_count": 1,
             },
         )
@@ -53,6 +55,8 @@ class CartViewsTests(TestCase):
                 "ok": True,
                 "in_cart": False,
                 "already_purchased": False,
+                "already_pending_purchase": False,
+                "message": "",
                 "cart_count": 0,
             },
         )
@@ -91,6 +95,8 @@ class CartViewsTests(TestCase):
                 "ok": True,
                 "in_cart": True,
                 "already_purchased": False,
+                "already_pending_purchase": False,
+                "message": "",
                 "cart_count": 1,
             },
         )
@@ -105,6 +111,8 @@ class CartViewsTests(TestCase):
                 "ok": True,
                 "in_cart": False,
                 "already_purchased": False,
+                "already_pending_purchase": False,
+                "message": "",
                 "cart_count": 0,
             },
         )
@@ -133,9 +141,43 @@ class CartViewsTests(TestCase):
                 "ok": True,
                 "in_cart": False,
                 "already_purchased": True,
+                "already_pending_purchase": False,
+                "message": "",
                 "cart_count": 0,
             },
         )
+        self.assertFalse(CartItem.objects.filter(cart__user=user, product=self.product_1).exists())
+
+    def test_authenticated_cart_toggle_blocks_product_with_pending_order(self):
+        user = CustomUser.objects.create_user(email="pending@example.com", password="test-password-123")
+        pending_order = Order.objects.create(
+            user=user,
+            email=user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount="1.50",
+            total_amount="1.50",
+            items_count=1,
+        )
+        pending_order.items.create(
+            product=self.product_1,
+            title_snapshot=self.product_1.title,
+            category_snapshot=self.category.title,
+            unit_price_amount="1.50",
+            quantity=1,
+            line_total_amount="1.50",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(reverse("cart-toggle"), {"product_id": self.product_1.id})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertFalse(payload["in_cart"])
+        self.assertFalse(payload["already_purchased"])
+        self.assertTrue(payload["already_pending_purchase"])
+        self.assertIn("неоплаченный заказ", payload["message"])
         self.assertFalse(CartItem.objects.filter(cart__user=user, product=self.product_1).exists())
 
     def test_guest_cart_merges_to_user_after_login(self):

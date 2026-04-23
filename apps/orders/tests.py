@@ -200,6 +200,45 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertRedirects(response, reverse("cart"))
         self.assertEqual(Order.objects.exclude(pk=paid_order.pk).count(), 0)
 
+    def test_authenticated_checkout_blocks_products_with_pending_order_and_keeps_cart(self):
+        self.client.force_login(self.user)
+        cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=cart, product=self.product)
+        pending_order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=pending_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot=self.category.title,
+            unit_price_amount=Decimal("25.00"),
+            quantity=1,
+            line_total_amount=Decimal("25.00"),
+        )
+        Invoice.objects.create(
+            order=pending_order,
+            provider="EXPRESS_PAY",
+            status=Invoice.InvoiceStatus.PENDING,
+            amount=Decimal("25.00"),
+            currency=self.product.currency,
+        )
+
+        response = self.client.post(reverse("checkout"), {"email": self.user.email})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertContains(response, "неоплаченный заказ", status_code=409)
+        self.assertContains(response, pending_order.payment_account_no, status_code=409)
+        self.assertEqual(Order.objects.exclude(pk=pending_order.pk).count(), 0)
+        self.assertTrue(CartItem.objects.filter(cart=cart, product=self.product).exists())
+
     def test_checkout_post_with_invalid_email_returns_error(self):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]

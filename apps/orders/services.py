@@ -28,6 +28,7 @@ from apps.promocodes.services import (
 )
 
 from .models import Order, OrderItem
+from .purchase_guards import build_pending_purchase_message, get_user_pending_order_item_by_product_ids
 
 logger = logging.getLogger("apps.orders")
 CHECKOUT_PROMO_SESSION_KEY = "checkout_promo_code"
@@ -86,6 +87,13 @@ def get_order_by_checkout_idempotency_key(checkout_idempotency_key) -> Order | N
     if not checkout_idempotency_key:
         return None
     return Order.objects.filter(checkout_idempotency_key=checkout_idempotency_key).first()
+
+
+class OrderCreationBlockedError(ValueError):
+    def __init__(self, message: str, *, reason: str):
+        super().__init__(message)
+        self.message = message
+        self.reason = reason
 
 
 def _prepare_order_items(
@@ -291,7 +299,19 @@ def _create_new_order_from_products(
             )
             if purchased_ids:
                 msg = "Cannot create an order for already purchased products."
-                raise ValueError(msg)
+                raise OrderCreationBlockedError(msg, reason="already_purchased")
+            pending_order_item = get_user_pending_order_item_by_product_ids(
+                request.user,
+                product_ids=[product.id for product in products],
+            )
+            if pending_order_item is not None:
+                raise OrderCreationBlockedError(
+                    build_pending_purchase_message(
+                        order=pending_order_item.order,
+                        product_title=pending_order_item.title_snapshot,
+                    ),
+                    reason="pending_purchase",
+                )
 
         subtotal_amount = sum((product.price for product in products), Decimal("0.00"))
         promo_discount = _calculate_order_discount(
@@ -367,6 +387,21 @@ def create_order_from_cart(
             if existing_order is not None:
                 return OrderCreationResult(order=existing_order, created=False)
             raise
+    except OrderCreationBlockedError as exc:
+        log_event(
+            logger,
+            logging.WARNING,
+            "order.creation.blocked",
+            checkout_type=checkout_type,
+            cart_items_count=len(products),
+            reason=exc.reason,
+        )
+        observe_order_creation_duration(
+            checkout_type=checkout_type,
+            result="blocked",
+            duration_seconds=perf_counter() - started_at,
+        )
+        raise
     except Exception as exc:
         log_event(
             logger,

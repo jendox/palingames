@@ -70,6 +70,8 @@ def cart_toggle_view(request):
             "ok": True,
             "in_cart": result["in_cart"],
             "already_purchased": result["already_purchased"],
+            "already_pending_purchase": result["already_pending_purchase"],
+            "message": result["message"],
             "cart_count": len(cart_ids),
         },
     )

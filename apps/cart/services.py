@@ -6,6 +6,7 @@ from django.db import transaction
 from django.templatetags.static import static
 
 from apps.access.services import get_user_product_access_ids, has_user_product_access
+from apps.orders.purchase_guards import build_pending_purchase_message, get_user_pending_order_item_by_product_ids
 from apps.products.models import Product
 from apps.products.pricing import format_price
 
@@ -60,6 +61,20 @@ def toggle_cart_product(request, product_id: int) -> dict:
             return {
                 "in_cart": False,
                 "already_purchased": True,
+                "already_pending_purchase": False,
+                "message": "",
+            }
+
+        pending_order_item = get_user_pending_order_item_by_product_ids(request.user, product_ids=[product_id])
+        if pending_order_item is not None:
+            return {
+                "in_cart": False,
+                "already_purchased": False,
+                "already_pending_purchase": True,
+                "message": build_pending_purchase_message(
+                    order=pending_order_item.order,
+                    product_title=pending_order_item.title_snapshot,
+                ),
             }
 
         cart = _get_or_create_user_cart(request.user)
@@ -69,11 +84,15 @@ def toggle_cart_product(request, product_id: int) -> dict:
             return {
                 "in_cart": False,
                 "already_purchased": False,
+                "already_pending_purchase": False,
+                "message": "",
             }
         CartItem.objects.create(cart=cart, product_id=product_id)
         return {
             "in_cart": True,
             "already_purchased": False,
+            "already_pending_purchase": False,
+            "message": "",
         }
 
     guest_ids = _get_guest_cart_ids(request)
@@ -83,6 +102,8 @@ def toggle_cart_product(request, product_id: int) -> dict:
         return {
             "in_cart": False,
             "already_purchased": False,
+            "already_pending_purchase": False,
+            "message": "",
         }
 
     guest_ids.append(product_id)
@@ -90,6 +111,8 @@ def toggle_cart_product(request, product_id: int) -> dict:
     return {
         "in_cart": True,
         "already_purchased": False,
+        "already_pending_purchase": False,
+        "message": "",
     }
 
 

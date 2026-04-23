@@ -24,6 +24,7 @@ from apps.promocodes.services import PromoCodeError
 from .forms import CheckoutSubmitForm
 from .models import Order
 from .services import (
+    OrderCreationBlockedError,
     clear_checkout_idempotency_key,
     clear_checkout_promo_code,
     create_order_from_cart,
@@ -213,7 +214,7 @@ class CheckoutPageView(TemplateView):
         )
         return context
 
-    def post(self, request, *args, **kwargs):  # noqa: C901
+    def post(self, request, *args, **kwargs):  # noqa: C901, PLR0911
         form = CheckoutSubmitForm(request.POST)
         if not form.is_valid():
             log_event(
@@ -270,7 +271,13 @@ class CheckoutPageView(TemplateView):
                 promo_message_level="error",
             )
             return self.render_to_response(context, status=400)
-        except ValueError:
+        except OrderCreationBlockedError as exc:
+            if exc.reason == "pending_purchase":
+                context = self.get_context_data(
+                    checkout_form=form,
+                    checkout_error_message=exc.message,
+                )
+                return self.render_to_response(context, status=409)
             messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
             return redirect("cart")
         order = result.order
