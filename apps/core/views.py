@@ -64,6 +64,8 @@ class SitemapXmlView(View):
             {"location": build_absolute_url(reverse("catalog"))},
             {"location": build_absolute_url(reverse("about"))},
             {"location": build_absolute_url(reverse("payment"))},
+            {"location": build_absolute_url(reverse("privacy-policy"))},
+            {"location": build_absolute_url(reverse("cookie-policy"))},
             {"location": build_absolute_url(reverse("custom-game"))},
         ]
         product_urls = [

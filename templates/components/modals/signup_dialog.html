@@ -114,7 +114,7 @@
             />
             <span class="text-[var(--color-black)]">
               {% trans "Согласен(а) на обработку" %}
-              <a href="#" data-privacy-policy class="font-normal text-[var(--color-pink)] hover:underline">
+              <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-pink)] hover:underline">
                 {% trans "персональных данных" %}
               </a>
             </span>

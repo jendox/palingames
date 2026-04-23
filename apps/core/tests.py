@@ -549,6 +549,8 @@ class SeoTemplateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<loc>https://example.com/</loc>", html=False)
         self.assertContains(response, "<loc>https://example.com/catalog/</loc>", html=False)
+        self.assertContains(response, "<loc>https://example.com/privacy/</loc>", html=False)
+        self.assertContains(response, "<loc>https://example.com/cookies/</loc>", html=False)
 
 
 class PurchaseAnalyticsTests(TestCase):

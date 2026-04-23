@@ -305,3 +305,43 @@ class AccountPasswordChangeRateLimitTests(TestCase):
         self.assertNotContains(first, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
         self.assertEqual(second.status_code, 200)
         self.assertContains(second, PASSWORD_CHANGE_RATE_LIMIT_MESSAGE)
+
+
+@override_settings(SITE_BASE_URL="https://example.com")
+class LegalPolicyPageTests(TestCase):
+    def test_privacy_policy_page_renders_with_seo(self):
+        response = self.client.get(reverse("privacy-policy"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "<title>Политика конфиденциальности — PaliGames</title>",
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="https://example.com/privacy/" />',
+            html=True,
+        )
+
+    def test_cookie_policy_page_renders_with_seo(self):
+        response = self.client.get(reverse("cookie-policy"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "<title>Политика cookie — PaliGames</title>",
+            html=True,
+        )
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="https://example.com/cookies/" />',
+            html=True,
+        )
+
+    def test_home_includes_privacy_footer_link(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("privacy-policy"))
+        self.assertContains(response, reverse("cookie-policy"))

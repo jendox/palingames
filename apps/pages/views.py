@@ -328,3 +328,43 @@ class AccountPageView(TemplateView):
             AccountTab.ORDERS: self._default_tab,
         }
         return tab_post_handlers[active_tab](request, *args, **kwargs)
+
+
+class PrivacyPolicyPageView(TemplateView):
+    template_name = "pages/privacy.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Политика конфиденциальности"},
+        ]
+        context.update(
+            build_seo_context(
+                title="Политика конфиденциальности — PaliGames",
+                description="Как PaliGames обрабатывает персональные данные пользователей сайта.",
+                canonical_url=reverse("privacy-policy"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
+        return context
+
+
+class CookiePolicyPageView(TemplateView):
+    template_name = "pages/cookies.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Политика использования cookie"},
+        ]
+        context.update(
+            build_seo_context(
+                title="Политика cookie — PaliGames",
+                description="Какие файлы cookie использует сайт PaliGames и как управлять настройками.",
+                canonical_url=reverse("cookie-policy"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
+        return context
