@@ -1,0 +1,11 @@
+# Public reverse proxy. Replace CADDY_DOMAIN in the environment (see docker-compose.prod.yml).
+# Metrics are not routed here (returns 404); Prometheus scrapes web:8000 on the internal Docker network.
+
+{$CADDY_DOMAIN:localhost} {
+	encode gzip zstd
+
+	@metrics path /metrics*
+	respond @metrics 404
+
+	reverse_proxy web:8000
+}

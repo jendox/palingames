@@ -139,6 +139,10 @@ Product files хранятся в приватном S3-compatible object storag
 - Ruff
 - `uv`
 
+## Production (Docker / VPS)
+
+Контейнер приложения, production Compose (Caddy, Postgres, Redis, Celery, Prometheus), пример переменных и CI/CD — в **[deploy/README.md](deploy/README.md)**.
+
 ## Локальный запуск
 
 ### 1. Установить зависимости

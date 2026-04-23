@@ -1,7 +1,7 @@
 [project]
 name = "palingames"
 version = "0.1.0"
-description = "Add your description here"
+description = "Django e-commerce platform for digital children's games with payments, secure file delivery, guest access flows, S3 storage, Celery, and observability."
 requires-python = "==3.13.*"
 dependencies = [
     "httpx>=0.28.1",
@@ -23,12 +23,14 @@ web = [
     "django-environ>=0.12.0",
     "django-redis>=6.0.0",
     "django-tailwind-cli>=4.5.1",
+    "gunicorn>=23.0.0",
     "markdown>=3.10.2",
     "pillow>=12.1.1",
     "prometheus-client>=0.22.1",
     "psycopg2-binary>=2.9.11",
     "redis>=7.3.0",
     "sentry-sdk[django]>=2.27.0",
+    "whitenoise>=6.9.0",
 ]
 bot = [
     "aiogram>=3.27.0",

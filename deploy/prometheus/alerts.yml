@@ -1,0 +1,62 @@
+groups:
+  - name: palingames-critical
+    rules:
+      - alert: PalingamesReadinessDegraded
+        expr: increase(health_readiness_checks_total{status="failed"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: palingames
+        annotations:
+          summary: "Palingames readiness is degraded"
+          description: "One or more readiness checks have been failing during the last 5 minutes."
+
+      - alert: PalingamesPaymentWebhookFailures
+        expr: increase(payment_webhooks_failed_total[10m]) >= 5
+        for: 5m
+        labels:
+          severity: critical
+          service: palingames
+        annotations:
+          summary: "Payment webhook failures are increasing"
+          description: "payment_webhooks_failed_total increased by 5 or more during the last 10 minutes."
+
+      - alert: PalingamesPaymentWebhookRejected
+        expr: increase(payment_webhooks_rejected_total[10m]) >= 5
+        for: 5m
+        labels:
+          severity: warning
+          service: palingames
+        annotations:
+          summary: "Payment webhooks are being rejected"
+          description: "payment_webhooks_rejected_total increased by 5 or more during the last 10 minutes."
+
+      - alert: PalingamesInvoiceSyncFailures
+        expr: increase(invoice_status_sync_failed_total[15m]) >= 5
+        for: 5m
+        labels:
+          severity: critical
+          service: palingames
+        annotations:
+          summary: "Invoice sync is failing repeatedly"
+          description: "invoice_status_sync_failed_total increased by 5 or more during the last 15 minutes."
+
+      - alert: PalingamesGuestEmailFailures
+        expr: increase(guest_email_failed_total[15m]) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          service: palingames
+        annotations:
+          summary: "Guest email sending is failing"
+          description: "guest_email_failed_total increased by 3 or more during the last 15 minutes."
+
+      - alert: PalingamesDownloadFailures
+        expr: increase(product_download_failed_total[15m]) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          service: palingames
+        annotations:
+          summary: "Product downloads are failing"
+          description: "product_download_failed_total increased by 3 or more during the last 15 minutes."

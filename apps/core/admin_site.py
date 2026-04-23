@@ -1,9 +1,34 @@
+import django_celery_beat.admin  # noqa: F401 — side effect: register on django_admin.site
 from allauth.account import app_settings as allauth_account_settings
 from allauth.account.admin import EmailAddressAdmin, EmailConfirmationAdmin
 from allauth.account.models import EmailAddress, EmailConfirmation
 from allauth.socialaccount.admin import SocialAccountAdmin, SocialAppAdmin, SocialTokenAdmin
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
+from django.contrib import admin as django_admin
 from django.contrib.admin import AdminSite
+from django.contrib.admin.sites import NotRegistered
+from django_celery_beat.admin import (
+    ClockedScheduleAdmin,
+    CrontabScheduleAdmin,
+    IntervalScheduleAdmin,
+    PeriodicTaskAdmin,
+    SolarScheduleAdmin,
+)
+from django_celery_beat.models import (
+    ClockedSchedule,
+    CrontabSchedule,
+    IntervalSchedule,
+    PeriodicTask,
+    SolarSchedule,
+)
+
+_CELERY_BEAT_ADMIN = (
+    (PeriodicTask, PeriodicTaskAdmin),
+    (IntervalSchedule, IntervalScheduleAdmin),
+    (CrontabSchedule, CrontabScheduleAdmin),
+    (ClockedSchedule, ClockedScheduleAdmin),
+    (SolarSchedule, SolarScheduleAdmin),
+)
 
 
 class PaliAdminSite(AdminSite):
@@ -12,13 +37,14 @@ class PaliAdminSite(AdminSite):
     index_title = "Администрирование"
 
     APP_ORDER = {
-        "orders": 10,
-        "payments": 20,
-        "access": 30,
-        "products": 40,
+        "products": 10,
+        "orders": 20,
+        "payments": 30,
+        "access": 40,
         "custom_games": 50,
         "promocodes": 60,
         "favorites": 70,
+        "django_celery_beat": 75,
         "users": 80,
         "account": 81,
         "socialaccount": 82,
@@ -36,6 +62,13 @@ class PaliAdminSite(AdminSite):
         "payments": {
             "Invoice": 10,
             "PaymentEvent": 20,
+        },
+        "django_celery_beat": {
+            "PeriodicTask": 10,
+            "IntervalSchedule": 20,
+            "CrontabSchedule": 30,
+            "ClockedSchedule": 40,
+            "SolarSchedule": 50,
         },
         "access": {
             "UserProductAccess": 10,
@@ -110,3 +143,10 @@ if not allauth_account_settings.EMAIL_CONFIRMATION_HMAC:
 admin_site.register(SocialApp, SocialAppAdmin)
 admin_site.register(SocialToken, SocialTokenAdmin)
 admin_site.register(SocialAccount, SocialAccountAdmin)
+
+for _model, _admin_cls in _CELERY_BEAT_ADMIN:
+    try:
+        django_admin.site.unregister(_model)
+    except NotRegistered:
+        pass
+    admin_site.register(_model, _admin_cls)

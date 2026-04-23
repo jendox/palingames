@@ -17,9 +17,12 @@ DEBUG = env.bool("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.ngrok-free.app",
-]
+CSRF_TRUSTED_ORIGINS = env.list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    default=["https://*.ngrok-free.app"],
+)
+
+DJANGO_USE_WHITENOISE = env.bool("DJANGO_USE_WHITENOISE", default=not DEBUG)
 
 # Proxy/HTTPS (Caddy/nginx)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -65,6 +68,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    *(
+        ("whitenoise.middleware.WhiteNoiseMiddleware",)
+        if DJANGO_USE_WHITENOISE
+        else ()
+    ),
     "apps.core.middleware.RequestContextLoggingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "apps.core.rate_limit_middleware.AuthRateLimitMiddleware",
@@ -76,6 +84,19 @@ MIDDLEWARE = [
     # allauth
     "allauth.account.middleware.AccountMiddleware",
 ]
+
+if DJANGO_USE_WHITENOISE:
+    # CompressedManifestStaticFilesStorage fails on source CSS with Tailwind v4
+    # `@import "tailwindcss"` (not a real relative file). CompressedStaticFilesStorage
+    # still pre-compresses assets without rewriting url() references for a manifest.
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -286,11 +307,14 @@ LOGIN_REDIRECT_URL = "/"
 
 SITE_ID = 1
 
-# Dev Email
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "localhost"  # или 'mailhog' при использовании Docker
-EMAIL_PORT = 25
-DEFAULT_FROM_EMAIL = "noreply@palingames.by"
+EMAIL_BACKEND = env.str("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env.str("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="noreply@palingames.by")
 CUSTOM_GAME_ADMIN_EMAILS = env.list("CUSTOM_GAME_ADMIN_EMAILS", default=[])
 REVIEW_ADMIN_EMAILS = env.list("REVIEW_ADMIN_EMAILS", default=[])
 REVIEW_REWARD_DISCOUNT_PERCENT = env.int("REVIEW_REWARD_DISCOUNT_PERCENT", default=10)
@@ -301,7 +325,7 @@ ORDER_REWARD_MIN_TOTAL_AMOUNT = Decimal(env.str("ORDER_REWARD_MIN_TOTAL_AMOUNT",
 
 TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind.css"
-TAILWIND_CLI_USE_MINIFY = False  # в dev удобнее
+TAILWIND_CLI_USE_MINIFY = env.bool("TAILWIND_CLI_USE_MINIFY", default=not DEBUG)
 TAILWIND_CLI_VERSION = "4.1.18"
 TAILWIND_CLI_AUTOMATIC_DOWNLOAD = False
 
