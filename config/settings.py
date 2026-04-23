@@ -225,7 +225,7 @@ PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS = env.int("PAYMENTS_STATUS_SYNC_MIN_IN
 S3_ENDPOINT_URL = env.str("S3_ENDPOINT_URL", default="http://127.0.0.1:9000")
 S3_ACCESS_KEY_ID = env.str("S3_ACCESS_KEY_ID", default="minioadmin")
 S3_SECRET_ACCESS_KEY = env.str("S3_SECRET_ACCESS_KEY", default="minioadmin")
-S3_REGION_NAME = env.str("S3_REGION_NAME", default="us-east-1")
+S3_REGION_NAME = env.str("S3_REGION_NAME", default=None)
 S3_BUCKET_NAME = env.str("S3_BUCKET_NAME", default="products")
 S3_ADDRESSING_STYLE = env.str("S3_ADDRESSING_STYLE", default="path")
 S3_PRESIGNED_EXPIRE_SECONDS = env.int("S3_PRESIGNED_EXPIRE_SECONDS", default=120)
