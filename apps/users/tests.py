@@ -161,6 +161,11 @@ class AuthLoggingSignalTests(TestCase):
             email="auth-logs@example.com",
             password="test-pass-123",
         )
+        cls.product = Product.objects.create(
+            title="Auth logs product",
+            slug="auth-logs-product",
+            price=Decimal("25.00"),
+        )
 
     @patch("apps.users.signals.log_event")
     def test_user_logged_in_logs_social_login_success(self, log_event_mock):

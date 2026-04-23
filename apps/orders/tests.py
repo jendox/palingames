@@ -1,5 +1,5 @@
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -532,7 +532,13 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         )
 
         self.assertEqual(second_response.status_code, 429)
-        inc_promo_apply_failed_mock.assert_called_once_with(reason="rate_limited")
+        self.assertEqual(
+            inc_promo_apply_failed_mock.call_args_list,
+            [
+                call(reason="invalid_or_not_applicable"),
+                call(reason="rate_limited"),
+            ],
+        )
         self.assertEqual(log_event_mock.call_args.args[2], "promo.apply.rate_limited")
 
     @override_settings(
