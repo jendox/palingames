@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
@@ -18,6 +19,7 @@ from apps.custom_games.services import (
     release_custom_game_download_token_use,
     resolve_custom_game_download_token,
 )
+from apps.products.alerts import record_download_delivery_failure_incident
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.custom_games")
@@ -115,6 +117,12 @@ class CustomGameDownloadView(View):
                 download_token_id=download_token.id,
                 file_key=custom_game_file.file_key,
                 error_type=type(exc).__name__,
+            )
+            record_download_delivery_failure_incident(
+                delivery_type="custom_game",
+                reason="download_unavailable",
+                threshold=settings.DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD,
+                window_seconds=settings.DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS,
             )
             return self._render_invalid(request, reason="download_unavailable", status=503)
 

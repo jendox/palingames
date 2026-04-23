@@ -23,7 +23,7 @@ from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
 from apps.products.models import Currency
-from apps.products.services.s3 import upload_custom_game_file
+from apps.products.services.s3 import ProductFileDownloadUrlError, upload_custom_game_file
 
 CUSTOM_GAME_MODEL_DATA = {
     "subject": "Космос",
@@ -228,6 +228,32 @@ class CustomGameDownloadTests(TestCase):
             file_key="custom-games/request.zip",
             original_filename="request.zip",
         )
+
+    @patch("apps.custom_games.views.record_download_delivery_failure_incident")
+    @patch("apps.custom_games.views.generate_presigned_download_url", side_effect=ProductFileDownloadUrlError("boom"))
+    def test_download_view_records_incident_when_presigned_url_generation_fails(
+        self,
+        mock_generate_url,
+        record_download_delivery_failure_incident_mock,
+    ):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            status=CustomGameRequest.Status.DELIVERED,
+        )
+        CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/request.zip",
+            original_filename="request.zip",
+            size_bytes=100,
+        )
+        download_token, raw_token = create_custom_game_download_token(custom_game_request)
+
+        response = self.client.get(reverse("custom-game-download", kwargs={"token": raw_token}))
+
+        self.assertEqual(response.status_code, 503)
+        download_token.refresh_from_db()
+        self.assertEqual(download_token.downloads_count, 0)
+        record_download_delivery_failure_incident_mock.assert_called_once()
 
 
 class CustomGamePageTests(TestCase):

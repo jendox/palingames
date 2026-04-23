@@ -292,15 +292,19 @@ class GuestProductDownloadViewTests(TestCase):
             max_downloads=1,
         )
 
-        with patch(
-            "apps.access.views.generate_presigned_download_url",
-            side_effect=ProductFileDownloadUrlError("boom"),
+        with (
+            patch(
+                "apps.access.views.generate_presigned_download_url",
+                side_effect=ProductFileDownloadUrlError("boom"),
+            ),
+            patch("apps.access.views.record_download_delivery_failure_incident") as record_incident_mock,
         ):
             response = self.client.get(reverse("guest-product-download", kwargs={"token": raw_token}))
 
         self.assertEqual(response.status_code, 503)
         guest_access.refresh_from_db()
         self.assertEqual(guest_access.downloads_count, 0)
+        record_incident_mock.assert_called_once()
 
 
 @override_settings(

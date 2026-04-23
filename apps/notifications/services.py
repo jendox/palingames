@@ -15,6 +15,7 @@ from django.utils import timezone
 from apps.core.logging import log_event
 from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
 
+from .alerts import record_notification_outbox_failure_incident
 from .destinations import TelegramDestination
 from .handlers import NOTIFICATION_HANDLERS
 from .models import NotificationOutbox
@@ -221,6 +222,10 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
         )
         if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
             inc_guest_email_failed()
+        record_notification_outbox_failure_incident(
+            notification_type=outbox.notification_type,
+            channel=outbox.channel,
+        )
         raise
 
     with transaction.atomic():

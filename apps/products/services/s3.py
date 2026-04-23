@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.logging import log_event
+from apps.products.alerts import record_storage_unavailable_incident
 
 logger = logging.getLogger("apps.products.storage")
 ASCII_PRINTABLE_MIN = 32
@@ -353,6 +354,11 @@ def generate_presigned_download_url(
             file_key=file_key,
             expires_seconds=ttl,
             error_type=type(exc).__name__,
+        )
+        record_storage_unavailable_incident(
+            operation="generate_presigned_download_url",
+            threshold=settings.STORAGE_INCIDENT_THRESHOLD,
+            window_seconds=settings.STORAGE_INCIDENT_WINDOW_SECONDS,
         )
         raise ProductFileDownloadUrlError("Failed to generate presigned product download URL") from exc
 

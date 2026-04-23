@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.views import View
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
+from apps.products.alerts import record_download_delivery_failure_incident
 from apps.products.services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 from .services import mark_guest_access_used, release_guest_access_use, resolve_guest_access
@@ -83,6 +85,12 @@ class GuestProductDownloadView(View):
                 error_type=type(exc).__name__,
             )
             inc_product_download_failed(access_type="guest", reason="download_unavailable")
+            record_download_delivery_failure_incident(
+                delivery_type="guest_product",
+                reason="download_unavailable",
+                threshold=settings.DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD,
+                window_seconds=settings.DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS,
+            )
             return self._render_invalid(
                 request,
                 reason="download_unavailable",

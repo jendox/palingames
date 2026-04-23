@@ -25,6 +25,7 @@ from apps.core.metrics import (
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context, normalize_seo_description
 from apps.favorites.services import get_favorite_product_ids
+from apps.products.alerts import record_download_delivery_failure_incident
 
 from .forms import ProductReviewForm
 from .models import (
@@ -1129,6 +1130,12 @@ class ProductDownloadView(LoginRequiredMixin, View):
                 error_type=type(exc).__name__,
             )
             inc_product_download_failed(access_type="user", reason="download_unavailable")
+            record_download_delivery_failure_incident(
+                delivery_type="product",
+                reason="download_unavailable",
+                threshold=settings.DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD,
+                window_seconds=settings.DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS,
+            )
             return self._json_error_response(
                 code="download_unavailable",
                 message=PRODUCT_DOWNLOAD_UNAVAILABLE_MESSAGE,

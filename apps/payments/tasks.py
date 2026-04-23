@@ -15,6 +15,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import inc_invoice_created, record_invoice_status_sync_summary
 from apps.custom_games.models import CustomGameRequest
 from apps.orders.models import Order
+from apps.payments.alerts import record_payment_status_sync_failure_incident
 from apps.payments.models import Invoice
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
@@ -493,6 +494,10 @@ def sync_waiting_invoice_statuses_task() -> dict[str, int]:
                 "invoice.status_sync.invoice_failed",
                 exc_info=exc,
                 invoice_id=invoice_id,
+                error_type=type(exc).__name__,
+            )
+            record_payment_status_sync_failure_incident(
+                provider=Invoice._meta.get_field("provider").default,
                 error_type=type(exc).__name__,
             )
             continue

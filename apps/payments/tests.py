@@ -14,7 +14,10 @@ from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
-from apps.payments.alerts import record_payment_webhook_failure_incident
+from apps.payments.alerts import (
+    record_payment_status_sync_failure_incident,
+    record_payment_webhook_failure_incident,
+)
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
@@ -1178,8 +1181,13 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(order.status, Order.OrderStatus.FAILED)
         self.assertEqual(order.failure_reason, "invoice_expired")
 
+    @patch("apps.payments.tasks.record_payment_status_sync_failure_incident")
     @patch("apps.payments.tasks.get_express_pay_request_client")
-    def test_sync_waiting_invoice_statuses_continues_when_one_invoice_fails(self, mock_get_client):
+    def test_sync_waiting_invoice_statuses_continues_when_one_invoice_fails(
+        self,
+        mock_get_client,
+        record_payment_status_sync_failure_incident_mock,
+    ):
         first_order, first_invoice = self._create_waiting_invoice(account_suffix="34567890")
         second_order, second_invoice = self._create_waiting_invoice(account_suffix="45678901", user=self.user)
         mock_client = Mock()
@@ -1204,6 +1212,10 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(first_order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
         self.assertEqual(second_invoice.status, Invoice.InvoiceStatus.PAID)
         self.assertEqual(second_order.status, Order.OrderStatus.PAID)
+        record_payment_status_sync_failure_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY,
+            error_type="RuntimeError",
+        )
 
 
 @override_settings(
@@ -1276,3 +1288,26 @@ class PaymentWebhookIncidentAlertTests(TestCase):
 
         self.assertFalse(sent)
         record_threshold_incident_mock.assert_not_called()
+
+
+@override_settings(
+    PAYMENT_STATUS_SYNC_INCIDENT_THRESHOLD=5,
+    PAYMENT_STATUS_SYNC_INCIDENT_WINDOW_SECONDS=900,
+)
+class PaymentStatusSyncIncidentAlertTests(TestCase):
+    @patch("apps.payments.alerts.record_threshold_incident")
+    def test_status_sync_failure_uses_provider_scoped_fingerprint(self, record_threshold_incident_mock):
+        record_threshold_incident_mock.return_value = True
+
+        sent = record_payment_status_sync_failure_incident(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            error_type="RuntimeError",
+        )
+
+        self.assertTrue(sent)
+        kwargs = record_threshold_incident_mock.call_args.kwargs
+        incident = kwargs["incident"]
+        self.assertEqual(kwargs["counter_key"], "payment-status-sync-failure:EXPRESS_PAY")
+        self.assertEqual(incident.key, "payments.status_sync.failures")
+        self.assertEqual(incident.fingerprint, "payments.status_sync.failures:EXPRESS_PAY")
+        self.assertEqual(incident.details["error_type"], "RuntimeError")

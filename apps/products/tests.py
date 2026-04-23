@@ -449,8 +449,13 @@ class ProductS3ServiceTests(TestCase):
         with self.assertRaises(ProductFileMetadataError):
             head_product_file(file_key="alpha/test.zip")
 
+    @patch("apps.products.services.s3.record_storage_unavailable_incident")
     @patch("apps.products.services.s3.get_s3_client")
-    def test_generate_presigned_download_url_wraps_storage_errors(self, mock_get_s3_client):
+    def test_generate_presigned_download_url_wraps_storage_errors(
+        self,
+        mock_get_s3_client,
+        record_storage_unavailable_incident_mock,
+    ):
         mock_get_s3_client.return_value.generate_presigned_url.side_effect = ValueError("boom")
 
         with self.assertRaises(ProductFileDownloadUrlError):
@@ -458,6 +463,7 @@ class ProductS3ServiceTests(TestCase):
                 file_key="alpha/test.zip",
                 original_filename="game.zip",
             )
+        record_storage_unavailable_incident_mock.assert_called_once()
 
 
 @override_settings(
@@ -532,8 +538,13 @@ class ProductDownloadViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["code"], "not_found")
 
+    @patch("apps.products.views.record_download_delivery_failure_incident")
     @patch("apps.products.views.generate_presigned_download_url")
-    def test_download_returns_503_when_presigned_url_generation_fails(self, mock_generate_presigned_download_url):
+    def test_download_returns_503_when_presigned_url_generation_fails(
+        self,
+        mock_generate_presigned_download_url,
+        record_download_delivery_failure_incident_mock,
+    ):
         mock_generate_presigned_download_url.side_effect = ProductFileDownloadUrlError("boom")
         self.client.force_login(self.user)
 
@@ -541,6 +552,7 @@ class ProductDownloadViewTests(TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["code"], "download_unavailable")
+        record_download_delivery_failure_incident_mock.assert_called_once()
 
     def test_download_redirects_anonymous_user_to_login(self):
         response = self.client.get(reverse("product-download", kwargs={"product_id": self.product.id}))

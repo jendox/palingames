@@ -50,6 +50,50 @@ class NotificationOutboxLoggingTests(TestCase):
         self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
         send_notification_mock.assert_called_once()
 
+    @patch("apps.notifications.services.record_notification_outbox_failure_incident")
+    @patch("apps.notifications.services.send_notification", side_effect=RuntimeError("boom"))
+    def test_process_notification_outbox_records_incident_for_critical_failures(
+        self,
+        send_notification_mock,
+        record_notification_outbox_failure_incident_mock,
+    ):
+        outbox = create_notification_outbox(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            recipient="guest@example.com",
+            payload=[],
+        )
+
+        with self.assertRaises(RuntimeError):
+            process_notification_outbox(outbox_id=outbox.id)
+
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.FAILED)
+        record_notification_outbox_failure_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+
+    @patch("apps.notifications.services.record_notification_outbox_failure_incident")
+    @patch("apps.notifications.services.send_notification", side_effect=RuntimeError("boom"))
+    def test_process_notification_outbox_skips_incident_for_non_critical_failures(
+        self,
+        send_notification_mock,
+        record_notification_outbox_failure_incident_mock,
+    ):
+        outbox = create_notification_outbox(
+            notification_type=NotificationType.ORDER_REWARD_USER,
+            recipient="user@example.com",
+            payload={},
+        )
+
+        with self.assertRaises(RuntimeError):
+            process_notification_outbox(outbox_id=outbox.id)
+
+        record_notification_outbox_failure_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.ORDER_REWARD_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+
 
 class TelegramRouteTests(TestCase):
     @override_settings(
