@@ -26,6 +26,32 @@
       <input type="hidden" name="{{ checkout_form.checkout_idempotency_key.html_name }}" value="{{ checkout_idempotency_key }}">
     {% include "pages/checkout/_summary_mobile.html" %}
 
+    {% if not checkout_is_authenticated %}
+    <label class="mt-[20px] inline-flex items-center gap-2 text-[12px] leading-[12px]">
+      <input
+        type="checkbox"
+        name="{{ checkout_form.personal_data_consent.html_name }}"
+        class="checkbox-purple-sm"
+        value="on"
+        data-checkout-personal-data-consent
+        {% if checkout_form.personal_data_consent.value %}checked{% endif %}
+      />
+      <span class="text-[var(--color-black)]">
+        {% trans "Согласен(а) на обработку" %}
+        <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-green)] hover:underline">
+          {% trans "персональных данных" %}
+        </a>
+      </span>
+    </label>
+    <p
+      data-checkout-personal-data-consent-error
+      class="mt-2 text-[12px] leading-[14px] text-[#D45A5A] {% if not checkout_form.personal_data_consent.errors %}hidden{% endif %}"
+      role="alert"
+    >
+      {{ checkout_form.personal_data_consent.errors.0|default:_("Необходимо согласие на обработку персональных данных.") }}
+    </p>
+    {% endif %}
+
     <div class="mt-[30px]">
       <div class="grid grid-cols-[64px_minmax(0,1fr)] items-start gap-x-[10px]">
         <div class="relative h-[64px] w-[64px]">

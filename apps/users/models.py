@@ -72,6 +72,8 @@ class PersonalDataProcessingConsentLog(TimeStampedModel):
     user_agent = models.CharField(_("Агент пользователя"), max_length=256, blank=True)
 
     class Meta:
+        verbose_name = _("Лог согласия на обработку персональных данных")
+        verbose_name_plural = _("Логи согласий на обработку персональных данных")
         indexes = [
             models.Index(fields=["email", "created_at"]),
         ]

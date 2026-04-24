@@ -22,7 +22,13 @@ from apps.payments.models import Invoice
 from apps.payments.tasks import create_invoice_task
 from apps.products.models import Category, Product
 from apps.promocodes.models import PromoCode, PromoCodeRedemption
+from apps.users.models import PersonalDataProcessingConsentLog
 from libs.payments.models import CreateInvoiceResult
+
+
+def _guest_checkout_post_data(email: str, **extra: object) -> dict[str, object]:
+    """Guest checkout requires personal_data_consent (browser sends checkbox as "on")."""
+    return {"email": email, "personal_data_consent": "on", **extra}
 
 
 @override_settings(
@@ -121,7 +127,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
 
-        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(response.status_code, 302)
         observe_order_creation_duration_mock.assert_called_once()
@@ -138,7 +144,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
 
-        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get()
@@ -173,7 +179,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_KEY_ANALYTICS_STORAGE] = True
         session.save()
 
-        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get()
@@ -184,10 +190,55 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
 
-        self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         order = Order.objects.get()
         self.assertFalse(order.analytics_storage_consent)
+
+    @override_settings(PERSONAL_DATA_POLICY_VERSION=42)
+    def test_guest_checkout_without_personal_data_consent_returns_400(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Необходимо согласие", status_code=400)
+        self.assertFalse(Order.objects.exists())
+        self.assertFalse(PersonalDataProcessingConsentLog.objects.exists())
+
+    @override_settings(PERSONAL_DATA_POLICY_VERSION=42)
+    def test_guest_checkout_records_personal_data_consent_log(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data("guest@example.com"),
+            HTTP_X_FORWARDED_FOR="198.51.100.7, 10.0.0.1",
+            HTTP_USER_AGENT="TestAgent/1.0",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        log = PersonalDataProcessingConsentLog.objects.get()
+        self.assertEqual(log.email, "guest@example.com")
+        self.assertEqual(log.order, order)
+        self.assertEqual(log.source, PersonalDataProcessingConsentLog.Source.GUEST_CHECKOUT)
+        self.assertEqual(log.policy_version, 42)
+        self.assertEqual(str(log.ip), "198.51.100.7")
+        self.assertIn("TestAgent", log.user_agent)
+
+    def test_authenticated_checkout_does_not_record_personal_data_consent_log(self):
+        self.client.force_login(self.user)
+        cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=cart, product=self.product)
+
+        self.client.post(reverse("checkout"), {"email": self.user.email})
+
+        self.assertFalse(PersonalDataProcessingConsentLog.objects.exists())
 
     def test_authenticated_checkout_post_creates_order_for_user(self):
         self.client.force_login(self.user)
@@ -347,7 +398,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         promo_code = PromoCode.objects.create(code="EDU10", discount_percent=10, max_redemptions_per_email=1)
         promo_code.categories.add(self.category)
 
-        response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(response.status_code, 302)
         order = Order.objects.get()
@@ -377,10 +428,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "promo_code": "missing",
-            },
+            _guest_checkout_post_data("guest@example.com", promo_code="missing"),
         )
 
         self.assertEqual(response.status_code, 400)
@@ -412,10 +460,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "promo_code": "ONCE10",
-            },
+            _guest_checkout_post_data("guest@example.com", promo_code="ONCE10"),
         )
 
         self.assertEqual(response.status_code, 400)
@@ -433,7 +478,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
 
-        first_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        first_response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(first_response.status_code, 302)
 
@@ -441,7 +486,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.other_product.id]
         session.save()
 
-        second_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        second_response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(second_response.status_code, 429)
         self.assertContains(
@@ -464,7 +509,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
 
-        first_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        first_response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(first_response.status_code, 302)
 
@@ -472,7 +517,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session[SESSION_CART_KEY] = [self.other_product.id]
         session.save()
 
-        second_response = self.client.post(reverse("checkout"), {"email": "guest@example.com"})
+        second_response = self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 
         self.assertEqual(second_response.status_code, 429)
         self.assertEqual(log_event_mock.call_args.args[2], "checkout.rate_limited")
@@ -491,7 +536,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         first_response = self.client.post(
             reverse("checkout"),
-            {"email": "first@example.com"},
+            _guest_checkout_post_data("first@example.com"),
             REMOTE_ADDR="203.0.113.10",
         )
 
@@ -503,7 +548,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         second_response = self.client.post(
             reverse("checkout"),
-            {"email": "second@example.com"},
+            _guest_checkout_post_data("second@example.com"),
             REMOTE_ADDR="203.0.113.10",
         )
 
@@ -682,17 +727,11 @@ class CheckoutIdempotencyTests(CheckoutTestBase):
 
         first_response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "checkout_idempotency_key": checkout_idempotency_key,
-            },
+            _guest_checkout_post_data("guest@example.com", checkout_idempotency_key=checkout_idempotency_key),
         )
         second_response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "checkout_idempotency_key": checkout_idempotency_key,
-            },
+            _guest_checkout_post_data("guest@example.com", checkout_idempotency_key=checkout_idempotency_key),
         )
 
         self.assertEqual(first_response.status_code, 302)
@@ -719,17 +758,11 @@ class CheckoutIdempotencyTests(CheckoutTestBase):
 
         first_response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "checkout_idempotency_key": checkout_idempotency_key,
-            },
+            _guest_checkout_post_data("guest@example.com", checkout_idempotency_key=checkout_idempotency_key),
         )
         second_response = self.client.post(
             reverse("checkout"),
-            {
-                "email": "guest@example.com",
-                "checkout_idempotency_key": checkout_idempotency_key,
-            },
+            _guest_checkout_post_data("guest@example.com", checkout_idempotency_key=checkout_idempotency_key),
         )
 
         self.assertEqual(first_response.status_code, 302)

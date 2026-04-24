@@ -162,10 +162,12 @@ class CheckoutPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = kwargs.get("checkout_form") or CheckoutSubmitForm(
+            user=self.request.user,
             initial={
                 "checkout_idempotency_key": ensure_checkout_idempotency_key(self.request),
                 "email": self.request.user.email if self.request.user.is_authenticated else "",
                 "promo_code": get_checkout_promo_code(self.request),
+                "personal_data_consent": True,
             },
         )
         checkout_idempotency_key = form["checkout_idempotency_key"].value() or ensure_checkout_idempotency_key(
@@ -215,7 +217,7 @@ class CheckoutPageView(TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):  # noqa: C901, PLR0911
-        form = CheckoutSubmitForm(request.POST)
+        form = CheckoutSubmitForm(request.POST, user=request.user)
         if not form.is_valid():
             log_event(
                 logger,
@@ -263,6 +265,7 @@ class CheckoutPageView(TemplateView):
                 email=form.cleaned_data["email"],
                 promo_code=get_checkout_promo_code(request) or form.cleaned_data["promo_code"],
                 checkout_idempotency_key=checkout_idempotency_key,
+                personal_data_consent=bool(form.cleaned_data.get("personal_data_consent")),
             )
         except PromoCodeError as exc:
             context = self.get_context_data(

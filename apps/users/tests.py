@@ -9,6 +9,7 @@ from allauth.account.signals import email_confirmed, password_reset, user_signed
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.contrib.messages import constants as message_constants
+from django.core.cache import caches
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 
@@ -17,7 +18,7 @@ from apps.orders.models import Order, OrderItem
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
 from apps.users.models import PersonalDataProcessingConsentLog
-from apps.users.personal_data_consent import record_personal_data_consent
+from apps.users.personal_data_consent import PersonalDataContext, get_client_ip_and_ua, record_personal_data_consent
 
 SOCIALACCOUNT_TEST_PROVIDERS = {
     "google": {
@@ -51,6 +52,10 @@ SOCIALACCOUNT_TEST_PROVIDERS = {
 )
 class PersonalDataConsentHeadlessTests(TestCase):
     """Headless signup writes PersonalDataProcessingConsentLog when privacy_consent is true."""
+
+    def setUp(self):
+        super().setUp()
+        caches["rate_limit"].clear()
 
     def test_signup_without_privacy_consent_returns_400(self):
         response = self.client.post(
@@ -90,12 +95,32 @@ class PersonalDataConsentHeadlessTests(TestCase):
         self.assertIsNotNone(log.user_id)
 
     def test_record_personal_data_consent_normalizes_email(self):
-        record_personal_data_consent(
+        ctx = PersonalDataContext(
             email="  Normalize@Example.COM ",
             source=PersonalDataProcessingConsentLog.Source.GUEST_CHECKOUT,
         )
+        record_personal_data_consent(ctx)
         log = PersonalDataProcessingConsentLog.objects.get()
         self.assertEqual(log.email, "normalize@example.com")
+
+    def test_get_client_ip_prefers_first_x_forwarded_for_hop(self):
+        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="203.0.113.1, 10.0.0.1")
+        ip, ua = get_client_ip_and_ua(request)
+        self.assertEqual(ip, "203.0.113.1")
+        self.assertEqual(ua, "")
+
+    def test_get_client_ip_falls_back_to_remote_addr(self):
+        request = RequestFactory().get("/", REMOTE_ADDR="198.51.100.2")
+        ip, ua = get_client_ip_and_ua(request)
+        self.assertEqual(ip, "198.51.100.2")
+        self.assertEqual(ua, "")
+
+    def test_get_client_ip_truncates_user_agent(self):
+        long_ua = "x" * 300
+        request = RequestFactory().get("/", HTTP_USER_AGENT=long_ua)
+        ip, ua = get_client_ip_and_ua(request)
+        self.assertEqual(ip, "127.0.0.1")
+        self.assertEqual(len(ua), 256)
 
 
 class SocialLoginTests(TestCase):

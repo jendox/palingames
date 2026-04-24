@@ -30,11 +30,23 @@ from apps.promocodes.services import (
 
 from .models import Order, OrderItem
 from .purchase_guards import build_pending_purchase_message, get_user_pending_order_item_by_product_ids
+from ..users.models import PersonalDataProcessingConsentLog
+from ..users.personal_data_consent import PersonalDataContext, get_client_ip_and_ua, record_personal_data_consent
 
 logger = logging.getLogger("apps.orders")
 CHECKOUT_PROMO_SESSION_KEY = "checkout_promo_code"
 CHECKOUT_IDEMPOTENCY_KEY_SESSION_KEY = "checkout_idempotency_key"
 CHECKOUT_CART_FINGERPRINT_SESSION_KEY = "checkout_cart_fingerprint"
+
+
+@dataclass(frozen=True)
+class OrderCreationContext:
+    email: str
+    products: list[Product]
+    promo_code: str
+    checkout_idempotency_key: str
+    checkout_type: str
+    personal_data_consent: bool = False
 
 
 @dataclass(frozen=True)
@@ -282,28 +294,24 @@ def get_checkout_order_context(
 def _create_new_order_from_products(
     *,
     request,
-    email: str,
-    products: list[Product],
-    promo_code: str,
-    checkout_idempotency_key,
-    checkout_type: str,
+    order_ctx: OrderCreationContext,
 ) -> Order:
     with transaction.atomic():
-        if not products:
+        if not order_ctx.products:
             msg = "Cannot create an order from an empty cart."
             raise ValueError(msg)
 
         if request.user.is_authenticated:
             purchased_ids = get_user_product_access_ids(
                 request.user,
-                product_ids=[product.id for product in products],
+                product_ids=[product.id for product in order_ctx.products],
             )
             if purchased_ids:
                 msg = "Cannot create an order for already purchased products."
                 raise OrderCreationBlockedError(msg, reason="already_purchased")
             pending_order_item = get_user_pending_order_item_by_product_ids(
                 request.user,
-                product_ids=[product.id for product in products],
+                product_ids=[product.id for product in order_ctx.products],
             )
             if pending_order_item is not None:
                 raise OrderCreationBlockedError(
@@ -314,22 +322,22 @@ def _create_new_order_from_products(
                     reason="pending_purchase",
                 )
 
-        subtotal_amount = sum((product.price for product in products), Decimal("0.00"))
+        subtotal_amount = sum((product.price for product in order_ctx.products), Decimal("0.00"))
         promo_discount = _calculate_order_discount(
-            products=products,
+            products=order_ctx.products,
             request=request,
-            email=email,
-            promo_code=promo_code,
+            email=order_ctx.email,
+            promo_code=order_ctx.promo_code,
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
         analytics_storage_consent = bool(request.session.get(SESSION_KEY_ANALYTICS_STORAGE, False))
         order = Order.objects.create(
-            checkout_idempotency_key=checkout_idempotency_key,
+            checkout_idempotency_key=order_ctx.checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
-            email=email,
+            email=order_ctx.email,
             source=Order.Source.PALINGAMES,
-            checkout_type=checkout_type,
+            checkout_type=order_ctx.checkout_type,
             status=Order.OrderStatus.CREATED,
             subtotal_amount=subtotal_amount,
             promo_code=promo_discount.promo_code if promo_discount else None,
@@ -338,12 +346,22 @@ def _create_new_order_from_products(
             promo_eligible_amount=promo_discount.eligible_amount if promo_discount else Decimal("0.00"),
             discount_amount=discount_amount,
             total_amount=total_amount,
-            currency=products[0].currency,
-            items_count=len(products),
+            currency=order_ctx.products[0].currency,
+            items_count=len(order_ctx.products),
             analytics_storage_consent=analytics_storage_consent,
         )
+        if order_ctx.checkout_type == Order.CheckoutType.GUEST and order_ctx.personal_data_consent:
+            client_ip, ua = get_client_ip_and_ua(request)
+            ctx = PersonalDataContext(
+                email=order.email,
+                order=order,
+                source=PersonalDataProcessingConsentLog.Source.GUEST_CHECKOUT,
+                ip=client_ip,
+                user_agent=ua,
+            )
+            record_personal_data_consent(ctx)
 
-        order_items = _prepare_order_items(order, products, promo_discount)
+        order_items = _prepare_order_items(order, order_ctx.products, promo_discount)
         OrderItem.objects.bulk_create(order_items)
         if promo_discount:
             create_promo_code_redemption(order=order, promo_discount=promo_discount)
@@ -357,6 +375,7 @@ def create_order_from_cart(
     email: str,
     promo_code: str = "",
     checkout_idempotency_key=None,
+    personal_data_consent: bool = False,
 ) -> OrderCreationResult:
     existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)
     if existing_order is not None:
@@ -379,11 +398,14 @@ def create_order_from_cart(
         try:
             order = _create_new_order_from_products(
                 request=request,
-                email=email,
-                products=products,
-                promo_code=promo_code,
-                checkout_idempotency_key=checkout_idempotency_key,
-                checkout_type=checkout_type,
+                order_ctx=OrderCreationContext(
+                    email=email,
+                    products=products,
+                    promo_code=promo_code,
+                    checkout_idempotency_key=checkout_idempotency_key,
+                    checkout_type=checkout_type,
+                    personal_data_consent=personal_data_consent,
+                ),
             )
         except IntegrityError:
             existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)

@@ -126,6 +126,32 @@
       <aside class="w-full max-w-[595px] justify-self-end pt-[6px]">
         {% include "pages/checkout/_summary_desktop.html" %}
 
+        {% if not checkout_is_authenticated %}
+         <label class="mt-[25px] inline-flex items-center gap-3 text-[14px] leading-[14px]">
+            <input
+              type="checkbox"
+              name="{{ checkout_form.personal_data_consent.html_name }}"
+              class="checkbox-purple"
+              value="on"
+              data-checkout-personal-data-consent
+              {% if checkout_form.personal_data_consent.value %}checked{% endif %}
+            />
+            <span class="text-[var(--color-black)]">
+              {% trans "Согласен(а) на обработку" %}
+              <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-green)] hover:underline">
+                {% trans "персональных данных" %}
+              </a>
+            </span>
+          </label>
+          <p
+            data-checkout-personal-data-consent-error
+            class="mt-2 text-[12px] leading-[14px] text-[#D45A5A] {% if not checkout_form.personal_data_consent.errors %}hidden{% endif %}"
+            role="alert"
+          >
+            {{ checkout_form.personal_data_consent.errors.0|default:_("Необходимо согласие на обработку персональных данных.") }}
+          </p>
+        {% endif %}
+
         <p class="mx-auto mt-[45px] max-w-[260px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
           {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный E-mail" %}
         </p>
