@@ -53,6 +53,7 @@
     {% trans "Избранное" %}
   </a>
 
+  {% if user.has_usable_password %}
   <a
     href="?tab=password"
     class="{% if active_tab == 'password' %}account-nav-item account-nav-item-active{% else %}account-nav-item{% endif %} h-[60px] text-[18px] font-bold leading-[23px]"
@@ -67,6 +68,7 @@
     >
     {% trans "Смена пароля" %}
   </a>
+  {% endif %}
 
   <button
     type="button"

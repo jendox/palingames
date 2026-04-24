@@ -10,7 +10,9 @@
       {% include "pages/account/mobile/sections/_personal.html" %}
       {% include "pages/account/mobile/sections/_orders.html" %}
       {% include "pages/account/mobile/sections/_favorites.html" %}
+      {% if user.has_usable_password %}
       {% include "pages/account/mobile/sections/_password.html" %}
+      {% endif %}
       {% include "pages/account/mobile/sections/_logout.html" %}
     </div>
 
