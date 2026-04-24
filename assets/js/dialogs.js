@@ -236,6 +236,32 @@
     return getCurrentSafePath();
   }
 
+  function requireOAuthPrivacyConsent(socialLoginLink) {
+    const form = socialLoginLink.closest("form");
+    if (!form) return true;
+    if (
+      !form.matches("form[data-headless-signup-form]")
+      && !form.matches("form[data-headless-login-form]")
+    ) {
+      return true;
+    }
+    const consent = form.elements.namedItem("privacy_consent");
+    if (
+      consent
+      && consent instanceof HTMLInputElement
+      && consent.type === "checkbox"
+      && consent.checked
+    ) {
+      return true;
+    }
+    const msg =
+      form.getAttribute("data-oauth-privacy-error")
+      || "Необходимо согласие на обработку персональных данных.";
+    setFieldError(form, "privacy_consent", msg);
+    if (consent && typeof consent.focus === "function") consent.focus();
+    return false;
+  }
+
   function submitSocialLogin(provider) {
     if (!provider) return;
 
@@ -554,6 +580,9 @@
     const socialLoginLink = e.target.closest?.("[data-social-login-provider]");
     if (socialLoginLink) {
       e.preventDefault();
+      if (!requireOAuthPrivacyConsent(socialLoginLink)) {
+        return;
+      }
       submitSocialLogin(socialLoginLink.getAttribute("data-social-login-provider"));
       return;
     }

@@ -123,6 +123,36 @@ class PersonalDataConsentHeadlessTests(TestCase):
         self.assertEqual(len(ua), 256)
 
 
+@override_settings(PERSONAL_DATA_POLICY_VERSION=7)
+class SocialAccountAdapterConsentTests(TestCase):
+    def test_save_user_records_oauth_first_login_consent(self):
+        from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+
+        from apps.users.social_adapter import SocialAccountAdapter
+
+        user = get_user_model().objects.create_user(
+            email="oauth-user@example.com",
+            password="unused-for-oauth-test",
+        )
+        request = RequestFactory().post("/_allauth/browser/v1/auth/provider/redirect")
+        request.META["REMOTE_ADDR"] = "203.0.113.5"
+
+        adapter = SocialAccountAdapter()
+        sociallogin = SimpleNamespace()
+
+        with patch.object(DefaultSocialAccountAdapter, "save_user", return_value=user) as mock_super:
+            result = adapter.save_user(request, sociallogin, None)
+
+        mock_super.assert_called_once_with(request, sociallogin, None)
+        self.assertEqual(result, user)
+
+        log = PersonalDataProcessingConsentLog.objects.get(email=user.email)
+        self.assertEqual(log.source, PersonalDataProcessingConsentLog.Source.OAUTH_FIRST_LOGIN)
+        self.assertEqual(log.policy_version, 7)
+        self.assertEqual(str(log.ip), "203.0.113.5")
+        self.assertTrue(log.granted)
+
+
 class SocialLoginTests(TestCase):
     @override_settings(SOCIALACCOUNT_PROVIDERS=SOCIALACCOUNT_TEST_PROVIDERS)
     def test_social_buttons_enable_google_and_yandex_only(self):

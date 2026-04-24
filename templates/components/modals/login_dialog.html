@@ -37,6 +37,7 @@
         <form
           data-headless-login-form
           data-headless-endpoint="/_allauth/browser/v1/auth/login"
+          data-oauth-privacy-error="{{ _('Необходимо согласие на обработку персональных данных.')|escape }}"
           class="mt-[36px] min-[1024px]:mt-[50px]"
           method="post"
           action="#"
@@ -82,13 +83,13 @@
               </div>
             </div>
 
-            <label class="mt-[25px] inline-flex items-center gap-3 text-[14px] leading-[14px]">
+            <label class="mt-[25px] inline-flex items-start gap-3 text-[14px] leading-[14px]">
             <input
               type="checkbox"
               name="remember"
-              class="checkbox-pink"
+              class="checkbox-pink mt-px h-5 w-5 shrink-0"
             />
-              <span class="text-[var(--color-black)]">{% trans "запомнить" %}</span>
+              <span class="text-[var(--color-black)] pt-px">{% trans "запомнить" %}</span>
             </label>
 
             <button
@@ -111,7 +112,25 @@
             </div>
           </div>
 
-          <div class="mt-[40px] flex items-center justify-center gap-[25px] min-[1024px]:mt-[50px]">
+          <label class="mt-4 inline-flex items-start gap-3 text-[14px] leading-[14px]">
+            <input
+              type="checkbox"
+              name="privacy_consent"
+              id="loginOAuthPrivacyConsent"
+              class="checkbox-pink mt-px h-5 w-5 shrink-0"
+              checked
+            />
+            <span class="text-[var(--color-black)] pt-px">
+              {% trans "Согласен(а) на обработку" %}
+              <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-pink)] hover:underline">
+                {% trans "персональных данных" %}
+              </a>
+              <span class="font-normal text-[var(--color-black-80)]"> ({% trans "для входа через Google или Яндекс" %})</span>
+            </span>
+          </label>
+          <p data-field-error="privacy_consent" class="mt-2 hidden text-sm text-red-700"></p>
+
+          <div class="mt-[25px] flex items-center justify-center gap-[25px]">
             {% include "components/modals/_social_buttons.html" %}
           </div>
         </form>

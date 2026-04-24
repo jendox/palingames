@@ -291,6 +291,7 @@ ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = "/accounts/email-confirmed/"
 ACCOUNT_EMAIL_NOTIFICATIONS = True
 ACCOUNT_LOGIN_ON_PASSWORD_RESET = True
 ACCOUNT_ADAPTER = "apps.users.adapters.AccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.users.social_adapter.SocialAccountAdapter"
 ACCOUNT_SIGNUP_FORM_CLASS = "apps.users.forms.SignupWithPrivacyForm"
 
 HEADLESS_SERVE_SPECIFICATION = True

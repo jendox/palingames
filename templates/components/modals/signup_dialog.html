@@ -43,6 +43,7 @@
         <form
           data-headless-signup-form
           data-headless-endpoint="/_allauth/browser/v1/auth/signup"
+          data-oauth-privacy-error="{{ _('Необходимо согласие на обработку персональных данных.')|escape }}"
           class="mt-[36px] min-[1024px]:mt-[50px]"
           method="post"
           action="#"
