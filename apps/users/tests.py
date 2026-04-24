@@ -621,7 +621,7 @@ class AccountAdapterMetricsTests(TestCase):
 
         super_mock.assert_not_called()
 
-    def test_add_message_keeps_non_headless_requests(self):
+    def test_add_message_skips_logged_in_on_non_headless_paths(self):
         from apps.users.adapters import AccountAdapter
 
         adapter = AccountAdapter(request=None)
@@ -634,10 +634,25 @@ class AccountAdapterMetricsTests(TestCase):
                 message_template="account/messages/logged_in.txt",
             )
 
+        super_mock.assert_not_called()
+
+    def test_add_message_keeps_other_templates_on_non_headless_paths(self):
+        from apps.users.adapters import AccountAdapter
+
+        adapter = AccountAdapter(request=None)
+        request = RequestFactory().get("/account/")
+
+        with patch("allauth.account.adapter.DefaultAccountAdapter.add_message") as super_mock:
+            adapter.add_message(
+                request,
+                message_constants.SUCCESS,
+                message_template="account/messages/password_changed.txt",
+            )
+
         super_mock.assert_called_once_with(
             request,
             message_constants.SUCCESS,
-            message_template="account/messages/logged_in.txt",
+            message_template="account/messages/password_changed.txt",
             message_context=None,
             extra_tags="",
             message=None,

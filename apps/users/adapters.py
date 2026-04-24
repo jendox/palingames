@@ -9,6 +9,7 @@ from apps.users.personal_data_consent import PersonalDataContext, get_client_ip_
 
 class AccountAdapter(DefaultAccountAdapter):
     HEADLESS_PATH_PREFIX = "/_allauth/browser/v1/"
+    _LOGGED_IN_MESSAGE_TEMPLATE = "account/messages/logged_in.txt"
 
     def send_mail(self, template_prefix: str, email: str, context: dict) -> None:
         context = {
@@ -30,6 +31,8 @@ class AccountAdapter(DefaultAccountAdapter):
         extra_tags="",
         message=None,
     ):
+        if message_template == self._LOGGED_IN_MESSAGE_TEMPLATE:
+            return None
         if request is not None and request.path.startswith(self.HEADLESS_PATH_PREFIX):
             return None
         return super().add_message(
