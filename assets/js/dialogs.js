@@ -145,7 +145,11 @@
   function formatRetryMessage(message, retryAfterSeconds) {
     const retryAfter = Number.parseInt(String(retryAfterSeconds || ""), 10);
     if (!Number.isInteger(retryAfter) || retryAfter <= 0) {
-      return `${message} Попробуйте позже.`;
+      const m = String(message || "").trimEnd();
+      if (m.endsWith("Попробуйте позже.") || m.endsWith("Попробуйте позже")) {
+        return m;
+      }
+      return `${m} Попробуйте позже.`;
     }
 
     const minutes = Math.max(1, Math.ceil(retryAfter / 60));
