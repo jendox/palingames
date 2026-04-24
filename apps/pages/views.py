@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import TemplateView
@@ -33,6 +33,14 @@ def _get_active_tab(request) -> AccountTab:
         return AccountTab(request.GET.get("tab"))
     except ValueError:
         return AccountTab.PERSONAL
+
+
+def _redirect_account_away_from_password_tab(request) -> HttpResponseRedirect:
+    """Password tab is invalid without a usable password; keep other query params."""
+    query = request.GET.copy()
+    query["tab"] = AccountTab.PERSONAL.value
+    url = f"{reverse('account')}?{query.urlencode()}"
+    return redirect(url)
 
 
 def _get_client_ip(request) -> str:
@@ -120,6 +128,11 @@ class AccountPageView(TemplateView):
             return redirect(f"/?dialog=login&next={next_path}")
         return super().dispatch(request, *args, **kwargs)
 
+    def get(self, request, *args, **kwargs):
+        if _get_active_tab(request) == AccountTab.PASSWORD and not request.user.has_usable_password():
+            return _redirect_account_away_from_password_tab(request)
+        return super().get(request, *args, **kwargs)
+
     def get_template_names(self):
         if self.request.headers.get("HX-Request") == "true":
             hx_target = self.request.headers.get("HX-Target", "").strip().lstrip("#")
@@ -132,9 +145,11 @@ class AccountPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        active_tab = _get_active_tab(self.request)
-
         user = self.request.user
+        active_tab = _get_active_tab(self.request)
+        if active_tab == AccountTab.PASSWORD and not user.has_usable_password():
+            active_tab = AccountTab.PERSONAL
+
         personal_form = kwargs.get("personal_form") or AccountPersonalDataForm(instance=user)
         personal_form_saved = kwargs.get("personal_form_saved", False)
         password_form = kwargs.get("password_form") or AccountPasswordChangeForm(user=user)
@@ -275,6 +290,9 @@ class AccountPageView(TemplateView):
         return self.render_to_response(context)
 
     def _password_update(self, request) -> HttpResponse:
+        if not request.user.has_usable_password():
+            return _redirect_account_away_from_password_tab(request)
+
         form = AccountPasswordChangeForm(user=request.user, data=request.POST)
         rate_limit = self._check_password_change_rate_limit(request)
         if rate_limit is not None and not rate_limit.allowed:

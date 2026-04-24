@@ -9,6 +9,7 @@ from apps.access.models import UserProductAccess
 from apps.favorites.models import Favorite
 from apps.orders.guest_merge import merge_guest_orders_for_user
 from apps.orders.models import Order, OrderItem
+from apps.pages.views import AccountTab
 from apps.products.models import Category, Product
 
 PASSWORD_CHANGE_RATE_LIMIT_MESSAGE = "Слишком много попыток смены пароля. Попробуйте позже."
@@ -240,6 +241,61 @@ class AccountFavoritesTabTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "pages/account/desktop/_account_favorites_desktop_results.html")
+
+
+class AccountPasswordTabAccessTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_with_password = get_user_model().objects.create_user(
+            email="with-pass@example.com",
+            password="test-pass-123",
+        )
+        cls.user_no_password = get_user_model().objects.create_user(
+            email="no-pass@example.com",
+            password="initial-pass-123",
+        )
+        cls.user_no_password.set_unusable_password()
+        cls.user_no_password.save(update_fields=["password"])
+
+    def test_password_tab_get_shows_for_user_with_usable_password(self):
+        self.client.force_login(self.user_with_password)
+        response = self.client.get(reverse("account"), {"tab": "password"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_tab"], AccountTab.PASSWORD)
+
+    def test_password_tab_get_redirects_without_usable_password(self):
+        self.client.force_login(self.user_no_password)
+        response = self.client.get(reverse("account"), {"tab": "password"}, follow=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/account/", response["Location"])
+        self.assertIn("tab=personal", response["Location"])
+
+    def test_password_tab_get_redirect_preserves_other_query_params(self):
+        self.client.force_login(self.user_no_password)
+        response = self.client.get(
+            reverse("account"),
+            {"tab": "password", "demo": "1"},
+            follow=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        location = response["Location"]
+        self.assertIn("demo=1", location)
+        self.assertIn("tab=personal", location)
+
+    def test_password_tab_post_redirects_without_usable_password(self):
+        self.client.force_login(self.user_no_password)
+        response = self.client.post(
+            reverse("account"),
+            data={
+                "old_password": "anything",
+                "new_password1": "new-test-pass-123",
+                "new_password2": "new-test-pass-123",
+            },
+            query_params={"tab": "password"},
+            follow=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("tab=personal", response["Location"])
 
 
 @override_settings(
