@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -15,6 +16,8 @@ from apps.access.models import UserProductAccess
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
+from apps.users.models import PersonalDataProcessingConsentLog
+from apps.users.personal_data_consent import record_personal_data_consent
 
 SOCIALACCOUNT_TEST_PROVIDERS = {
     "google": {
@@ -40,6 +43,59 @@ SOCIALACCOUNT_TEST_PROVIDERS = {
         ],
     },
 }
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    PERSONAL_DATA_POLICY_VERSION=7,
+)
+class PersonalDataConsentHeadlessTests(TestCase):
+    """Headless signup writes PersonalDataProcessingConsentLog when privacy_consent is true."""
+
+    def test_signup_without_privacy_consent_returns_400(self):
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": "no-privacy@example.com",
+                    "password": "test-password-123",
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content.decode())
+        params = {e.get("param") for e in payload.get("errors", [])}
+        self.assertIn("privacy_consent", params)
+        self.assertEqual(PersonalDataProcessingConsentLog.objects.filter(email="no-privacy@example.com").count(), 0)
+
+    def test_signup_with_privacy_consent_creates_log(self):
+        email = "with-privacy@example.com"
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/signup",
+            data=json.dumps(
+                {
+                    "email": email,
+                    "password": "test-password-123",
+                    "privacy_consent": True,
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 401)
+        log = PersonalDataProcessingConsentLog.objects.get(email=email)
+        self.assertTrue(log.granted)
+        self.assertEqual(log.source, PersonalDataProcessingConsentLog.Source.REGISTRATION_PASSWORD)
+        self.assertEqual(log.policy_version, 7)
+        self.assertIsNotNone(log.user_id)
+
+    def test_record_personal_data_consent_normalizes_email(self):
+        record_personal_data_consent(
+            email="  Normalize@Example.COM ",
+            source=PersonalDataProcessingConsentLog.Source.GUEST_CHECKOUT,
+        )
+        log = PersonalDataProcessingConsentLog.objects.get()
+        self.assertEqual(log.email, "normalize@example.com")
 
 
 class SocialLoginTests(TestCase):

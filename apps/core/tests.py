@@ -1000,8 +1000,8 @@ class AuthRateLimitMiddlewareTests(TestCase):
             data=json.dumps(
                 {
                     "email": "new@example.com",
-                    "password1": "test-password-123",
-                    "password2": "test-password-123",
+                    "password": "test-password-123",
+                    "privacy_consent": True,
                 },
             ),
             content_type="application/json",
@@ -1011,8 +1011,8 @@ class AuthRateLimitMiddlewareTests(TestCase):
             data=json.dumps(
                 {
                     "email": "new@example.com",
-                    "password1": "test-password-123",
-                    "password2": "test-password-123",
+                    "password": "test-password-123",
+                    "privacy_consent": True,
                 },
             ),
             content_type="application/json",
@@ -1045,8 +1045,8 @@ class AuthRateLimitMiddlewareTests(TestCase):
             data=json.dumps(
                 {
                     "email": "first-new@example.com",
-                    "password1": "test-password-123",
-                    "password2": "test-password-123",
+                    "password": "test-password-123",
+                    "privacy_consent": True,
                 },
             ),
             content_type="application/json",
@@ -1057,8 +1057,8 @@ class AuthRateLimitMiddlewareTests(TestCase):
             data=json.dumps(
                 {
                     "email": "second-new@example.com",
-                    "password1": "test-password-123",
-                    "password2": "test-password-123",
+                    "password": "test-password-123",
+                    "privacy_consent": True,
                 },
             ),
             content_type="application/json",

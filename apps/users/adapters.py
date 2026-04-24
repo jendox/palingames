@@ -3,6 +3,8 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 
 from apps.access.emails import build_absolute_url
 from apps.core.metrics import inc_auth_password_reset_requested
+from apps.users.models import PersonalDataProcessingConsentLog
+from apps.users.personal_data_consent import record_personal_data_consent
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -38,3 +40,12 @@ class AccountAdapter(DefaultAccountAdapter):
             extra_tags=extra_tags,
             message=message,
         )
+
+    def save_user(self, request, user, form, commit=True):
+        user = super().save_user(request, user, form, commit)
+        if form and form.cleaned_data.get("privacy_consent"):
+            record_personal_data_consent(
+                email=user.email,
+                user=user,
+                source=PersonalDataProcessingConsentLog.Source.REGISTRATION_PASSWORD,
+            )

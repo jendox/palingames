@@ -697,6 +697,7 @@
 
     try {
       const csrfToken = getCsrfToken(form);
+      const privacyConsent = form.elements.namedItem("privacy_consent")?.checked === true;
       const resp = await fetch(endpoint, {
         method: "POST",
         credentials: "same-origin",
@@ -708,6 +709,7 @@
         body: JSON.stringify({
           email,
           password: password1,
+          privacy_consent: privacyConsent,
         }),
       });
 
@@ -730,6 +732,7 @@
         email: [],
         password1: [],
         password2: [],
+        privacy_consent: [],
       };
 
       for (const err of errors) {
@@ -745,12 +748,15 @@
         else if (param === "password") fieldMessages.password1.push(message);
         else if (param === "password1") fieldMessages.password1.push(message);
         else if (param === "password2") fieldMessages.password2.push(message);
+        else if (param === "privacy_consent") fieldMessages.privacy_consent.push(message);
         else generalMessages.push(message);
       }
 
       if (fieldMessages.email.length) setFieldError(form, "email", fieldMessages.email.join(" "));
       if (fieldMessages.password1.length) setFieldError(form, "password1", fieldMessages.password1.join(" "));
       if (fieldMessages.password2.length) setFieldError(form, "password2", fieldMessages.password2.join(" "));
+      if (fieldMessages.privacy_consent.length)
+        setFieldError(form, "privacy_consent", fieldMessages.privacy_consent.join(" "));
 
       if (generalMessages.length) {
         showDialogMessage(dlg, "[data-form-errors]", generalMessages.join(" "));
