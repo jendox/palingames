@@ -123,6 +123,108 @@ class PersonalDataConsentHeadlessTests(TestCase):
         self.assertEqual(len(ua), 256)
 
 
+class HeadlessLoginRememberTests(TestCase):
+    """Session expiry on headless password login respects remember / ACCOUNT_SESSION_REMEMBER."""
+
+    def setUp(self):
+        super().setUp()
+        caches["rate_limit"].clear()
+
+    def _create_verified_user(self, email: str, password: str):
+        user = get_user_model().objects.create_user(email=email, password=password)
+        EmailAddress.objects.create(
+            user=user,
+            email=email,
+            primary=True,
+            verified=True,
+        )
+        return user
+
+    @override_settings(SESSION_COOKIE_AGE=99_999)
+    def test_remember_true_sets_expiry_to_session_cookie_age(self):
+        self._create_verified_user("remember-true@example.com", "test-pass-123")
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps(
+                {
+                    "email": "remember-true@example.com",
+                    "password": "test-pass-123",
+                    "remember": True,
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get("_session_expiry"), 99_999)
+
+    def test_remember_false_sets_browser_session_expiry(self):
+        self._create_verified_user("remember-false@example.com", "test-pass-123")
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps(
+                {
+                    "email": "remember-false@example.com",
+                    "password": "test-pass-123",
+                    "remember": False,
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        # set_expiry(0): cookie expires on browser close; get_expiry_age() falls back to
+        # SESSION_COOKIE_AGE because 0 is falsy — assert the stored flag instead.
+        self.assertEqual(self.client.session.get("_session_expiry"), 0)
+
+    def test_missing_remember_defaults_to_browser_session(self):
+        self._create_verified_user("remember-missing@example.com", "test-pass-123")
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps(
+                {
+                    "email": "remember-missing@example.com",
+                    "password": "test-pass-123",
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get("_session_expiry"), 0)
+
+    @override_settings(ACCOUNT_SESSION_REMEMBER=True, SESSION_COOKIE_AGE=42)
+    def test_account_session_remember_true_overrides_request(self):
+        self._create_verified_user("forced-remember@example.com", "test-pass-123")
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps(
+                {
+                    "email": "forced-remember@example.com",
+                    "password": "test-pass-123",
+                    "remember": False,
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get("_session_expiry"), 42)
+
+    @override_settings(ACCOUNT_SESSION_REMEMBER=False)
+    def test_account_session_remember_false_overrides_request(self):
+        self._create_verified_user("forced-session@example.com", "test-pass-123")
+        response = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps(
+                {
+                    "email": "forced-session@example.com",
+                    "password": "test-pass-123",
+                    "remember": True,
+                },
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get("_session_expiry"), 0)
+
+
 @override_settings(PERSONAL_DATA_POLICY_VERSION=7)
 class SocialAccountAdapterConsentTests(TestCase):
     def test_save_user_records_oauth_first_login_consent(self):

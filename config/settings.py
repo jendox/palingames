@@ -294,6 +294,8 @@ ACCOUNT_ADAPTER = "apps.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "apps.users.social_adapter.SocialAccountAdapter"
 ACCOUNT_SIGNUP_FORM_CLASS = "apps.users.forms.SignupWithPrivacyForm"
 
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=14 * 24 * 60 * 60)
+
 HEADLESS_SERVE_SPECIFICATION = True
 HEADLESS_ONLY = True  # отключаем обычные account views
 

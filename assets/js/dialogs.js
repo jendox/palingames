@@ -821,7 +821,11 @@
 
     const email = (form.elements.namedItem("email")?.value || "").trim();
     const password = form.elements.namedItem("password")?.value || "";
-    // TODO(palingames): support "remember me" by passing a flag and adjusting session expiry server-side.
+    const rememberField = form.elements.namedItem("remember");
+    const remember =
+      rememberField instanceof HTMLInputElement &&
+      rememberField.type === "checkbox" &&
+      rememberField.checked;
 
     setDialogSubmitting(form, true);
 
@@ -835,7 +839,7 @@
           Accept: "application/json",
           ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
       });
 
       const payload = await resp.json().catch(() => null);
