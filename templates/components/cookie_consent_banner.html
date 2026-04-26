@@ -1,5 +1,16 @@
 {% load i18n %}
 <style>
+  /* Стеклянный эффект: низкий alpha + blur. Без blur — плотнее, чтобы текст оставался читабельным. */
+  #cookie-consent-panel {
+    background-color: rgba(255, 255, 255, 0.55);
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    #cookie-consent-panel {
+      background-color: rgba(255, 255, 255, 0.3);
+      -webkit-backdrop-filter: blur(16px) saturate(1.1);
+      backdrop-filter: blur(16px) saturate(1.1);
+    }
+  }
   #cookie-consent-panel:popover-open {
     left: 0.75rem;
     right: auto;
@@ -18,38 +29,41 @@
 <div
   id="cookie-consent-panel"
   popover="manual"
-  class="cookie-consent-popover m-0 box-border max-h-[min(85vh,520px)] w-[min(380px,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-white/50 bg-white/75 p-4 text-left shadow-2xl shadow-black/10 backdrop-blur-md supports-[backdrop-filter]:bg-white/65"
+  class="cookie-consent-popover m-0 box-border w-max min-w-0 max-h-[min(85vh,320px)] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-white/40 p-3 text-left shadow-2xl shadow-black/10 sm:p-4"
   role="dialog"
   aria-modal="false"
   aria-labelledby="cookie-consent-title"
   aria-hidden="true"
 >
-  <div class="flex flex-col gap-3">
+  <div class="flex max-w-full flex-col gap-3">
     <div class="text-sm leading-relaxed text-gray-800">
-      <p id="cookie-consent-title" class="font-semibold text-gray-900">
-        {% trans "Cookie и статистика" %}
+      <p id="cookie-consent-title" class="text-base font-semibold text-gray-900">
+        {% trans "Мы используем cookie" %}
       </p>
-      <p class="mt-2">
-        {% trans "Мы используем cookie, чтобы сайт работал стабильно, и — по вашему выбору — для анализа посещаемости. Подробнее в" %}
-        <a href="{% url 'privacy-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике конфиденциальности" %}</a>
-        {% trans "и" %}
-        <a href="{% url 'cookie-policy' %}" class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline">{% trans "политике cookie" %}</a>.
+      <p class="mt-1">{% trans "Анализируем трафик и улучшаем сайт" %}</p>
+      <p class="mt-[1]">
+        <a
+          href="{% url 'cookie-policy' %}"
+          class="text-[var(--color-turquoise)] underline decoration-1 underline-offset-2 hover:no-underline"
+        >
+          {% trans "Подробнее" %}
+        </a>
       </p>
     </div>
-    <div class="flex flex-col gap-2">
-      <button
-        type="button"
-        id="cookie-consent-accept"
-        class="w-full cursor-pointer rounded-xl bg-[var(--color-turquoise)] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-      >
-        {% trans "Принять" %}
-      </button>
+    <div class="flex flex-row flex-wrap items-center justify-start gap-2">
       <button
         type="button"
         id="cookie-consent-reject"
-        class="w-full cursor-pointer rounded-xl border border-gray-400/60 bg-white/50 px-4 py-3 text-sm font-semibold text-gray-800 backdrop-blur-sm transition hover:bg-white/70"
+        class="inline-flex h-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] border border-gray-300 bg-white/60 px-3 text-xs font-semibold leading-none text-gray-800 backdrop-blur-sm transition hover:bg-white/80"
       >
         {% trans "Только необходимые" %}
+      </button>
+      <button
+        type="button"
+        id="cookie-consent-accept"
+        class="inline-flex h-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--color-turquoise)] px-3 text-xs font-semibold leading-none text-white shadow-sm transition hover:opacity-90"
+      >
+        {% trans "Принять" %}
       </button>
     </div>
   </div>
