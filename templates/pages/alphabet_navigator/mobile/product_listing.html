@@ -63,7 +63,7 @@
 
     <template data-catalog-mobile-grid-template>
           <article
-            class="relative h-[213px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
+            class="relative h-[198px] w-[170px] overflow-hidden rounded-[10px] bg-[var(--color-white)] shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
             data-analytics-item
             data-analytics-item-id=""
             data-analytics-item-name=""
@@ -74,13 +74,16 @@
           >
         <a href="#" class="block" data-product-link>
           <div class="relative">
-            <img
-              data-product-image
-              src="{% static 'images/example-product-image-1.png' %}"
-              alt=""
-              class="h-[213px] w-[170px] object-cover"
-              draggable="false"
-            >
+            <div class="h-[198px] w-[170px] overflow-hidden bg-[var(--color-white)]">
+              <img
+                data-product-image
+                src="{% static 'images/example-product-image-1.png' %}"
+                alt=""
+                class="h-full w-full object-contain object-center"
+                draggable="false"
+              >
+            </div>
+
             <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>
 
             <div class="absolute left-[8px] top-[8px]">
@@ -127,8 +130,16 @@
         data-analytics-price=""
         data-analytics-currency=""
       >
-        <a href="#" class="block h-[77px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
-          <img data-product-image src="{% static 'images/example-product-image-1.png' %}" alt="" class="h-full w-full object-cover" draggable="false">
+        <a href="#" class="block h-[74px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
+          <div class="h-full w-full overflow-hidden bg-[var(--color-lilac)]">
+            <img
+            data-product-image
+            src="{% static 'images/example-product-image-1.png' %}"
+            alt=""
+            class="object-contain object-center"
+            draggable="false"
+          >
+          </div>
         </a>
 
         <div class="min-w-0 flex-1 pl-[45px] pr-[61px]">

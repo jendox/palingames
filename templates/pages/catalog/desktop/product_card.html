@@ -12,12 +12,14 @@
 >
   <div class="relative">
     <a href="{{ product.url }}" class="block">
-      <img
-        src="{{ product.image_url }}"
-        alt="{{ product.title }}"
-        class="aspect-[436/510] w-full object-cover"
-        draggable="false"
-      >
+      <div class="relative aspect-[436/510] w-full overflow-hidden bg-[var(--color-white)]">
+        <img
+          src="{{ product.image_url }}"
+          alt="{{ product.title }}"
+          class="h-full w-full object-contain object-center"
+          draggable="false"
+        >
+      </div>
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[175px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"></div>
 
       <div class="absolute left-[15px] top-[15px]">
