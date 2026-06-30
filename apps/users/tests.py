@@ -1,4 +1,5 @@
 import json
+import uuid
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -9,16 +10,27 @@ from allauth.account.signals import email_confirmed, password_reset, user_signed
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.contrib.messages import constants as message_constants
-from django.core.cache import caches
+from django.core import mail
+from django.core.cache import cache, caches
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 
 from apps.access.models import UserProductAccess
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
 from apps.users.models import PersonalDataProcessingConsentLog
 from apps.users.personal_data_consent import PersonalDataContext, get_client_ip_and_ua, record_personal_data_consent
+
+AUTH_EMAIL_TEST_SETTINGS = {
+    "EMAIL_BACKEND": "django.core.mail.backends.locmem.EmailBackend",
+    "APP_DATA_ENCRYPTION_KEY": "5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    "CELERY_TASK_ALWAYS_EAGER": True,
+    "CELERY_TASK_EAGER_PROPAGATES": True,
+    "SITE_BASE_URL": "http://127.0.0.1:8000",
+}
 
 SOCIALACCOUNT_TEST_PROVIDERS = {
     "google": {
@@ -587,6 +599,123 @@ class AuthLoggingSignalTests(TestCase):
         email_confirmed.send(sender=EmailAddress, request=None, email_address=email_address)
 
         inc_guest_orders_merged_mock.assert_called_once_with(count=1)
+
+
+@override_settings(**AUTH_EMAIL_TEST_SETTINGS, PERSONAL_DATA_POLICY_VERSION=7)
+class AuthEmailOutboxTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        caches["rate_limit"].clear()
+        mail.outbox.clear()
+
+    def test_signup_enqueues_and_sends_confirmation_email(self):
+        email = f"auth-outbox-signup-{uuid.uuid4()}@example.com"
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/_allauth/browser/v1/auth/signup",
+                data=json.dumps(
+                    {
+                        "email": email,
+                        "password": "test-password-123",
+                        "privacy_consent": True,
+                    },
+                ),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 401)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.AUTH_ACCOUNT_EMAIL,
+            recipient=email,
+        )
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(email, mail.outbox[0].to)
+        self.assertIn("подтвердите", mail.outbox[0].subject.lower())
+
+    def test_password_reset_enqueues_and_sends_email(self):
+        user = get_user_model().objects.create_user(
+            email="auth-outbox-reset@example.com",
+            password="test-pass-123",
+        )
+        EmailAddress.objects.create(
+            user=user,
+            email=user.email,
+            primary=True,
+            verified=True,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/_allauth/browser/v1/auth/password/request",
+                data=json.dumps({"email": user.email}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.AUTH_ACCOUNT_EMAIL,
+            recipient=user.email,
+        )
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("сброс", mail.outbox[0].subject.lower())
+
+    def test_send_auth_email_renders_password_reset_template(self):
+        from apps.users.auth_emails import send_auth_email
+
+        user = get_user_model().objects.create_user(
+            email="auth-outbox-direct@example.com",
+            password="test-pass-123",
+        )
+        payload = {
+            "template_prefix": "account/email/password_reset_key",
+            "context": {
+                "user_id": user.id,
+                "password_reset_url": "http://127.0.0.1:8000/?dialog=password-reset&key=test-key",
+                "logo_url": "http://127.0.0.1:8000/static/images/logo.svg",
+            },
+        }
+
+        send_auth_email(
+            template_prefix=payload["template_prefix"],
+            recipient=user.email,
+            payload=payload,
+        )
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(user.email, mail.outbox[0].to)
+        self.assertIn("test-key", mail.outbox[0].body)
+
+
+class AuthEmailPayloadTests(TestCase):
+    def test_serialize_deserialize_roundtrip_restores_user(self):
+        from apps.users.auth_email_payload import (
+            deserialize_auth_email_context,
+            serialize_auth_email_context,
+        )
+
+        user = get_user_model().objects.create_user(
+            email="auth-payload@example.com",
+            password="test-pass-123",
+        )
+        payload = {
+            "template_prefix": "account/email/password_reset_key",
+            "context": serialize_auth_email_context(
+                {
+                    "user": user,
+                    "password_reset_url": "http://127.0.0.1:8000/reset",
+                    "logo_url": "http://127.0.0.1:8000/static/images/logo.svg",
+                },
+            ),
+        }
+
+        context = deserialize_auth_email_context(payload)
+
+        self.assertEqual(context["user"].pk, user.pk)
+        self.assertEqual(context["password_reset_url"], "http://127.0.0.1:8000/reset")
+        self.assertEqual(context["logo_url"], "http://127.0.0.1:8000/static/images/logo.svg")
 
 
 class AccountAdapterMetricsTests(TestCase):

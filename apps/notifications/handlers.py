@@ -26,6 +26,7 @@ from apps.products.emails import (
 )
 from apps.products.models import Review
 from apps.promocodes.models import PromoCode
+from apps.users.auth_emails import send_auth_email
 
 from .models import NotificationOutbox
 from .types import NotificationType
@@ -110,6 +111,14 @@ def _send_review_submitted_admin_telegram_notification(*, outbox: NotificationOu
     send_telegram_message(destination=destination, text=text)
 
 
+def _send_auth_account_email_notification(*, outbox: NotificationOutbox, payload) -> None:
+    send_auth_email(
+        template_prefix=payload["template_prefix"],
+        recipient=outbox.recipient,
+        payload=payload,
+    )
+
+
 NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType], NotificationHandler] = {
     (NotificationOutbox.Channel.EMAIL, NotificationType.GUEST_ORDER_DOWNLOAD):
         _send_guest_order_download_notification,
@@ -131,4 +140,6 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_custom_game_request_admin_telegram_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.REVIEW_SUBMITTED_ADMIN):
         _send_review_submitted_admin_telegram_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.AUTH_ACCOUNT_EMAIL):
+        _send_auth_account_email_notification,
 }

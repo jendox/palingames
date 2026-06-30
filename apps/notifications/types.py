@@ -2,6 +2,7 @@ from enum import StrEnum
 
 
 class NotificationType(StrEnum):
+    AUTH_ACCOUNT_EMAIL = "auth_account_email"
     GUEST_ORDER_DOWNLOAD = "guest_order_download"
     CUSTOM_GAME_DOWNLOAD = "custom_game_download"
     ORDER_REWARD_USER = "order_reward_user"

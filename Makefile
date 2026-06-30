@@ -8,13 +8,13 @@ fix: ## Запуск автоформатера
 	ruff check --fix .
 
 up-develop: ## Запустить окружение
-	$(UV) run docker-compose -f docker-compose.develop.yml up -d
+	$(UV) run docker compose -f docker-compose.develop.yml up -d
 
 down-develop: ## Остановить окружение
-	$(UV) run docker-compose -f docker-compose.develop.yml down
+	$(UV) run docker compose -f docker-compose.develop.yml down
 
 down-v: ## Остановить окружение с очисткой хранилищ
-	$(UV) run docker-compose -f docker-compose.develop.yml down -v
+	$(UV) run docker compose -f docker-compose.develop.yml down -v
 
 makemigrations: ## Сделать миграции
 	$(UV) run python manage.py makemigrations

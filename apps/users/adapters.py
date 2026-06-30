@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 from allauth.account.adapter import DefaultAccountAdapter
 from django.contrib.staticfiles.storage import staticfiles_storage
 
 from apps.access.emails import build_absolute_url
 from apps.core.metrics import inc_auth_password_reset_requested
+from apps.notifications.services import enqueue_email_notification
+from apps.notifications.types import NotificationType
+from apps.users.auth_email_payload import serialize_auth_email_context
 from apps.users.models import PersonalDataProcessingConsentLog
 from apps.users.personal_data_consent import PersonalDataContext, get_client_ip_and_ua, record_personal_data_consent
 
@@ -16,7 +21,16 @@ class AccountAdapter(DefaultAccountAdapter):
             **context,
             "logo_url": build_absolute_url(staticfiles_storage.url("images/logo.svg")),
         }
-        super().send_mail(template_prefix, email, context)
+        user = context.get("user", None)
+        enqueue_email_notification(
+            notification_type=NotificationType.AUTH_ACCOUNT_EMAIL,
+            recipient=email.strip().lower(),
+            payload={
+                "template_prefix": template_prefix,
+                "context": serialize_auth_email_context(context),
+            },
+            target=user,
+        )
 
     def send_password_reset_mail(self, user, email, context):
         inc_auth_password_reset_requested()
@@ -30,7 +44,7 @@ class AccountAdapter(DefaultAccountAdapter):
         message_context=None,
         extra_tags="",
         message=None,
-    ):
+    ) -> None:
         if message_template == self._LOGGED_IN_MESSAGE_TEMPLATE:
             return None
         if request is not None and request.path.startswith(self.HEADLESS_PATH_PREFIX):
