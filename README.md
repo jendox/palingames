@@ -294,6 +294,8 @@ DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingame
 ./.venv/bin/python manage.py test
 ```
 
+`manage.py test` автоматически использует `config.settings_test`: Telegram-переменные из `.env` **не** применяются, чтобы тесты не слали сообщения в prod-чат. Тесты Telegram-пути задают fake token через `override_settings` и мокают `send_telegram_message`.
+
 Для проверки только платежного контура:
 
 ```bash

@@ -162,6 +162,16 @@ class CoreTasksTests(TestCase):
         call_command_mock.assert_called_once_with("clearsessions")
 
 
+class TestSettingsIsolationTests(SimpleTestCase):
+    def test_telegram_credentials_are_cleared_for_test_settings(self):
+        from django.conf import settings
+
+        self.assertEqual(settings.TELEGRAM_BOT_TOKEN, "")
+        self.assertEqual(settings.TELEGRAM_FORUM_CHAT_ID, "")
+        self.assertEqual(settings.TELEGRAM_NOTIFICATIONS_THREAD_ID, 0)
+        self.assertEqual(settings.TELEGRAM_INCIDENTS_THREAD_ID, 0)
+
+
 class SetupPeriodicTasksTests(TestCase):
     def test_ensure_default_periodic_tasks_creates_all_defaults(self):
         results = ensure_default_periodic_tasks()
