@@ -18,6 +18,7 @@ from apps.notifications.destinations import TelegramDestination
 from apps.notifications.services import enqueue_email_notification, enqueue_telegram_notification
 from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
+from apps.payments.models import Invoice
 
 logger = logging.getLogger("apps.custom_games")
 CUSTOM_GAME_DOWNLOAD_TOKEN_BYTES = 32
@@ -144,6 +145,42 @@ def notify_custom_game_request_created(custom_game_request: CustomGameRequest) -
     _notify_customer_email(custom_game_request)
     _notify_admin_email(custom_game_request)
     _notify_admin_telegram(custom_game_request)
+
+
+def notify_custom_game_request_paid_admin(
+    *,
+    custom_game_request: CustomGameRequest,
+    invoice: Invoice,
+) -> None:
+    reason: str | None = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+    if reason is not None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "custom_game_request.paid_admin_telegram.enqueue_skipped",
+            custom_game_request_id=custom_game_request.id,
+            reason=reason,
+        )
+        return
+    try:
+        enqueue_telegram_notification(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_PAID_ADMIN,
+            destination=TelegramDestination.NOTIFICATIONS,
+            payload={
+                "custom_game_request_id": custom_game_request.id,
+                "invoice_id": invoice.id,
+            },
+            target=custom_game_request,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "custom_game_request.paid_admin_telegram.enqueue_failed",
+            exc_info=True,
+            custom_game_request_id=custom_game_request.id,
+            payment_account_no=custom_game_request.payment_account_no,
+        )
 
 
 def hash_custom_game_download_token(token: str) -> str:

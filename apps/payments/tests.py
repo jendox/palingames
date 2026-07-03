@@ -14,6 +14,7 @@ from apps.access.models import GuestAccess, UserProductAccess
 from apps.core.alerts import ThresholdIncidentSpec
 from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
+from apps.notifications.services import decrypt_outbox_payload
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
 from apps.payments.alerts import (
@@ -1128,7 +1129,8 @@ class InvoiceStatusSyncTaskTests(TestCase):
         mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
         mock_get_client.return_value = mock_client
 
-        summary = sync_waiting_invoice_statuses_task()
+        with self.captureOnCommitCallbacks(execute=True):
+            summary = sync_waiting_invoice_statuses_task()
 
         invoice.refresh_from_db()
         custom_game_request.refresh_from_db()
@@ -1141,6 +1143,13 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertFalse(
             NotificationOutbox.objects.filter(
                 notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
+                object_id=custom_game_request.id,
+            ).exists(),
+        )
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_PAID_ADMIN,
+                channel=NotificationOutbox.Channel.TELEGRAM,
                 object_id=custom_game_request.id,
             ).exists(),
         )
@@ -1207,6 +1216,48 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertFalse(
             NotificationOutbox.objects.filter(
                 notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
+                object_id=custom_game_request.id,
+            ).exists(),
+        )
+        paid_admin_outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_PAID_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            object_id=custom_game_request.id,
+        )
+        self.assertEqual(paid_admin_outbox.recipient, "notifications")
+        self.assertEqual(
+            decrypt_outbox_payload(paid_admin_outbox.payload_encrypted)["invoice_id"],
+            invoice.id,
+        )
+        self.assertEqual(paid_admin_outbox.status, NotificationOutbox.Status.SENT)
+
+    def test_mark_custom_game_request_paid_duplicate_does_not_enqueue_paid_admin_telegram(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            contact_name="Анна",
+            contact_email="custom@example.com",
+            subject="Космос",
+            idea="Нужна игра про космос для детей с заданиями на внимание.",
+            audience="Дети 6-8 лет",
+            page_count="8",
+            quoted_price=Decimal("80.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.IN_PROGRESS,
+        )
+        invoice = Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="87654321",
+            status=Invoice.InvoiceStatus.PAID,
+            amount=Decimal("80.00"),
+            currency=933,
+            paid_at=timezone.now(),
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            mark_custom_game_request_paid(custom_game_request, invoice, source="test")
+
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_REQUEST_PAID_ADMIN,
                 object_id=custom_game_request.id,
             ).exists(),
         )

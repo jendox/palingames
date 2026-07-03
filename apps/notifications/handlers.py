@@ -14,11 +14,13 @@ from apps.custom_games.models import CustomGameDownloadToken, CustomGameRequest
 from apps.notifications.destinations import TelegramDestination
 from apps.notifications.formatters import (
     format_custom_game_request_admin_telegram,
+    format_custom_game_request_paid_admin_telegram,
     format_review_submitted_admin_telegram,
 )
 from apps.notifications.telegram import send_telegram_message
 from apps.orders.emails import send_order_reward_user_email
 from apps.orders.models import Order
+from apps.payments.models import Invoice
 from apps.products.emails import (
     send_review_rejected_user_email,
     send_review_reward_user_email,
@@ -104,6 +106,14 @@ def _send_custom_game_request_admin_telegram_notification(*, outbox: Notificatio
     send_telegram_message(destination=destination, text=text)
 
 
+def _send_custom_game_request_paid_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
+    custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
+    destination = TelegramDestination(payload["destination"])
+    invoice = Invoice.objects.get(pk=payload["invoice_id"])
+    text = format_custom_game_request_paid_admin_telegram(custom_game_request=custom_game_request, invoice=invoice)
+    send_telegram_message(destination=destination, text=text)
+
+
 def _send_review_submitted_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
     review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
     destination = TelegramDestination(payload["destination"])
@@ -138,6 +148,8 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_custom_game_request_admin_email_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.CUSTOM_GAME_REQUEST_ADMIN):
         _send_custom_game_request_admin_telegram_notification,
+    (NotificationOutbox.Channel.TELEGRAM, NotificationType.CUSTOM_GAME_REQUEST_PAID_ADMIN):
+        _send_custom_game_request_paid_admin_telegram_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.REVIEW_SUBMITTED_ADMIN):
         _send_review_submitted_admin_telegram_notification,
     (NotificationOutbox.Channel.EMAIL, NotificationType.AUTH_ACCOUNT_EMAIL):

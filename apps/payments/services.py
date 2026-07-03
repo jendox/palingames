@@ -16,6 +16,7 @@ from apps.core.metrics import (
     observe_payment_webhook_processing_duration,
 )
 from apps.custom_games.models import CustomGameRequest
+from apps.custom_games.services import notify_custom_game_request_paid_admin
 from apps.notifications.services import enqueue_notification_outbox
 from apps.orders.models import Order
 from apps.orders.reward_services import issue_order_reward_after_payment
@@ -155,6 +156,12 @@ def mark_custom_game_request_paid(
 
     custom_game_request.status = CustomGameRequest.Status.IN_PROGRESS
     custom_game_request.cancelled_at = None
+
+    if not already_paid_or_in_progress:
+        notify_custom_game_request_paid_admin(
+            custom_game_request=custom_game_request,
+            invoice=invoice,
+        )
 
     if persist:
         invoice.save(
