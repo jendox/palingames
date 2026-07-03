@@ -168,6 +168,26 @@ def create_custom_game_download_token(custom_game_request: CustomGameRequest) ->
     return download_token, raw_token
 
 
+def deliver_custom_game_request(*, custom_game_request: CustomGameRequest) -> CustomGameDownloadToken:
+    if custom_game_request.status != CustomGameRequest.Status.READY:
+        raise ValueError("Custom game request must be ready before delivery")
+    if not custom_game_request.has_active_files:
+        raise ValueError("Custom game request must have an active file before delivery")
+
+    download_token = send_custom_game_download_link(custom_game_request=custom_game_request)
+    custom_game_request.mark_delivered()
+    log_event(
+        logger,
+        logging.INFO,
+        "custom_game_request.delivered",
+        custom_game_request_id=custom_game_request.id,
+        payment_account_no=custom_game_request.payment_account_no,
+        download_token_id=download_token.id,
+        email=custom_game_request.contact_email,
+    )
+    return download_token
+
+
 def send_custom_game_download_link(*, custom_game_request: CustomGameRequest) -> CustomGameDownloadToken:
     active_file = custom_game_request.files.filter(is_active=True).first()
     if active_file is None:

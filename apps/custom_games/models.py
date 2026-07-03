@@ -108,23 +108,59 @@ class CustomGameRequest(TimeStampedModel):
 
     def clean(self):
         super().clean()
+        if self.status == self.Status.WAITING_FOR_PAYMENT:
+            self.validate_waiting_for_payment_fields()
         if self.status == self.Status.IN_PROGRESS:
             self.validate_can_mark_in_progress()
         if self.status == self.Status.READY:
-            self.validate_can_mark_ready()
+            self.validate_ready_status()
+
+    def validate_waiting_for_payment_fields(self) -> None:
+        errors = {}
+        if self.quoted_price is None:
+            errors["quoted_price"] = _("Укажите цену перед переводом заявки в ожидание оплаты.")
+        elif self.quoted_price <= 0:
+            errors["quoted_price"] = _("Цена должна быть больше нуля.")
+        if self.deadline is None:
+            errors["deadline"] = _("Укажите дедлайн перед переводом заявки в ожидание оплаты.")
+        if errors:
+            raise ValidationError(errors)
+
+    def has_paid_invoice(self) -> bool:
+        if not self.pk:
+            return False
+        from apps.payments.models import Invoice
+
+        return Invoice.objects.filter(
+            custom_game_request_id=self.pk,
+            status=Invoice.InvoiceStatus.PAID,
+        ).exists()
 
     def validate_can_mark_in_progress(self) -> None:
         errors = {}
         if self.quoted_price is None:
             errors["quoted_price"] = _("Укажите цену перед переводом заявки в работу.")
+        elif self.quoted_price <= 0:
+            errors["quoted_price"] = _("Цена должна быть больше нуля.")
         if self.deadline is None:
             errors["deadline"] = _("Укажите дедлайн перед переводом заявки в работу.")
+        if not self.has_paid_invoice():
+            errors["status"] = _("Заявку можно перевести в работу только после оплаты.")
         if errors:
             raise ValidationError(errors)
 
     def validate_can_mark_ready(self) -> None:
+        if self.status != self.Status.IN_PROGRESS:
+            raise ValidationError(_("Отметить готовой можно только заявку в работе."))
+        self.validate_ready_status()
+
+    def validate_ready_status(self) -> None:
         if not self.has_active_files:
             raise ValidationError(_("Загрузите хотя бы один активный файл перед переводом заявки в статус готовности."))
+        if self.quoted_price is None:
+            raise ValidationError({"quoted_price": _("Укажите цену перед переводом заявки в статус готовности.")})
+        if self.deadline is None:
+            raise ValidationError({"deadline": _("Укажите дедлайн перед переводом заявки в статус готовности.")})
 
     def mark_in_progress(self, *, save=True) -> None:
         self.validate_can_mark_in_progress()

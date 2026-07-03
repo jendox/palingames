@@ -15,6 +15,7 @@ from apps.custom_games.forms import AUDIENCE_OTHER, AUDIENCE_PRESET_67, CustomGa
 from apps.custom_games.models import CustomGameFile, CustomGameRequest
 from apps.custom_games.services import (
     create_custom_game_download_token,
+    deliver_custom_game_request,
     notify_custom_game_request_created,
     send_custom_game_download_link,
 )
@@ -22,6 +23,7 @@ from apps.notifications.destinations import TelegramDestination
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
+from apps.payments.models import Invoice
 from apps.products.models import Currency
 from apps.products.services.s3 import ProductFileDownloadUrlError, upload_custom_game_file
 
@@ -77,33 +79,65 @@ class CustomGameRequestModelTests(TestCase):
             timezone.localtime(custom_game_request.created_at).strftime("%d%m%y"),
         )
 
-    def test_mark_in_progress_requires_price_and_deadline(self):
+    def test_mark_in_progress_requires_paid_invoice(self):
         custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
+        custom_game_request.quoted_price = Decimal("100.00")
+        custom_game_request.currency = Currency.BYN
+        custom_game_request.deadline = timezone.localdate() + timedelta(days=7)
 
         with self.assertRaises(ValidationError):
             custom_game_request.mark_in_progress()
 
-        custom_game_request.quoted_price = Decimal("100.00")
-        custom_game_request.currency = Currency.BYN
-        custom_game_request.deadline = timezone.localdate() + timedelta(days=7)
+        Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="12345678",
+            status=Invoice.InvoiceStatus.PAID,
+            amount=Decimal("100.00"),
+            currency=Currency.BYN,
+            paid_at=timezone.now(),
+        )
         custom_game_request.mark_in_progress()
 
         custom_game_request.refresh_from_db()
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.IN_PROGRESS)
 
-    def test_in_progress_status_requires_price_and_deadline_on_model_validation(self):
+    def test_in_progress_status_requires_paid_invoice_on_model_validation(self):
         custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
+        custom_game_request.quoted_price = Decimal("100.00")
+        custom_game_request.deadline = timezone.localdate() + timedelta(days=7)
         custom_game_request.status = CustomGameRequest.Status.IN_PROGRESS
 
         with self.assertRaises(ValidationError) as exc:
             custom_game_request.full_clean()
 
-        self.assertIn("quoted_price", exc.exception.message_dict)
-        self.assertIn("deadline", exc.exception.message_dict)
+        self.assertIn("status", exc.exception.message_dict)
 
-        custom_game_request.quoted_price = Decimal("100.00")
-        custom_game_request.deadline = timezone.localdate() + timedelta(days=7)
+        Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="12345678",
+            status=Invoice.InvoiceStatus.PAID,
+            amount=Decimal("100.00"),
+            currency=Currency.BYN,
+            paid_at=timezone.now(),
+        )
         custom_game_request.full_clean()
+
+    def test_mark_ready_requires_in_progress_status(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.NEW,
+        )
+        CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/request.zip",
+            original_filename="request.zip",
+            size_bytes=100,
+        )
+
+        with self.assertRaises(ValidationError):
+            custom_game_request.mark_ready()
 
     def test_mark_ready_requires_active_file(self):
         custom_game_request = CustomGameRequest.objects.create(
@@ -146,6 +180,140 @@ class CustomGameRequestModelTests(TestCase):
             size_bytes=100,
         )
         custom_game_request.full_clean()
+
+
+class CustomGameDeliveryTests(TestCase):
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="https://example.com",
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_deliver_custom_game_request_sends_link_and_marks_delivered(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.READY,
+        )
+        CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/request.zip",
+            original_filename="request.zip",
+            size_bytes=100,
+        )
+
+        deliver_custom_game_request(custom_game_request=custom_game_request)
+        custom_game_request.refresh_from_db()
+
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.DELIVERED)
+        self.assertIsNotNone(custom_game_request.delivered_at)
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
+                object_id=custom_game_request.id,
+            ).exists(),
+        )
+
+
+@override_settings(CUSTOM_GAME_ADMIN_EMAILS=["ops@example.com"])
+class CustomGameRequestAdminActionsTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = get_user_model().objects.create_user(
+            email="staff@example.com",
+            password="staff-pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+
+    def test_create_invoice_button_available_for_new_request_with_price_and_deadline(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+        )
+
+        self.client.force_login(self.staff)
+        with patch("apps.custom_games.admin.enqueue_invoice_creation") as enqueue:
+            response = self.client.get(
+                reverse("admin:custom_games_customgamerequest_create_invoice", args=[custom_game_request.pk]),
+            )
+
+        enqueue.assert_called_once_with(custom_game_request.id, payment_target="custom_game_request")
+        self.assertEqual(response.status_code, 302)
+
+    def test_create_invoice_blocked_without_deadline(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+        )
+
+        self.client.force_login(self.staff)
+        with patch("apps.custom_games.admin.enqueue_invoice_creation") as enqueue:
+            response = self.client.get(
+                reverse("admin:custom_games_customgamerequest_create_invoice", args=[custom_game_request.pk]),
+                follow=True,
+            )
+
+        enqueue.assert_not_called()
+        self.assertContains(response, "Инвойс можно создать только после указания цены и дедлайна")
+
+    def test_create_invoice_blocked_when_pending_invoice_exists(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+        )
+        Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="12345678",
+            status=Invoice.InvoiceStatus.PENDING,
+            amount=Decimal("100.00"),
+            currency=Currency.BYN,
+        )
+
+        self.client.force_login(self.staff)
+        with patch("apps.custom_games.admin.enqueue_invoice_creation") as enqueue:
+            response = self.client.get(
+                reverse("admin:custom_games_customgamerequest_create_invoice", args=[custom_game_request.pk]),
+                follow=True,
+            )
+
+        enqueue.assert_not_called()
+        self.assertContains(response, "Инвойс можно создать только после указания цены и дедлайна")
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        SITE_BASE_URL="https://example.com",
+        APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    )
+    def test_deliver_view_marks_request_delivered(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.READY,
+        )
+        CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/request.zip",
+            original_filename="request.zip",
+            size_bytes=100,
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("admin:custom_games_customgamerequest_deliver", args=[custom_game_request.pk]),
+        )
+
+        custom_game_request.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.DELIVERED)
+        self.assertIsNotNone(custom_game_request.delivered_at)
 
 
 class CustomGameS3ServiceTests(TestCase):

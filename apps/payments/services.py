@@ -16,7 +16,6 @@ from apps.core.metrics import (
     observe_payment_webhook_processing_duration,
 )
 from apps.custom_games.models import CustomGameRequest
-from apps.custom_games.services import send_custom_game_download_link
 from apps.notifications.services import enqueue_notification_outbox
 from apps.orders.models import Order
 from apps.orders.reward_services import issue_order_reward_after_payment
@@ -25,40 +24,6 @@ from libs.payments.models import InvoiceStatus
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
-
-
-def _send_custom_game_download_link_safely(
-    custom_game_request: CustomGameRequest,
-    invoice: Invoice,
-    source: str,
-) -> None:
-    try:
-        download_token = send_custom_game_download_link(custom_game_request=custom_game_request)
-    except Exception:
-        log_event(
-            logger,
-            logging.ERROR,
-            "custom_game_request.download_email.failed",
-            exc_info=True,
-            source=source,
-            custom_game_request_id=custom_game_request.id,
-            custom_game_request_public_id=str(custom_game_request.public_id),
-            invoice_id=invoice.id,
-            provider_invoice_no=invoice.provider_invoice_no,
-        )
-        return
-
-    log_event(
-        logger,
-        logging.INFO,
-        "custom_game_request.download_email.queued",
-        source=source,
-        custom_game_request_id=custom_game_request.id,
-        custom_game_request_public_id=str(custom_game_request.public_id),
-        invoice_id=invoice.id,
-        provider_invoice_no=invoice.provider_invoice_no,
-        download_token_id=download_token.id,
-    )
 
 
 def map_invoice_status(provider_status: int | None) -> str | None:
@@ -178,14 +143,17 @@ def mark_custom_game_request_paid(
     persist: bool = True,
 ) -> None:
     paid_at = paid_at or timezone.now()
-    already_delivered = custom_game_request.status == CustomGameRequest.Status.DELIVERED
+    already_paid_or_in_progress = custom_game_request.status in {
+        CustomGameRequest.Status.IN_PROGRESS,
+        CustomGameRequest.Status.READY,
+        CustomGameRequest.Status.DELIVERED,
+    }
 
     invoice.status = Invoice.InvoiceStatus.PAID
     invoice.paid_at = paid_at
     invoice.cancelled_at = None
 
-    custom_game_request.status = CustomGameRequest.Status.DELIVERED
-    custom_game_request.delivered_at = paid_at
+    custom_game_request.status = CustomGameRequest.Status.IN_PROGRESS
     custom_game_request.cancelled_at = None
 
     if persist:
@@ -200,21 +168,15 @@ def mark_custom_game_request_paid(
         custom_game_request.save(
             update_fields=[
                 "status",
-                "delivered_at",
                 "cancelled_at",
                 "updated_at",
             ],
         )
 
-    if not already_delivered:
-        transaction.on_commit(
-            lambda: _send_custom_game_download_link_safely(custom_game_request, invoice, source),
-        )
-
     log_event(
         logger,
         logging.INFO,
-        "custom_game_request.paid.duplicate" if already_delivered else "custom_game_request.paid",
+        "custom_game_request.paid.duplicate" if already_paid_or_in_progress else "custom_game_request.paid",
         source=source,
         custom_game_request_id=custom_game_request.id,
         custom_game_request_public_id=str(custom_game_request.public_id),

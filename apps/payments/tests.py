@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -7,6 +8,7 @@ from django.core import mail
 from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.access.models import GuestAccess, UserProductAccess
 from apps.core.alerts import ThresholdIncidentSpec
@@ -19,6 +21,7 @@ from apps.payments.alerts import (
     record_payment_webhook_failure_incident,
 )
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
+from apps.payments.services import mark_custom_game_request_paid
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
@@ -1083,6 +1086,7 @@ class InvoiceStatusSyncTaskTests(TestCase):
             audience="Дети 6-8 лет",
             page_count="8",
             quoted_price=Decimal("80.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
             status=CustomGameRequest.Status.WAITING_FOR_PAYMENT,
             payment_account_no=f"PG250326{account_suffix}",
         )
@@ -1118,7 +1122,7 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertTrue(UserProductAccess.objects.filter(user=self.user, product=self.product, order=order).exists())
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
-    def test_sync_waiting_invoice_statuses_marks_custom_game_request_delivered(self, mock_get_client):
+    def test_sync_waiting_invoice_statuses_marks_custom_game_request_in_progress(self, mock_get_client):
         custom_game_request, invoice = self._create_waiting_custom_game_invoice(account_suffix="56789012")
         mock_client = Mock()
         mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
@@ -1132,8 +1136,14 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(summary["selected"], 1)
         self.assertEqual(summary["paid"], 1)
         self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
-        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.DELIVERED)
-        self.assertIsNotNone(custom_game_request.delivered_at)
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.IN_PROGRESS)
+        self.assertIsNone(custom_game_request.delivered_at)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
+                object_id=custom_game_request.id,
+            ).exists(),
+        )
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_create_invoice_task_creates_custom_game_request_invoice(self, mock_get_client):
@@ -1145,7 +1155,8 @@ class InvoiceStatusSyncTaskTests(TestCase):
             audience="Дети 6-8 лет",
             page_count="8",
             quoted_price=Decimal("80.00"),
-            status=CustomGameRequest.Status.READY,
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.NEW,
         )
         mock_client = Mock()
         mock_client.create_invoice.return_value = CreateInvoiceResult(
@@ -1161,6 +1172,80 @@ class InvoiceStatusSyncTaskTests(TestCase):
 
         self.assertEqual(invoice.provider_invoice_no, "87654321")
         self.assertEqual(invoice.amount, Decimal("80.00"))
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
+        mock_client.create_invoice.assert_called_once()
+
+    def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(self):
+        custom_game_request = CustomGameRequest.objects.create(
+            contact_name="Анна",
+            contact_email="custom@example.com",
+            subject="Космос",
+            idea="Нужна игра про космос для детей с заданиями на внимание.",
+            audience="Дети 6-8 лет",
+            page_count="8",
+            quoted_price=Decimal("80.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.WAITING_FOR_PAYMENT,
+        )
+        invoice = Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="87654321",
+            status=Invoice.InvoiceStatus.PENDING,
+            amount=Decimal("80.00"),
+            currency=933,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            mark_custom_game_request_paid(custom_game_request, invoice, source="test")
+
+        custom_game_request.refresh_from_db()
+        invoice.refresh_from_db()
+
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(custom_game_request.status, CustomGameRequest.Status.IN_PROGRESS)
+        self.assertIsNone(custom_game_request.delivered_at)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.CUSTOM_GAME_DOWNLOAD,
+                object_id=custom_game_request.id,
+            ).exists(),
+        )
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_create_invoice_task_reuses_invoice_after_payment_expired(self, mock_get_client):
+        custom_game_request = CustomGameRequest.objects.create(
+            contact_name="Анна",
+            contact_email="custom@example.com",
+            subject="Космос",
+            idea="Нужна игра про космос для детей с заданиями на внимание.",
+            audience="Дети 6-8 лет",
+            page_count="8",
+            quoted_price=Decimal("80.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.PAYMENT_EXPIRED,
+        )
+        existing_invoice = Invoice.objects.create(
+            custom_game_request=custom_game_request,
+            provider_invoice_no="11111111",
+            status=Invoice.InvoiceStatus.EXPIRED,
+            amount=Decimal("80.00"),
+            currency=933,
+        )
+        mock_client = Mock()
+        mock_client.create_invoice.return_value = CreateInvoiceResult(
+            invoice_no=22222222,
+            invoice_url="https://example.com/pay/22222222",
+        )
+        mock_get_client.return_value = mock_client
+
+        create_invoice_task(custom_game_request.id, "custom_game_request")
+
+        invoice = Invoice.objects.get(custom_game_request=custom_game_request)
+        custom_game_request.refresh_from_db()
+
+        self.assertEqual(invoice.id, existing_invoice.id)
+        self.assertEqual(invoice.provider_invoice_no, "22222222")
+        self.assertEqual(invoice.status, Invoice.InvoiceStatus.PENDING)
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
         mock_client.create_invoice.assert_called_once()
 

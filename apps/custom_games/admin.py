@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.admin_site import admin_site
 from apps.custom_games.forms import CustomGameFileAdminForm
 from apps.custom_games.models import CustomGameDownloadToken, CustomGameFile, CustomGameRequest
-from apps.custom_games.services import send_custom_game_download_link
+from apps.custom_games.services import deliver_custom_game_request, send_custom_game_download_link
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.payments.models import Invoice
 from apps.products.services.s3 import delete_product_file, upload_custom_game_file
@@ -85,7 +85,7 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         "page_count",
     )
     inlines = (CustomGameInvoiceInline,)
-    actions = ("mark_in_progress", "mark_ready")
+    actions = ("mark_ready",)
     save_on_top = True
 
     fieldsets = (
@@ -154,6 +154,11 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
                 name="custom_games_customgamerequest_create_invoice",
             ),
             path(
+                "<int:object_id>/deliver/",
+                self.admin_site.admin_view(self.deliver_view),
+                name="custom_games_customgamerequest_deliver",
+            ),
+            path(
                 "<int:object_id>/resend-download-email/",
                 self.admin_site.admin_view(self.resend_download_email_view),
                 name="custom_games_customgamerequest_resend_download_email",
@@ -174,6 +179,13 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
                     _("Создать инвойс"),
                 ),
             )
+        if self._can_show_deliver_button(obj):
+            buttons.append(
+                (
+                    reverse("admin:custom_games_customgamerequest_deliver", args=[obj.pk]),
+                    _("Отправить ссылку клиенту"),
+                ),
+            )
         if self._can_show_resend_download_email_button(obj):
             buttons.append(
                 (
@@ -183,7 +195,7 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
             )
 
         if not buttons:
-            return "Нет доступных действий."
+            return self._admin_actions_hint(obj)
 
         return format_html_join(
             " ",
@@ -192,16 +204,53 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         )
 
     def _can_show_create_invoice_button(self, obj) -> bool:
-        return (
-            obj.status == CustomGameRequest.Status.READY
-            and not Invoice.objects.filter(
-                custom_game_request=obj,
-                status=Invoice.InvoiceStatus.PENDING,
-            ).exists()
-        )
+        if obj.status not in {
+            CustomGameRequest.Status.NEW,
+            CustomGameRequest.Status.PAYMENT_EXPIRED,
+        }:
+            return False
+        if obj.quoted_price is None or obj.quoted_price <= 0 or obj.deadline is None:
+            return False
+        return not Invoice.objects.filter(
+            custom_game_request=obj,
+            status__in={
+                Invoice.InvoiceStatus.PENDING,
+                Invoice.InvoiceStatus.PAID,
+            },
+        ).exists()
+
+    def _can_show_deliver_button(self, obj) -> bool:
+        return obj.status == CustomGameRequest.Status.READY and obj.files.filter(is_active=True).exists()
 
     def _can_show_resend_download_email_button(self, obj) -> bool:
         return obj.status == CustomGameRequest.Status.DELIVERED and obj.files.filter(is_active=True).exists()
+
+    def _invoice_creation_hint(self, obj) -> str:
+        if obj.quoted_price is None or obj.quoted_price <= 0 or obj.deadline is None:
+            return "Укажите цену и дедлайн для создания инвойса."
+        if Invoice.objects.filter(
+            custom_game_request=obj,
+            status__in={Invoice.InvoiceStatus.PENDING, Invoice.InvoiceStatus.PAID},
+        ).exists():
+            return "Для заявки уже есть активный или оплаченный инвойс."
+        return "Нет доступных действий."
+
+    def _admin_actions_hint(self, obj) -> str:
+        status_hints = {
+            CustomGameRequest.Status.WAITING_FOR_PAYMENT: "Ожидаем оплату.",
+            CustomGameRequest.Status.READY: "Используйте действие «Отправить ссылку клиенту» для выдачи материала.",
+            CustomGameRequest.Status.DELIVERED: "Заявка передана клиенту.",
+        }
+        if obj.status in status_hints:
+            return status_hints[obj.status]
+        if obj.status == CustomGameRequest.Status.NEW:
+            return self._invoice_creation_hint(obj)
+        if obj.status == CustomGameRequest.Status.PAYMENT_EXPIRED:
+            if obj.quoted_price is None or obj.quoted_price <= 0 or obj.deadline is None:
+                return "Укажите цену и дедлайн для повторного создания инвойса."
+        if obj.status == CustomGameRequest.Status.IN_PROGRESS and not obj.files.filter(is_active=True).exists():
+            return "Загрузите активный файл, чтобы отметить готовой."
+        return "Нет доступных действий."
 
     def create_invoice_view(self, request, object_id: int):
         custom_game_request = self.get_object(request, object_id)
@@ -214,12 +263,39 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
         if not self._can_show_create_invoice_button(custom_game_request):
             self.message_user(
                 request,
-                "Инвойс можно создать только для готовой заявки без инвойса в ожидании оплаты.",
+                (
+                    "Инвойс можно создать только после указания цены и дедлайна, "
+                    "если нет активного или оплаченного инвойса."
+                ),
                 messages.ERROR,
             )
         else:
             enqueue_invoice_creation(custom_game_request.id, payment_target="custom_game_request")
             self.message_user(request, "Создание инвойса поставлено в очередь.", messages.SUCCESS)
+
+        return self._redirect_to_change(custom_game_request.pk)
+
+    def deliver_view(self, request, object_id: int):
+        custom_game_request = self.get_object(request, object_id)
+        if custom_game_request is None:
+            self.message_user(request, "Заявка не найдена.", messages.ERROR)
+            return self._redirect_to_changelist()
+        if not self.has_change_permission(request, custom_game_request):
+            raise PermissionDenied
+
+        if not self._can_show_deliver_button(custom_game_request):
+            self.message_user(
+                request,
+                "Ссылку можно отправить только готовой заявке с активным файлом.",
+                messages.ERROR,
+            )
+        else:
+            try:
+                deliver_custom_game_request(custom_game_request=custom_game_request)
+            except ValueError as exc:
+                self.message_user(request, str(exc), messages.ERROR)
+            else:
+                self.message_user(request, "Ссылка отправлена клиенту, заявка отмечена переданной.", messages.SUCCESS)
 
         return self._redirect_to_change(custom_game_request.pk)
 
@@ -285,10 +361,6 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
             rows,
             add_url,
         )
-
-    @admin.action(description=_("Перевести в работу"))
-    def mark_in_progress(self, request, queryset):
-        self._run_transition(request, queryset, "mark_in_progress", _("переведены в работу"))
 
     @admin.action(description=_("Отметить готовыми"))
     def mark_ready(self, request, queryset):

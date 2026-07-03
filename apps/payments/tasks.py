@@ -177,8 +177,18 @@ def _get_locked_target_for_invoice_creation(target_id: int, payment_target: str)
     if should_skip:
         raise InvoiceCreationSkipped(target=target, invoice=invoice)
 
-    if isinstance(target, CustomGameRequest) and target.quoted_price is None:
-        raise ValueError("Custom game request quoted_price is required to create an invoice")
+    if isinstance(target, CustomGameRequest):
+        if target.quoted_price is None:
+            raise ValueError("Custom game request quoted_price is required to create an invoice")
+        if target.quoted_price <= 0:
+            raise ValueError("Custom game request quoted_price must be greater than zero to create an invoice")
+        if target.deadline is None:
+            raise ValueError("Custom game request deadline is required to create an invoice")
+        if target.status not in {
+            CustomGameRequest.Status.NEW,
+            CustomGameRequest.Status.PAYMENT_EXPIRED,
+        }:
+            raise ValueError("Custom game request status does not allow invoice creation")
     return target
 
 
@@ -218,8 +228,7 @@ def _mark_target_waiting_for_payment(target: InvoiceTarget) -> None:
         CustomGameRequest.objects.filter(
             pk=target.id,
             status__in=[
-                CustomGameRequest.Status.IN_PROGRESS,
-                CustomGameRequest.Status.READY,
+                CustomGameRequest.Status.NEW,
                 CustomGameRequest.Status.PAYMENT_EXPIRED,
             ],
         ).update(status=CustomGameRequest.Status.WAITING_FOR_PAYMENT)
