@@ -31,7 +31,7 @@
 - приватное хранение product files в S3-compatible storage;
 - загрузка файлов из Django Admin напрямую в S3;
 - presigned download URLs для скачивания архивов;
-- guest email outbox с шифрованным payload и отправкой через Celery;
+- unified `NotificationOutbox` (email/Telegram) с шифрованным payload и отправкой через Celery;
 - structured JSON logging.
 - incident alerts для payment, fulfillment, notification delivery и storage failures.
 
@@ -45,8 +45,9 @@
 - `apps/cart` — корзина для guest/user, merge, cart page.
 - `apps/orders` — checkout, заказы и order items.
 - `apps/payments` — инвойсы, webhook/payment processing, orchestration after successful payment.
-- `apps/access` — доступ к оплаченным продуктам, guest download grants, guest email outbox.
-- `apps/core` — logging, middleware, shared infra.
+- `apps/access` — доступ к оплаченным продуктам и guest download grants.
+- `apps/notifications` — `NotificationOutbox`, handlers, Telegram/email delivery.
+- `apps/core` — logging, middleware, shared infra, incident alerts.
 
 ### Основные доменные сущности
 
@@ -56,7 +57,7 @@
 - `Invoice` / `PaymentEvent` — платежная часть.
 - `UserProductAccess` — постоянный доступ авторизованного пользователя к продукту.
 - `GuestAccess` — ограниченный по времени и количеству скачиваний доступ для guest order.
-- `GuestAccessEmailOutbox` — зашифрованная очередь писем с guest download links.
+- `NotificationOutbox` — зашифрованная очередь исходящих уведомлений (email, Telegram): guest download links, auth, custom game, admin alerts.
 
 ## Как работает выдача файлов
 
@@ -82,7 +83,7 @@ TTL для таких ссылок задаётся через `S3_PRESIGNED_EXP
 
 После успешной оплаты:
 - для каждого товара создаётся `GuestAccess`;
-- создаётся `GuestAccessEmailOutbox` с зашифрованным payload;
+- в `NotificationOutbox` ставится email-уведомление (`guest_order_download`) с зашифрованным payload;
 - Celery task отправляет письмо со списком ссылок.
 
 Письмо содержит не S3 URL, а backend links вида:
@@ -464,23 +465,39 @@ S3_USE_SSL=False
 
 ## Celery и периодические задачи
 
-### Guest email outbox
+### NotificationOutbox
 
-Task отправки писем:
+Все исходящие email и Telegram идут через [`NotificationOutbox`](apps/notifications/models.py): auth, guest download links, custom game, admin/review уведомления.
+
+Task отправки:
+
+```text
+apps.notifications.tasks.send_notification_outbox_task
+```
+
+В Celery broker уходит только `outbox_id`. Чувствительные данные (например guest tokens) — только внутри зашифрованного payload в БД (`APP_DATA_ENCRYPTION_KEY`).
+
+Legacy alias (тот же outbox-путь):
 
 ```text
 apps.access.tasks.send_guest_access_email_outbox_task
 ```
 
-В Celery broker уходит только `outbox_id`. Raw tokens остаются только внутри зашифрованного payload в БД.
+### Cleanup старых outbox-записей
 
-### Cleanup старых outbox записей
+Task очистки (рекомендуется в Beat):
 
-Task очистки:
+```text
+apps.notifications.tasks.cleanup_notification_outbox_task
+```
+
+Legacy alias:
 
 ```text
 apps.access.tasks.cleanup_guest_access_email_outbox_task
 ```
+
+Retention настраивается через `GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS` и `GUEST_ACCESS_EMAIL_OUTBOX_FAILED_RETENTION_DAYS` (имена env сохранены для совместимости).
 
 ### Периодическая синхронизация статусов инвойсов
 
@@ -496,15 +513,17 @@ apps.payments.tasks.sync_waiting_invoice_statuses_task
 - ограничивает число запросов к Express Pay через `PAYMENTS_STATUS_SYNC_BATCH_SIZE`;
 - обновляет локальные статусы заказа и инвойса тем же доменным кодом, что и webhook-обработка.
 
-### Как добавить periodic tasks в Celery Beat через Django Admin
+### Как завести periodic tasks
 
-Предполагается, что `Celery worker` и `Celery beat` уже запущены.
+**Production (рекомендуется):** после `migrate` один раз и при каждом деплое:
 
-В админке открыть:
-
-```text
-Periodic tasks -> Periodic tasks -> Add periodic task
+```bash
+python manage.py setup_periodic_tasks
 ```
+
+Создаёт три задачи в `django-celery-beat`: cleanup notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин). Подробнее — [deploy/README.md](deploy/README.md).
+
+**Вручную через Django Admin** (если нужно изменить расписание): Periodic tasks → Add periodic task.
 
 Рекомендуемые задачи:
 
@@ -512,15 +531,15 @@ Periodic tasks -> Periodic tasks -> Add periodic task
 
 ```text
 Task (registered): apps.core.tasks.clear_expired_sessions_task
-Schedule: crontab, например каждый день ночью
+Schedule: crontab, например каждый день в 03:40
 Enabled: yes
 ```
 
-2. Очистка старых записей guest email outbox
+2. Очистка старых записей NotificationOutbox
 
 ```text
-Task (registered): apps.access.tasks.cleanup_guest_access_email_outbox_task
-Schedule: crontab, например каждый день ночью
+Task (registered): apps.notifications.tasks.cleanup_notification_outbox_task
+Schedule: crontab, например каждый день в 03:20
 Enabled: yes
 ```
 
@@ -539,8 +558,8 @@ Enabled: yes
 
 Такой режим даёт верхнюю границу около 25 запросов к Express Pay за один запуск beat-задачи и не позволяет бесконечно перепроверять один и тот же инвойс.
 
-Рекомендуется создать periodic task в Django Admin через `django-celery-beat`:
-- task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`
+Рекомендуется создать periodic task в Django Admin (или через `setup_periodic_tasks`):
+- task: `apps.notifications.tasks.cleanup_notification_outbox_task`
 - `Crontab`:
   - `Minute`: `20`
   - `Hour`: `3`
@@ -579,21 +598,13 @@ apps.core.tasks.clear_expired_sessions_task
 
 ### Рекомендуемый набор periodic tasks
 
-Минимально стоит завести две задачи:
-- `apps.access.tasks.cleanup_guest_access_email_outbox_task`
-- `apps.core.tasks.clear_expired_sessions_task`
+Минимально — три задачи (создаёт `setup_periodic_tasks`):
 
-Рекомендуемый набор в админке `django-celery-beat`:
+1. `apps.notifications.tasks.cleanup_notification_outbox_task` — `03:20` ежедневно  
+2. `apps.core.tasks.clear_expired_sessions_task` — `03:40` ежедневно  
+3. `apps.payments.tasks.sync_waiting_invoice_statuses_task` — каждые 5 минут  
 
-1. `Cleanup guest access email outbox`
-- task: `apps.access.tasks.cleanup_guest_access_email_outbox_task`
-- `03:20` ежедневно
-
-2. `Clear expired Django sessions`
-- task: `apps.core.tasks.clear_expired_sessions_task`
-- `03:40` ежедневно
-
-Обе задачи лучше разводить по времени на 10-30 минут, чтобы housekeeping не стартовал одновременно без необходимости.
+Housekeeping-задачи лучше разводить по времени на 10–30 минут.
 
 ## Полезные команды
 

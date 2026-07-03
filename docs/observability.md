@@ -314,6 +314,8 @@ Sentry не использовать как прямой Telegram incident trans
 
 ## 13. Next Useful Improvements
 
+**MVP decision (2026-07-04):** paging через **Telegram app incidents**; Prometheus rules — для Grafana/trends; Alertmanager не подключаем до post-MVP (см. [deploy/README.md](../deploy/README.md)).
+
 Логичные следующие шаги:
 - добавить docs/runbooks под каждый новый incident key;
 - решить отдельно recovery model для `payments.webhook.failures`;
