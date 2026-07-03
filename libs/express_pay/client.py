@@ -36,21 +36,21 @@ from .models import (
 
 class ExpressPayClient(PaymentProvider):
     def __init__(self, config: ExpressPayConfig, client: httpx.Client | None = None):
-        self.config = config
+        self._config = config
         self._client = client or httpx.Client(
             base_url=self.base_url,
-            timeout=self.config.timeout_seconds,
+            timeout=self._config.timeout_seconds,
             headers={"Accept": "application/json"},
         )
 
     @property
     def base_url(self) -> str:
-        host = "sandbox-api.express-pay.by" if self.config.is_test else "api.express-pay.by"
+        host = "sandbox-api.express-pay.by" if self._config.is_test else "api.express-pay.by"
         return f"https://{host}/v1"
 
     def create_invoice(self, request: CreateInvoiceRequest) -> CreateInvoiceResult:
         payload = {
-            "Token": self.config.token,
+            "Token": self._config.token,
             "AccountNo": request.account_no,
             "Amount": self._format_amount(request.amount),
             "Currency": str(request.currency),
@@ -74,7 +74,7 @@ class ExpressPayClient(PaymentProvider):
         payload["IsAddressEditable"] = "1" if request.is_address_editable else "0"
         payload["IsAmountEditable"] = "1" if request.is_amount_editable else "0"
 
-        if self.config.use_signature:
+        if self._config.use_signature:
             payload["signature"] = self._compute_signature(
                 payload,
                 mapping=[
@@ -109,11 +109,11 @@ class ExpressPayClient(PaymentProvider):
 
     def get_invoice(self, request: GetInvoiceRequest) -> InvoiceDetails:
         params = {
-            "Token": self.config.token,
+            "Token": self._config.token,
             "InvoiceNo": str(request.invoice_no),
             "ReturnInvoiceUrl": "1" if request.return_invoice_url else "0",
         }
-        if self.config.use_signature:
+        if self._config.use_signature:
             params["signature"] = self._compute_signature(
                 params,
                 mapping=["token", "invoiceno", "returninvoiceurl"],
@@ -138,10 +138,10 @@ class ExpressPayClient(PaymentProvider):
 
     def get_invoice_status(self, request: InvoiceStatusRequest) -> InvoiceStatusResult:
         params = {
-            "Token": self.config.token,
+            "Token": self._config.token,
             "InvoiceNo": str(request.invoice_no),
         }
-        if self.config.use_signature:
+        if self._config.use_signature:
             params["signature"] = self._compute_signature(
                 params,
                 mapping=["token", "invoiceno"],
@@ -152,10 +152,10 @@ class ExpressPayClient(PaymentProvider):
 
     def cancel_invoice(self, request: CancelInvoiceRequest) -> None:
         params = {
-            "Token": self.config.token,
+            "Token": self._config.token,
             "InvoiceNo": str(request.invoice_no),
         }
-        if self.config.use_signature:
+        if self._config.use_signature:
             params["signature"] = self._compute_signature(
                 params,
                 mapping=["token", "id"],
@@ -175,7 +175,7 @@ class ExpressPayClient(PaymentProvider):
         return ExpressPayWebhookNotification.model_validate(payload)
 
     def _request(self, method: str, path: str, params: dict[str, Any]) -> dict[str, Any]:
-        request_params = {"token": self.config.token}
+        request_params = {"token": self._config.token}
         request_kwargs: dict[str, Any] = {"params": request_params}
 
         if method in {"GET", "DELETE"}:
@@ -201,7 +201,7 @@ class ExpressPayClient(PaymentProvider):
 
     def _compute_raw_signature(self, payload: str) -> str:
         digest = hmac.new(
-            self.config.secret_word.encode("utf-8"),
+            self._config.secret_word.encode("utf-8"),
             payload.encode("utf-8"),
             hashlib.sha1,
         ).hexdigest()

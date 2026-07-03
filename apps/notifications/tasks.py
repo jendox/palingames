@@ -1,6 +1,6 @@
 import logging
 
-from celery import shared_task
+from celery import Task, shared_task
 
 from apps.core.logging import log_event
 
@@ -16,7 +16,7 @@ logger = logging.getLogger("apps.notifications.tasks")
     retry_jitter=True,
     retry_kwargs={"max_retries": 5},
 )
-def send_notification_outbox_task(self, outbox_id: int) -> None:
+def send_notification_outbox_task(self: Task, outbox_id: int) -> None:
     log_event(
         logger,
         logging.INFO,
@@ -28,7 +28,7 @@ def send_notification_outbox_task(self, outbox_id: int) -> None:
 
 
 @shared_task(bind=True)
-def cleanup_notification_outbox_task(self) -> dict[str, int]:
+def cleanup_notification_outbox_task(self: Task) -> dict[str, int]:
     log_event(
         logger,
         logging.INFO,

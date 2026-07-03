@@ -87,7 +87,7 @@ def get_express_pay_request_client() -> ExpressPayClient:
     )
 
 
-def _build_invoice_expiration(now) -> tuple[str, datetime]:
+def _build_invoice_expiration(now: datetime) -> tuple[str, datetime]:
     expires_at = now + _invoice_lifetime()
     local_expires_at = expires_at.astimezone(timezone.get_current_timezone())
     return local_expires_at.strftime("%Y%m%d%H%M"), expires_at

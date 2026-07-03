@@ -11,3 +11,4 @@ class NotificationType(StrEnum):
     REVIEW_SUBMITTED_ADMIN = "review_submitted_admin"
     CUSTOM_GAME_REQUEST_CUSTOMER = "custom_game_request_customer"
     CUSTOM_GAME_REQUEST_ADMIN = "custom_game_request_admin"
+    INVOICE_CREATED_USER = "invoice_created_user"
