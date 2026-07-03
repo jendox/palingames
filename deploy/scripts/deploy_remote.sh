@@ -9,3 +9,4 @@ cd "$(dirname "$0")/.."
 docker compose -f docker-compose.prod.yml pull web celery-worker celery-beat
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec -T web python manage.py migrate --noinput
+docker compose -f docker-compose.prod.yml exec -T web python manage.py setup_periodic_tasks

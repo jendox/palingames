@@ -18,7 +18,10 @@
      `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`
 7. Миграции:  
    `docker compose -f docker-compose.prod.yml exec web python manage.py migrate --noinput`
-8. Суперпользователь (один раз):  
+8. Periodic tasks (один раз после migrate и при каждом деплое — идемпотентно):  
+   `docker compose -f docker-compose.prod.yml exec web python manage.py setup_periodic_tasks`  
+   Создаёт три задачи в `django-celery-beat`: очистка notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин). Расписание можно править в админке.
+9. Суперпользователь (один раз):  
    `docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser`
 
 ## Метрики и доступ
@@ -58,3 +61,49 @@ docker compose -f docker-compose.prod.yml --profile alerting up -d
 ## Медиа-файлы
 
 В продакшене при `DEBUG=False` Django не раздаёт `MEDIA_URL` через `urls.py`. Файлы из админки должны храниться в **S3-совместимом хранилище** (как в типичной конфигурации проекта), а не на локальном volume контейнера `web`.
+
+## Backup и restore (MVP)
+
+Политика хранится **вне приложения** — ниже минимальный чеклист для VPS + compose из этого каталога.
+
+### PostgreSQL
+
+Данные в volume `postgres_data`. Регулярный дамп (пример — ежедневно по cron на хосте):
+
+```bash
+cd deploy
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --format=custom \
+  > "backups/palingames-$(date +%Y%m%d-%H%M).dump"
+```
+
+Restore в **новый** volume (остановите `web`/`worker`/`beat` на время):
+
+```bash
+docker compose -f docker-compose.prod.yml stop web celery-worker celery-beat
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists < backups/your.dump
+docker compose -f docker-compose.prod.yml start web celery-worker celery-beat
+```
+
+Рекомендации:
+
+- хранить дампы off-site (другой регион/облако), не только на том же VPS;
+- периодически проверять restore на staging;
+- перед major-миграциями — ручной snapshot.
+
+### Redis
+
+Volume `redis_data` (AOF). Для MVP достаточно пересоздания при потере (очереди Celery, кэш rate-limit). Критичные данные — в Postgres.
+
+### S3 (файлы продуктов и custom games)
+
+Бэкап — на стороне провайдера: versioning, cross-region replication или периодический `sync`/`rclone` в второй bucket. В `.env` зафиксируйте bucket и ключи; восстановление = новый ключ доступа + те же объекты.
+
+### Чеклист перед prod
+
+- [ ] `setup_periodic_tasks` выполнен после первого `migrate`
+- [ ] cron или внешний job для `pg_dump`
+- [ ] off-site копии дампов (retention ≥ 7–30 дней)
+- [ ] S3 versioning или второй bucket
+- [ ] документировано, кто и как делает restore

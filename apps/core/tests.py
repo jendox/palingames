@@ -26,6 +26,7 @@ from apps.core.logging import (
     clear_logging_context,
     set_logging_context,
 )
+from apps.core.periodic_tasks import DEFAULT_PERIODIC_TASKS, ensure_default_periodic_tasks
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.sentry import configure_sentry_scope, init_sentry
 from apps.core.tasks import clear_expired_sessions_task
@@ -159,6 +160,36 @@ class CoreTasksTests(TestCase):
         clear_expired_sessions_task.apply(args=())
 
         call_command_mock.assert_called_once_with("clearsessions")
+
+
+class SetupPeriodicTasksTests(TestCase):
+    def test_ensure_default_periodic_tasks_creates_all_defaults(self):
+        results = ensure_default_periodic_tasks()
+
+        self.assertEqual(len(results), len(DEFAULT_PERIODIC_TASKS))
+        self.assertEqual(set(results.values()), {"created"})
+
+        from django_celery_beat.models import PeriodicTask
+
+        names = set(PeriodicTask.objects.values_list("name", flat=True))
+        self.assertEqual(names, {spec.name for spec in DEFAULT_PERIODIC_TASKS})
+
+    def test_ensure_default_periodic_tasks_is_idempotent(self):
+        ensure_default_periodic_tasks()
+        results = ensure_default_periodic_tasks()
+
+        self.assertEqual(set(results.values()), {"unchanged"})
+
+    def test_setup_periodic_tasks_management_command(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("setup_periodic_tasks", stdout=out)
+
+        self.assertIn("Sync waiting invoice statuses: created", out.getvalue())
+        self.assertIn("Clear expired Django sessions: created", out.getvalue())
 
 
 class IncidentAlertTests(TestCase):
