@@ -30,6 +30,14 @@ from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStatusResult
 
+TELEGRAM_NOTIFICATION_TEST_SETTINGS = {
+    "APP_DATA_ENCRYPTION_KEY": "5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    "CELERY_TASK_ALWAYS_EAGER": True,
+    "TELEGRAM_BOT_TOKEN": "telegram-token",
+    "TELEGRAM_FORUM_CHAT_ID": "-1001234567890",
+    "TELEGRAM_NOTIFICATIONS_THREAD_ID": 3,
+}
+
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
 class ExpressPayNotificationViewTests(TestCase):
@@ -1040,6 +1048,7 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         self.assertEqual(response.content.decode(), "SUCCESS")
 
 
+@override_settings(**TELEGRAM_NOTIFICATION_TEST_SETTINGS)
 class InvoiceStatusSyncTaskTests(TestCase):
     def setUp(self):
         self.product = Product.objects.create(title="Sync product", slug="sync-product", price=Decimal("25.00"))
@@ -1122,8 +1131,13 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertIsNotNone(invoice.last_status_check_at)
         self.assertTrue(UserProductAccess.objects.filter(user=self.user, product=self.product, order=order).exists())
 
+    @patch("apps.notifications.handlers.send_telegram_message")
     @patch("apps.payments.tasks.get_express_pay_request_client")
-    def test_sync_waiting_invoice_statuses_marks_custom_game_request_in_progress(self, mock_get_client):
+    def test_sync_waiting_invoice_statuses_marks_custom_game_request_in_progress(
+        self,
+        mock_get_client,
+        send_telegram_message_mock,
+    ):
         custom_game_request, invoice = self._create_waiting_custom_game_invoice(account_suffix="56789012")
         mock_client = Mock()
         mock_client.get_invoice_status.return_value = InvoiceStatusResult(status=InvoiceStatus.PAID)
@@ -1184,7 +1198,11 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
         mock_client.create_invoice.assert_called_once()
 
-    def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(self):
+    @patch("apps.notifications.handlers.send_telegram_message")
+    def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(
+        self,
+        send_telegram_message_mock,
+    ):
         custom_game_request = CustomGameRequest.objects.create(
             contact_name="Анна",
             contact_email="custom@example.com",

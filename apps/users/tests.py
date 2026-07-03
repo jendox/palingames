@@ -305,7 +305,10 @@ class SocialLoginTests(TestCase):
                     f"/accounts/{provider}/login/callback/",
                 )
 
-    @override_settings(SOCIALACCOUNT_PROVIDERS=SOCIALACCOUNT_TEST_PROVIDERS)
+    @override_settings(
+        SOCIALACCOUNT_PROVIDERS=SOCIALACCOUNT_TEST_PROVIDERS,
+        ALLOWED_HOSTS=["localhost", "127.0.0.1", "example.ngrok-free.app", "testserver"],
+    )
     def test_social_provider_redirect_respects_forwarded_https(self):
         response = self.client.post(
             "/_allauth/browser/v1/auth/provider/redirect",
