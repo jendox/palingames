@@ -1,4 +1,4 @@
-# Build and push the production image (see deploy/README.md).
+# Lint, Django tests, and production image publish (see deploy/README.md).
 name: CI and Docker image
 
 on:
@@ -21,8 +21,55 @@ jobs:
       - name: Ruff
         run: uv sync --frozen --extra web --extra dev && uv run ruff check .
 
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: palingames
+          POSTGRES_USER: palingames
+          POSTGRES_PASSWORD: palingames
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U palingames -d palingames"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DJANGO_SECRET_KEY: ci-test-secret-key
+      APP_DATA_ENCRYPTION_KEY: 5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=
+      DATABASE_URL: postgres://palingames:palingames@localhost:5432/palingames
+      REDIS_URL: redis://localhost:6379/0
+      CACHE_REDIS_URL: redis://localhost:6379/1
+      RATE_LIMIT_REDIS_URL: redis://localhost:6379/2
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      CELERY_TASK_ALWAYS_EAGER: "True"
+      GOOGLE_OAUTH_CLIENT_ID: ci-google-client-id
+      GOOGLE_OAUTH_CLIENT_SECRET: ci-google-client-secret
+      YANDEX_OAUTH_CLIENT_ID: ci-yandex-client-id
+      YANDEX_OAUTH_CLIENT_SECRET: ci-yandex-client-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      - name: Django tests
+        run: uv sync --frozen --extra web --extra dev && uv run python manage.py test --verbosity 1
+
   docker-publish:
-    needs: [lint]
+    needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

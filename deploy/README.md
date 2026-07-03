@@ -35,7 +35,7 @@
 
 1. Создайте репозиторий образа на Docker Hub и access token.
 2. В GitHub: секреты `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
-3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `main` выполняет `ruff` и собирает/push образ `PALINGAMES_WEB_REF` (см. переменные в workflow).
+3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `main` выполняет `ruff`, Django tests (PostgreSQL + Redis) и собирает/push образ (см. переменные в workflow).
 4. На сервере задайте тот же тег, выполните `scripts/deploy_remote.sh` или команды из него вручную.
 
 ## Образ приложения
