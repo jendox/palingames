@@ -190,6 +190,7 @@ Recovery title:
 4. Есть ли недавние изменения в email/telegram formatter.
 5. Для `invoice_created_user`: есть ли у связанного `Invoice` поле `invoice_url` и совпадает ли `payment_email_sent_for_provider_invoice_no` с `provider_invoice_no`.
 6. Для `auth_account_email`: не срабатывает ли allauth rate limit `confirm_email` (1/10s/key) — повторный resend в течение 10 секунд не создаёт outbox.
+7. В admin **Emails → Email logs**: статус (`SENT` / `FAILED` / `SUPPRESSED`), `error`, связь с outbox. Для `SUPPRESSED` проверить **Emails → Email suppressions** (manual unsuppress через `active=False`).
 
 Быстрые действия:
 1. Проверить транспорт:

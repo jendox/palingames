@@ -123,6 +123,11 @@ Notifications:
 - `notification.outbox.failed`
 - `notification.outbox.sent`
 
+Email delivery (`apps/emails/senders.py`):
+- `email.send.sent`
+- `email.send.failed`
+- `email.send.suppressed`
+
 Health and lifecycle:
 - `app.started`
 - `health.readiness.checked`
@@ -215,6 +220,8 @@ Recovery:
 Critical flows:
 - `guest_order_download`
 - `custom_game_download`
+- `invoice_created_user`
+- `auth_account_email`
 
 Route:
 - [`apps/notifications/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/notifications/alerts.py)

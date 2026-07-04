@@ -47,6 +47,7 @@
 - `apps/payments` — инвойсы, webhook/payment processing, orchestration after successful payment.
 - `apps/access` — доступ к оплаченным продуктам и guest download grants.
 - `apps/notifications` — `NotificationOutbox`, handlers, Telegram/email delivery.
+- `apps/emails` — `EmailLog`, `EmailSuppression`, unified SMTP sender (`send_outbound_email`).
 - `apps/core` — logging, middleware, shared infra, incident alerts.
 
 ### Основные доменные сущности
@@ -57,7 +58,8 @@
 - `Invoice` / `PaymentEvent` — платежная часть.
 - `UserProductAccess` — постоянный доступ авторизованного пользователя к продукту.
 - `GuestAccess` — ограниченный по времени и количеству скачиваний доступ для guest order.
-- `NotificationOutbox` — зашифрованная очередь исходящих уведомлений (email, Telegram): guest download links, auth, custom game, admin alerts.
+- `NotificationOutbox` — зашифрованная очередь исходящих уведомлений (email, Telegram): auth, guest download links, invoice payment, custom game, admin/review alerts.
+- `EmailLog` / `EmailSuppression` — audit каждой SMTP-отправки и ручная блокировка адресов (bounce/complaint/manual).
 
 ## Как работает выдача файлов
 
@@ -467,11 +469,21 @@ S3_USE_SSL=False
 
 ## Celery и периодические задачи
 
-### NotificationOutbox
+### NotificationOutbox и email delivery
 
-Все исходящие email и Telegram идут через [`NotificationOutbox`](apps/notifications/models.py): auth, guest download links, custom game, admin/review уведомления.
+Все исходящие email и Telegram идут через [`NotificationOutbox`](apps/notifications/models.py): auth, guest download links, branded invoice payment link (`invoice_created_user`), custom game, admin/review уведомления.
 
-Task отправки:
+Цепочка для email:
+
+```text
+NotificationOutbox → NOTIFICATION_HANDLERS → apps/*/emails.py
+  → send_outbound_email() [apps/emails/senders.py]
+    → EmailSuppression pre-check → EmailLog → Django SMTP
+```
+
+Единственная точка `message.send()` в проекте — [`apps/emails/senders.py`](apps/emails/senders.py). Admin: **Emails → Email logs**, **Emails → Email suppressions**.
+
+Task отправки outbox:
 
 ```text
 apps.notifications.tasks.send_notification_outbox_task
@@ -484,6 +496,8 @@ Legacy alias (тот же outbox-путь):
 ```text
 apps.access.tasks.send_guest_access_email_outbox_task
 ```
+
+Critical notification flows (Telegram incidents при repeated failures): `guest_order_download`, `custom_game_download`, `invoice_created_user`, `auth_account_email`. См. [`docs/runbooks.md`](docs/runbooks.md) §5.
 
 ### Cleanup старых outbox-записей
 
