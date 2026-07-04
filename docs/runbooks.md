@@ -168,9 +168,12 @@ Recovery title:
 - `guest_order_download`
 - `custom_game_download`
 - `invoice_created_user`
+- `auth_account_email`
 
 Симптомы:
-- пользователь не получил критичное письмо со ссылкой на скачивание;
+- пользователь не получил критичное письмо со ссылкой на скачивание (`guest_order_download`, `custom_game_download`);
+- пользователь не получил письмо со ссылкой на оплату после checkout или создания инвойса игры на заказ (`invoice_created_user`);
+- пользователь не получил auth-письмо с confirm/reset/login link (`auth_account_email`);
 - в Telegram пришёл alert `Repeated critical notification outbox failures`;
 - в БД outbox-записи остаются в `FAILED`.
 
@@ -185,6 +188,8 @@ Recovery title:
 2. Что в `NotificationOutbox.last_error`.
 3. Жив ли Celery worker.
 4. Есть ли недавние изменения в email/telegram formatter.
+5. Для `invoice_created_user`: есть ли у связанного `Invoice` поле `invoice_url` и совпадает ли `payment_email_sent_for_provider_invoice_no` с `provider_invoice_no`.
+6. Для `auth_account_email`: не срабатывает ли allauth rate limit `confirm_email` (1/10s/key) — повторный resend в течение 10 секунд не создаёт outbox.
 
 Быстрые действия:
 1. Проверить транспорт:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -17,7 +18,7 @@ from apps.products.pricing import format_price
 logger = logging.getLogger("apps.payments.emails")
 
 
-def _build_email_context(*, invoice: Invoice, target: Order | CustomGameRequest) -> dict:
+def _build_email_context(*, invoice: Invoice, target: Order | CustomGameRequest) -> dict[str, Any]:
     context = {
         "invoice": invoice,
         "target_kind": invoice.target_kind,

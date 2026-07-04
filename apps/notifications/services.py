@@ -20,7 +20,7 @@ from .alerts import (
     resolve_notification_outbox_failure_incident,
 )
 from .destinations import TelegramDestination
-from .handlers import NOTIFICATION_HANDLERS
+from .handlers import NOTIFICATION_HANDLERS, NotificationPayload
 from .models import NotificationOutbox
 from .types import NotificationType
 
@@ -203,7 +203,7 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
     )
 
     try:
-        payload = decrypt_outbox_payload(outbox.payload_encrypted)
+        payload: NotificationPayload = decrypt_outbox_payload(outbox.payload_encrypted)
         send_notification(outbox=outbox, payload=payload)
     except Exception as exc:
         with transaction.atomic():
@@ -256,7 +256,7 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
     return True
 
 
-def send_notification(*, outbox: NotificationOutbox, payload):
+def send_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
     handler = NOTIFICATION_HANDLERS.get((outbox.channel, outbox.notification_type))
     if handler is None:
         raise NotificationOutboxError(

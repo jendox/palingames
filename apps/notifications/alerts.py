@@ -11,6 +11,7 @@ CRITICAL_NOTIFICATION_TYPES = {
     NotificationType.GUEST_ORDER_DOWNLOAD,
     NotificationType.CUSTOM_GAME_DOWNLOAD,
     NotificationType.INVOICE_CREATED_USER,
+    NotificationType.AUTH_ACCOUNT_EMAIL,
 }
 
 
