@@ -91,6 +91,27 @@ class NotificationOutboxLoggingTests(TestCase):
 
     @patch("apps.notifications.services.record_notification_outbox_failure_incident")
     @patch("apps.notifications.services.send_notification", side_effect=RuntimeError("boom"))
+    def test_process_notification_outbox_records_incident_for_invoice_created_user_failures(
+        self,
+        send_notification_mock,
+        record_notification_outbox_failure_incident_mock,
+    ):
+        outbox = create_notification_outbox(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            recipient="guest@example.com",
+            payload={"invoice_id": 1},
+        )
+
+        with self.assertRaises(RuntimeError):
+            process_notification_outbox(outbox_id=outbox.id)
+
+        record_notification_outbox_failure_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+
+    @patch("apps.notifications.services.record_notification_outbox_failure_incident")
+    @patch("apps.notifications.services.send_notification", side_effect=RuntimeError("boom"))
     def test_process_notification_outbox_skips_incident_for_non_critical_failures(
         self,
         send_notification_mock,

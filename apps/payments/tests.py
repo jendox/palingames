@@ -4,6 +4,7 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core import mail
 from django.core.cache import caches
 from django.test import TestCase, override_settings
@@ -14,7 +15,7 @@ from apps.access.models import GuestAccess, UserProductAccess
 from apps.core.alerts import ThresholdIncidentSpec
 from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
-from apps.notifications.services import decrypt_outbox_payload
+from apps.notifications.services import decrypt_outbox_payload, encrypt_outbox_payload, process_notification_outbox
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
 from apps.payments.alerts import (
@@ -22,6 +23,7 @@ from apps.payments.alerts import (
     record_payment_webhook_failure_incident,
 )
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
+from apps.payments.notifications import ensure_invoice_created_user_email
 from apps.payments.services import mark_custom_game_request_paid
 from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
 from apps.products.models import Product
@@ -1169,6 +1171,45 @@ class InvoiceStatusSyncTaskTests(TestCase):
         )
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_create_invoice_task_enqueues_invoice_created_user_email_for_order(self, mock_get_client):
+        order = Order.objects.create(
+            email="guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+            payment_account_no="PG25032611112222",
+        )
+        mock_client = Mock()
+        mock_client.create_invoice.return_value = CreateInvoiceResult(
+            invoice_no=11112222,
+            invoice_url="https://example.com/pay/11112222",
+        )
+        mock_get_client.return_value = mock_client
+
+        with self.captureOnCommitCallbacks(execute=True):
+            create_invoice_task(order.id)
+
+        invoice = Invoice.objects.get(order=order)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+            object_id=invoice.id,
+        )
+        self.assertEqual(outbox.recipient, "guest@example.com")
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(
+            decrypt_outbox_payload(outbox.payload_encrypted)["invoice_id"],
+            invoice.id,
+        )
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.payment_email_sent_for_provider_invoice_no, "11112222")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("11112222", mail.outbox[0].body)
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_create_invoice_task_creates_custom_game_request_invoice(self, mock_get_client):
         custom_game_request = CustomGameRequest.objects.create(
             contact_name="Анна",
@@ -1188,7 +1229,8 @@ class InvoiceStatusSyncTaskTests(TestCase):
         )
         mock_get_client.return_value = mock_client
 
-        create_invoice_task(custom_game_request.id, "custom_game_request")
+        with self.captureOnCommitCallbacks(execute=True):
+            create_invoice_task(custom_game_request.id, "custom_game_request")
 
         invoice = Invoice.objects.get(custom_game_request=custom_game_request)
         custom_game_request.refresh_from_db()
@@ -1197,6 +1239,54 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(invoice.amount, Decimal("80.00"))
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
         mock_client.create_invoice.assert_called_once()
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            object_id=invoice.id,
+        )
+        self.assertEqual(outbox.recipient, "custom@example.com")
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.payment_email_sent_for_provider_invoice_no, "87654321")
+
+    def test_ensure_invoice_created_user_email_skips_when_already_sent_for_provider_invoice_no(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="33334444")
+        invoice.payment_email_sent_for_provider_invoice_no = invoice.provider_invoice_no
+        invoice.save(update_fields=["payment_email_sent_for_provider_invoice_no", "updated_at"])
+
+        ensure_invoice_created_user_email(invoice)
+
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.INVOICE_CREATED_USER,
+                object_id=invoice.id,
+            ).exists(),
+        )
+
+    @override_settings(SITE_BASE_URL="https://example.com")
+    def test_process_invoice_created_user_notification_sends_order_email(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="44445555", user=self.user)
+        outbox = NotificationOutbox.objects.create(
+            channel=NotificationOutbox.Channel.EMAIL,
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            recipient=order.email,
+            payload_encrypted=encrypt_outbox_payload({"invoice_id": invoice.id}),
+            status=NotificationOutbox.Status.PENDING,
+            content_type=ContentType.objects.get_for_model(invoice),
+            object_id=invoice.id,
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(invoice.payment_email_sent_for_provider_invoice_no, "44445555")
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, [order.email])
+        self.assertIn("44445555", email.subject)
+        self.assertIn("https://example.com/pay/44445555", email.body)
 
     @patch("apps.notifications.handlers.send_telegram_message")
     def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(
@@ -1307,7 +1397,8 @@ class InvoiceStatusSyncTaskTests(TestCase):
         )
         mock_get_client.return_value = mock_client
 
-        create_invoice_task(custom_game_request.id, "custom_game_request")
+        with self.captureOnCommitCallbacks(execute=True):
+            create_invoice_task(custom_game_request.id, "custom_game_request")
 
         invoice = Invoice.objects.get(custom_game_request=custom_game_request)
         custom_game_request.refresh_from_db()
@@ -1317,6 +1408,14 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(invoice.status, Invoice.InvoiceStatus.PENDING)
         self.assertEqual(custom_game_request.status, CustomGameRequest.Status.WAITING_FOR_PAYMENT)
         mock_client.create_invoice.assert_called_once()
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            object_id=invoice.id,
+        )
+        self.assertEqual(outbox.recipient, "custom@example.com")
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.payment_email_sent_for_provider_invoice_no, "22222222")
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_sync_waiting_invoice_statuses_marks_expired_invoice(self, mock_get_client):

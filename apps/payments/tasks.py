@@ -20,6 +20,7 @@ from apps.payments.alerts import (
     resolve_payment_status_sync_failure_incident,
 )
 from apps.payments.models import Invoice
+from apps.payments.notifications import ensure_invoice_created_user_email
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
@@ -362,6 +363,8 @@ def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARG
                 ),
             )
             _mark_target_waiting_for_payment(target)
+
+        ensure_invoice_created_user_email(invoice)
         log_event(
             logger,
             logging.INFO,
@@ -433,6 +436,8 @@ def create_test_invoice_task(self, target_id: int, payment_target: str = PAYMENT
                 ),
             )
             _mark_target_waiting_for_payment(target)
+
+        ensure_invoice_created_user_email(invoice)
         log_event(
             logger,
             logging.INFO,

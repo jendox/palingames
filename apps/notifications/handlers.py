@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from django.utils import timezone
 
@@ -20,6 +20,7 @@ from apps.notifications.formatters import (
 from apps.notifications.telegram import send_telegram_message
 from apps.orders.emails import send_order_reward_user_email
 from apps.orders.models import Order
+from apps.payments.emails import send_invoice_created_user_email
 from apps.payments.models import Invoice
 from apps.products.emails import (
     send_review_rejected_user_email,
@@ -33,16 +34,24 @@ from apps.users.auth_emails import send_auth_email
 from .models import NotificationOutbox
 from .types import NotificationType
 
+NotificationPayload = dict[str, Any] | list[dict[str, Any]]
+
 
 class NotificationHandler(Protocol):
-    def __call__(self, *, outbox: NotificationOutbox, payload: Any) -> None: ...
+    def __call__(
+        self,
+        *,
+        outbox: NotificationOutbox,
+        payload: NotificationPayload,
+    ) -> None: ...
 
 
-def _send_guest_order_download_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_guest_order_download_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
+    payload = cast(list[dict[str, Any]], payload)
     send_guest_order_download_email(order=outbox.target, guest_access_payloads=payload)
 
 
-def _send_custom_game_download_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_download_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     download_token = CustomGameDownloadToken.objects.get(pk=payload["download_token_id"])
     send_custom_game_download_email(
@@ -52,7 +61,7 @@ def _send_custom_game_download_notification(*, outbox: NotificationOutbox, paylo
     )
 
 
-def _send_order_reward_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_order_reward_user_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
     order = outbox.target or Order.objects.select_related("reward_promo_code").get(pk=payload["order_id"])
     promo_code = order.reward_promo_code
     if promo_code is None:
@@ -64,13 +73,13 @@ def _send_order_reward_user_notification(*, outbox: NotificationOutbox, payload)
     )
 
 
-def _send_review_rejected_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_review_rejected_user_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
     review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
     send_review_rejected_user_email(review=review)
     Review.objects.filter(pk=review.pk).update(rejection_notified_at=timezone.now())
 
 
-def _send_review_reward_user_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_review_reward_user_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
     review = outbox.target or Review.objects.select_related("reward_promo_code", "product", "user").get(
         pk=payload["review_id"],
     )
@@ -84,29 +93,34 @@ def _send_review_reward_user_notification(*, outbox: NotificationOutbox, payload
     )
 
 
-def _send_review_submitted_admin_email_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_review_submitted_admin_email_notification(*, outbox: NotificationOutbox,
+                                                    payload: NotificationPayload) -> None:
     review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
     send_review_submitted_admin_email(review=review)
 
 
-def _send_custom_game_request_customer_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_request_customer_notification(*, outbox: NotificationOutbox,
+                                                    payload: NotificationPayload) -> None:
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     send_custom_game_request_customer_email(custom_game_request=custom_game_request)
 
 
-def _send_custom_game_request_admin_email_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_request_admin_email_notification(*, outbox: NotificationOutbox,
+                                                       payload: NotificationPayload) -> None:
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     send_custom_game_request_admin_email(custom_game_request=custom_game_request)
 
 
-def _send_custom_game_request_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_request_admin_telegram_notification(*, outbox: NotificationOutbox,
+                                                          payload: NotificationPayload) -> None:
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     destination = TelegramDestination(payload["destination"])
     text = format_custom_game_request_admin_telegram(custom_game_request=custom_game_request)
     send_telegram_message(destination=destination, text=text)
 
 
-def _send_custom_game_request_paid_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_custom_game_request_paid_admin_telegram_notification(*, outbox: NotificationOutbox,
+                                                               payload: NotificationPayload) -> None:
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     destination = TelegramDestination(payload["destination"])
     invoice = Invoice.objects.get(pk=payload["invoice_id"])
@@ -114,14 +128,21 @@ def _send_custom_game_request_paid_admin_telegram_notification(*, outbox: Notifi
     send_telegram_message(destination=destination, text=text)
 
 
-def _send_review_submitted_admin_telegram_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_review_submitted_admin_telegram_notification(*, outbox: NotificationOutbox,
+                                                       payload: NotificationPayload) -> None:
     review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
     destination = TelegramDestination(payload["destination"])
     text = format_review_submitted_admin_telegram(review=review)
     send_telegram_message(destination=destination, text=text)
 
 
-def _send_auth_account_email_notification(*, outbox: NotificationOutbox, payload) -> None:
+def _send_invoice_created_user_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
+    invoice = outbox.target or Invoice.objects.get(pk=payload["invoice_id"])
+    send_invoice_created_user_email(invoice=invoice)
+
+
+def _send_auth_account_email_notification(*, outbox: NotificationOutbox, payload: NotificationPayload) -> None:
+    payload = cast(dict[str, Any], payload)
     send_auth_email(
         template_prefix=payload["template_prefix"],
         recipient=outbox.recipient,
@@ -152,6 +173,8 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_custom_game_request_paid_admin_telegram_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.REVIEW_SUBMITTED_ADMIN):
         _send_review_submitted_admin_telegram_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.INVOICE_CREATED_USER):
+        _send_invoice_created_user_notification,
     (NotificationOutbox.Channel.EMAIL, NotificationType.AUTH_ACCOUNT_EMAIL):
         _send_auth_account_email_notification,
 }

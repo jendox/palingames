@@ -10,6 +10,7 @@ NOTIFICATION_OUTBOX_FAILURE_INCIDENT_KEY = "notifications.outbox.failures"
 CRITICAL_NOTIFICATION_TYPES = {
     NotificationType.GUEST_ORDER_DOWNLOAD,
     NotificationType.CUSTOM_GAME_DOWNLOAD,
+    NotificationType.INVOICE_CREATED_USER,
 }
 
 

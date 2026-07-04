@@ -1,0 +1,46 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+  {% if target_kind == "order" %}
+    <p>Здравствуйте!</p>
+    <p>Ваш заказ №{{ order.payment_account_no }} оформлен и ожидает оплату.</p>
+    <p><strong>Сумма к оплате:</strong> {{ amount }}</p>
+    {% if expires_at %}
+      <p><strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}</p>
+    {% else %}
+      <p>Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).</p>
+    {% endif %}
+
+    {% if items %}
+      <p><strong>Состав заказа:</strong></p>
+      {% for item in items %}
+        <p style="margin:0 0 8px;">
+          {{ item.title }}{% if item.category %} · {{ item.category }}{% endif %} — {{ item.price }}
+        </p>
+      {% endfor %}
+    {% endif %}
+  {% else %}
+    <p>Здравствуйте, {{ request.contact_name }}!</p>
+    <p>Игра на заказ №{{ request.payment_account_no }} готова к оплате.</p>
+    <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
+    <p><strong>Сумма к оплате:</strong> {{ amount }}</p>
+    {% if request.deadline %}
+      <p><strong>Дедлайн выполнения:</strong> {{ request.deadline|date:"d.m.Y" }}</p>
+    {% endif %}
+    {% if expires_at %}
+      <p><strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}</p>
+    {% else %}
+      <p>Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).</p>
+    {% endif %}
+  {% endif %}
+
+  <p style="margin:24px 0;">
+    <a href="{{ payment_url }}" style="display:inline-block;padding:12px 20px;background:#65C5C2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">
+      Перейти к оплате
+    </a>
+  </p>
+
+  <p>Если кнопка не открывается, используйте ссылку:<br><a href="{{ payment_url }}">{{ payment_url }}</a></p>
+  <p>После оплаты мы отправим вам письмо с дальнейшими инструкциями.</p>
+  <p>С уважением,<br>команда PaliGames</p>
+{% endblock %}

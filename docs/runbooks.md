@@ -167,6 +167,7 @@ Recovery title:
 Сейчас alerting включён только для critical notification flows:
 - `guest_order_download`
 - `custom_game_download`
+- `invoice_created_user`
 
 Симптомы:
 - пользователь не получил критичное письмо со ссылкой на скачивание;
