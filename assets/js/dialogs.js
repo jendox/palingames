@@ -126,6 +126,61 @@
     el.classList.remove("hidden");
   }
 
+  function resetAuthEmailInstructionDialog(dlg) {
+    if (!dlg) return;
+
+    dlg.querySelector("[data-auth-form-panel]")?.classList.remove("hidden");
+    const instruction = dlg.querySelector("[data-auth-email-instruction]");
+    if (instruction) {
+      instruction.classList.add("hidden");
+    }
+
+    for (const el of dlg.querySelectorAll(
+      "[data-auth-email-instruction-message], [data-auth-email-instruction-email], [data-auth-email-instruction-suffix]",
+    )) {
+      el.textContent = "";
+    }
+
+    delete dlg.dataset.authEmailInstructionVisible;
+  }
+
+  function closeAuthEmailInstructionDialog(dlg) {
+    if (!dlg) return;
+    closeDialog(dlg);
+  }
+
+  function showAuthEmailInstruction(dlg, { message = "", email = "", suffix = "", preservePostLoginRedirect = false } = {}) {
+    if (!dlg) return;
+
+    const panel = dlg.querySelector("[data-auth-form-panel]");
+    const instruction = dlg.querySelector("[data-auth-email-instruction]");
+    const messageEl = dlg.querySelector("[data-auth-email-instruction-message]");
+    const emailEl = dlg.querySelector("[data-auth-email-instruction-email]");
+    const suffixEl = dlg.querySelector("[data-auth-email-instruction-suffix]");
+    const errorsBox = dlg.querySelector("[data-form-errors]");
+    const successBox = dlg.querySelector("[data-form-success]");
+
+    if (errorsBox) {
+      errorsBox.textContent = "";
+      errorsBox.classList.add("hidden");
+    }
+    if (successBox) {
+      successBox.textContent = "";
+      successBox.classList.add("hidden");
+    }
+
+    if (panel) panel.classList.add("hidden");
+    if (instruction) instruction.classList.remove("hidden");
+    if (messageEl) messageEl.textContent = message;
+    if (emailEl) emailEl.textContent = email;
+    if (suffixEl) suffixEl.textContent = suffix;
+
+    dlg.dataset.authEmailInstructionVisible = "true";
+    if (preservePostLoginRedirect) {
+      dlg.dataset.preservePostLoginRedirect = "true";
+    }
+  }
+
   function showPageNotification(message) {
     const notification = document.querySelector("[data-page-notification]");
     const messageEl = notification?.querySelector?.("[data-page-notification-message]");
@@ -300,6 +355,9 @@
     lastOpener = opener || null;
 
     if (!dlg.open) dlg.showModal();
+
+    resetAuthEmailInstructionDialog(dlg);
+    delete dlg.dataset.preservePostLoginRedirect;
 
     for (const headlessForm of dlg.querySelectorAll(
       "form[data-headless-signup-form], form[data-headless-login-form]",
@@ -481,7 +539,7 @@
       // Покажем модалку, чтобы было понятно, что что-то происходит.
       const dlg = getDialogById("signupDialog");
       openDialog(dlg, null);
-      showDialogMessage(dlg, "[data-form-success]", "Подтверждаем email...");
+      showAuthEmailInstruction(dlg, { message: "Подтверждаем email..." });
 
       verifyEmailKey(key)
         .then(({ resp, payload }) => {
@@ -490,6 +548,7 @@
             const messages = errors
               .map((err) => (typeof err?.message === "string" ? err.message : null))
               .filter(Boolean);
+            resetAuthEmailInstructionDialog(dlg);
             showDialogMessage(dlg, "[data-form-errors]", messages.length ? messages.join(" ") : "Не удалось подтвердить email.");
             return;
           }
@@ -507,6 +566,7 @@
             return;
           }
 
+          resetAuthEmailInstructionDialog(dlg);
           showDialogMessage(dlg, "[data-form-errors]", "Не удалось подтвердить email. Попробуйте позже.");
         })
         .finally(() => {
@@ -522,6 +582,11 @@
     const loginDlg = getDialogById("loginDialog");
     if (loginDlg) {
       loginDlg.addEventListener("close", () => {
+        if (loginDlg.dataset.preservePostLoginRedirect === "true") {
+          delete loginDlg.dataset.preservePostLoginRedirect;
+          return;
+        }
+
         try {
           sessionStorage.removeItem("postLoginRedirect");
         } catch {
@@ -629,6 +694,13 @@
       return;
     }
 
+    const instructionCloseBtn = e.target.closest("[data-auth-email-instruction-close]");
+    if (instructionCloseBtn) {
+      e.preventDefault();
+      closeAuthEmailInstructionDialog(instructionCloseBtn.closest("dialog"));
+      return;
+    }
+
     const closeBtn = e.target.closest("[data-dialog-close]");
     if (closeBtn) {
       const dlg = closeBtn.closest("dialog");
@@ -640,6 +712,10 @@
     // у <dialog> клик по "серому" фону приходит как click по самому dialog
     const dlg = e.target.closest("dialog");
     if (dlg && dlg.open && e.target === dlg) {
+      if (dlg.dataset.authEmailInstructionVisible === "true") {
+        closeAuthEmailInstructionDialog(dlg);
+        return;
+      }
       closeDialog(dlg);
     }
   });
@@ -651,6 +727,10 @@
       const dlg = e.target;
       if (dlg && dlg.tagName === "DIALOG" && dlg.open) {
         e.preventDefault();
+        if (dlg.dataset.authEmailInstructionVisible === "true") {
+          closeAuthEmailInstructionDialog(dlg);
+          return;
+        }
         closeDialog(dlg);
       }
     },
@@ -750,12 +830,11 @@
 
       const hasErrors = payload && Array.isArray(payload.errors) && payload.errors.length;
       if ((resp.ok || resp.status === 401) && !hasErrors) {
-        showDialogMessage(
-          dlg,
-          "[data-form-success]",
-          `Мы отправили письмо для подтверждения на ${email}. Подтвердите email, чтобы завершить регистрацию.`,
-        );
-        setDialogSubmitting(form, true);
+        showAuthEmailInstruction(dlg, {
+          message: "Мы отправили письмо для подтверждения на адрес ",
+          email,
+          suffix: ". Подтвердите email, чтобы завершить регистрацию.",
+        });
         return;
       }
 
@@ -893,12 +972,12 @@
       }
 
       if ((resp.status === 401 || resp.ok) && !errors.length) {
-        showDialogMessage(
-          dlg,
-          "[data-form-errors]",
-          "Вход не завершён. Проверьте почту (подтверждение email) или попробуйте позже.",
-        );
-        setDialogSubmitting(form, false);
+        showAuthEmailInstruction(dlg, {
+          message: "Вход не завершён. Проверьте почту ",
+          email,
+          suffix: " и перейдите по ссылке для подтверждения email.",
+          preservePostLoginRedirect: true,
+        });
         return;
       }
 
@@ -1163,7 +1242,13 @@
   // Возврат фокуса на кнопку, которая открыла модалку
   document.addEventListener("close", (e) => {
     const dlg = e.target;
-    if (dlg && dlg.tagName === "DIALOG" && lastOpener) {
+    if (!dlg || dlg.tagName !== "DIALOG") return;
+
+    if (dlg.querySelector("[data-auth-email-instruction]")) {
+      resetAuthEmailInstructionDialog(dlg);
+    }
+
+    if (lastOpener) {
       lastOpener.focus();
       lastOpener = null;
     }

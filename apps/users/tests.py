@@ -7,9 +7,11 @@ from urllib.parse import parse_qs, urlparse
 
 from allauth.account.models import EmailAddress
 from allauth.account.signals import email_confirmed, password_reset, user_signed_up
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.contrib.messages import constants as message_constants
+from django.contrib.sites.models import Site
 from django.core import mail
 from django.core.cache import cache, caches
 from django.template.loader import render_to_string
@@ -690,6 +692,23 @@ class AuthEmailOutboxTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(user.email, mail.outbox[0].to)
         self.assertIn("test-key", mail.outbox[0].body)
+
+
+class AccountAdapterEmailSubjectTests(TestCase):
+    def test_format_email_subject_ignores_stale_site_cache(self):
+        from apps.users.adapters import AccountAdapter
+
+        site = Site.objects.get(pk=settings.SITE_ID)
+        site.name = "PalinGames"
+        site.domain = "palingames.by"
+        site.save(update_fields=["domain", "name"])
+
+        settings._SITE_CACHE = Site(id=site.pk, domain="example.com", name="example.com")
+
+        adapter = AccountAdapter(request=None)
+        self.assertEqual(adapter.format_email_subject("Test"), "[PalinGames] Test")
+
+        Site.objects.clear_cache()
 
 
 class AuthEmailPayloadTests(TestCase):

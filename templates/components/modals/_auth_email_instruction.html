@@ -1,0 +1,24 @@
+{% load i18n %}
+
+<div data-auth-email-instruction class="hidden text-center">
+  <h2 class="font-airfool text-[40px] leading-[40px] text-[var(--color-black)]">
+    {% trans "ПРОВЕРЬТЕ ПОЧТУ" %}
+  </h2>
+
+  <p class="mt-[24px] text-[18px] leading-[26px] text-[var(--color-black)] opacity-80 min-[1024px]:mt-[32px]">
+    <span data-auth-email-instruction-message></span>
+    <span data-auth-email-instruction-email class="font-bold text-[var(--color-black)]"></span><span data-auth-email-instruction-suffix></span>
+  </p>
+
+  <p class="mt-[16px] text-[16px] leading-[24px] text-[var(--color-black-80)]">
+    {% trans "Если письма нет во входящих, проверьте папку «Спам»." %}
+  </p>
+
+  <button
+    type="button"
+    data-auth-email-instruction-close
+    class="btn-primary mx-auto mt-[40px] w-full max-w-[366px] text-[18px] min-[1024px]:mt-[48px]"
+  >
+    {% trans "Закрыть" %}
+  </button>
+</div>

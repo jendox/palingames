@@ -24,122 +24,126 @@
         <div
           class="mx-auto w-full max-w-[428px] min-[1024px]:absolute min-[1024px]:left-[512px] min-[1024px]:top-[110px] min-[1024px]:w-[428px]"
         >
-        <h2 class="font-airfool text-center text-[40px] leading-[40px] text-[var(--color-black)]">
-          {% trans "РЕГИСТРАЦИЯ" %}
-        </h2>
+          <div data-auth-form-panel>
+            <h2 class="font-airfool text-center text-[40px] leading-[40px] text-[var(--color-black)]">
+              {% trans "РЕГИСТРАЦИЯ" %}
+            </h2>
 
-        <div
-          data-form-errors
-          class="mt-6 hidden rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-          role="alert"
-        ></div>
+            <div
+              data-form-errors
+              class="mt-6 hidden rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+              role="alert"
+            ></div>
 
-        <div
-          data-form-success
-          class="mt-6 hidden rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          role="status"
-        ></div>
+            <div
+              data-form-success
+              class="mt-6 hidden rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+              role="status"
+            ></div>
 
-        <form
-          data-headless-signup-form
-          data-headless-endpoint="/_allauth/browser/v1/auth/signup"
-          data-oauth-privacy-error="{{ _('Необходимо согласие на обработку персональных данных.')|escape }}"
-          class="mt-[36px] min-[1024px]:mt-[50px]"
-          method="post"
-          action="#"
-        >
-          <div class="space-y-[30px]">
-            <div class="mx-auto w-full max-w-[428px]">
-              <label
-                for="signupEmail"
-                class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
-              >
-                {% trans "Email *" %}
+            <form
+              data-headless-signup-form
+              data-headless-endpoint="/_allauth/browser/v1/auth/signup"
+              data-oauth-privacy-error="{{ _('Необходимо согласие на обработку персональных данных.')|escape }}"
+              class="mt-[36px] min-[1024px]:mt-[50px]"
+              method="post"
+              action="#"
+            >
+              <div class="space-y-[30px]">
+                <div class="mx-auto w-full max-w-[428px]">
+                  <label
+                    for="signupEmail"
+                    class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
+                  >
+                    {% trans "Email *" %}
+                  </label>
+                  <input
+                    id="signupEmail"
+                    type="email"
+                    name="email"
+                    autocomplete="email"
+                    class="modal-input mt-[15px]"
+                    required
+                    autofocus
+                  />
+                  <p data-field-error="email" class="mt-2 hidden text-sm text-red-700"></p>
+                </div>
+
+                <div class="mx-auto w-full max-w-[428px]">
+                  <label
+                    for="signupPassword1"
+                    class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
+                  >
+                    {% trans "Пароль *" %}
+                  </label>
+                  <input
+                    id="signupPassword1"
+                    type="password"
+                    name="password1"
+                    autocomplete="new-password"
+                    class="modal-input mt-[15px]"
+                    required
+                  />
+                  <p data-field-error="password1" class="mt-2 hidden text-sm text-red-700"></p>
+                </div>
+
+                <div class="mx-auto w-full max-w-[428px]">
+                  <label
+                    for="signupPassword2"
+                    class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
+                  >
+                    {% trans "Повторить пароль *" %}
+                  </label>
+                  <input
+                    id="signupPassword2"
+                    type="password"
+                    name="password2"
+                    autocomplete="new-password"
+                    class="modal-input mt-[15px]"
+                    required
+                  />
+                  <p data-field-error="password2" class="mt-2 hidden text-sm text-red-700"></p>
+                </div>
+              </div>
+
+              <label class="mt-[25px] inline-flex items-center gap-3 text-[14px] leading-[14px]">
+                <input
+                  type="checkbox"
+                  name="privacy_consent"
+                  class="checkbox-pink"
+                  checked
+                  required
+                />
+                <span class="text-[var(--color-black)]">
+                  {% trans "Согласен(а) на обработку" %}
+                  <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-pink)] hover:underline">
+                    {% trans "персональных данных" %}
+                  </a>
+                </span>
               </label>
-            <input
-              id="signupEmail"
-              type="email"
-              name="email"
-              autocomplete="email"
-                class="modal-input mt-[15px]"
-              required
-              autofocus
-            />
-              <p data-field-error="email" class="mt-2 hidden text-sm text-red-700"></p>
-            </div>
+              <p data-field-error="privacy_consent" class="mt-2 hidden text-sm text-red-700"></p>
 
-            <div class="mx-auto w-full max-w-[428px]">
-              <label
-                for="signupPassword1"
-                class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
+              <button
+                type="submit"
+                class="btn-primary mt-[25px] w-full text-[20px] leading-[20px]"
               >
-                {% trans "Пароль *" %}
-              </label>
-            <input
-              id="signupPassword1"
-              type="password"
-              name="password1"
-              autocomplete="new-password"
-                class="modal-input mt-[15px]"
-              required
-            />
-              <p data-field-error="password1" class="mt-2 hidden text-sm text-red-700"></p>
-            </div>
+                {% trans "Регистрация" %}
+              </button>
 
-            <div class="mx-auto w-full max-w-[428px]">
-              <label
-                for="signupPassword2"
-                class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
-              >
-                {% trans "Повторить пароль *" %}
-              </label>
-            <input
-              id="signupPassword2"
-              type="password"
-              name="password2"
-              autocomplete="new-password"
-                class="modal-input mt-[15px]"
-              required
-            />
-              <p data-field-error="password2" class="mt-2 hidden text-sm text-red-700"></p>
-            </div>
+              <div class="mt-[50px] text-center text-[var(--color-black)] text-[18px] leading-[18px]">
+                {% trans "У Вас уже есть аккаунт?" %}
+                <a href="#" data-dialog-switch="loginDialog" class="font-bold text-[var(--color-pink)] hover:underline">
+                  {% trans "Войти" %}
+                </a>
+              </div>
+
+              <div class="mt-[40px] flex items-center justify-center gap-[25px] min-[1024px]:mt-[50px]">
+                {% include "components/modals/_social_buttons.html" %}
+              </div>
+            </form>
           </div>
 
-          <label class="mt-[25px] inline-flex items-center gap-3 text-[14px] leading-[14px]">
-            <input
-              type="checkbox"
-              name="privacy_consent"
-              class="checkbox-pink"
-              checked
-              required
-            />
-            <span class="text-[var(--color-black)]">
-              {% trans "Согласен(а) на обработку" %}
-              <a href="{% url 'privacy-policy' %}" data-privacy-policy target="_blank" rel="noopener" class="font-normal text-[var(--color-pink)] hover:underline">
-                {% trans "персональных данных" %}
-              </a>
-            </span>
-          </label>
-          <p data-field-error="privacy_consent" class="mt-2 hidden text-sm text-red-700"></p>
-
-          <button
-            type="submit"
-            class="btn-primary mt-[25px] w-full text-[20px] leading-[20px]"
-          >
-            {% trans "Регистрация" %}
-          </button>
-
-          <div class="mt-[50px] text-center text-[var(--color-black)] text-[18px] leading-[18px]">
-            {% trans "У Вас уже есть аккаунт?" %}
-            <a href="#" data-dialog-switch="loginDialog" class="font-bold text-[var(--color-pink)] hover:underline">
-              {% trans "Войти" %}
-            </a>
-          </div>
-
-          <div class="mt-[40px] flex items-center justify-center gap-[25px] min-[1024px]:mt-[50px]">
-            {% include "components/modals/_social_buttons.html" %}
-          </div>
-        </form>
+          {% include "components/modals/_auth_email_instruction.html" %}
         </div>
       </div>
     </div>

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from allauth.account.adapter import DefaultAccountAdapter
+from django.conf import settings
+from django.contrib.sites.models import Site
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.utils.encoding import force_str
 
 from apps.access.emails import build_absolute_url
 from apps.core.metrics import inc_auth_password_reset_requested
@@ -15,6 +18,12 @@ from apps.users.personal_data_consent import PersonalDataContext, get_client_ip_
 class AccountAdapter(DefaultAccountAdapter):
     HEADLESS_PATH_PREFIX = "/_allauth/browser/v1/"
     _LOGGED_IN_MESSAGE_TEMPLATE = "account/messages/logged_in.txt"
+
+    def format_email_subject(self, subject) -> str:
+        # Site.objects.get_current() uses process-local _SITE_CACHE; Celery workers
+        # do not see admin updates until restart. Always read the current row.
+        site = Site.objects.get(pk=settings.SITE_ID)
+        return f"[{site.name}] {force_str(subject)}"
 
     def send_mail(self, template_prefix: str, email: str, context: dict) -> None:
         context = {
