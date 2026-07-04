@@ -7,6 +7,10 @@ from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from django.contrib import admin as django_admin
 from django.contrib.admin import AdminSite
 from django.contrib.admin.sites import NotRegistered
+from django.contrib.auth.admin import GroupAdmin
+from django.contrib.auth.models import Group
+from django.contrib.sites.admin import SiteAdmin
+from django.contrib.sites.models import Site
 from django_celery_beat.admin import (
     ClockedScheduleAdmin,
     CrontabScheduleAdmin,
@@ -48,6 +52,9 @@ class PaliAdminSite(AdminSite):
         "users": 80,
         "account": 81,
         "socialaccount": 82,
+        "emails": 83,
+        "auth": 84,
+        "sites": 85,
         "notifications": 90,
         "pages": 100,
         "cart": 110,
@@ -99,6 +106,17 @@ class PaliAdminSite(AdminSite):
         },
         "users": {
             "CustomUser": 10,
+            "PersonalDataProcessingConsentLog": 20,
+        },
+        "emails": {
+            "EmailLog": 10,
+            "EmailSuppression": 20,
+        },
+        "auth": {
+            "Group": 10,
+        },
+        "sites": {
+            "Site": 10,
         },
         "account": {
             "EmailAddress": 10,
@@ -143,6 +161,8 @@ if not allauth_account_settings.EMAIL_CONFIRMATION_HMAC:
 admin_site.register(SocialApp, SocialAppAdmin)
 admin_site.register(SocialToken, SocialTokenAdmin)
 admin_site.register(SocialAccount, SocialAccountAdmin)
+admin_site.register(Site, SiteAdmin)
+admin_site.register(Group, GroupAdmin)
 
 for _model, _admin_cls in _CELERY_BEAT_ADMIN:
     try:
