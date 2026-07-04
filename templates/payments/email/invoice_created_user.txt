@@ -10,13 +10,13 @@
 {% for item in items %}- {{ item.title }}{% if item.category %} · {{ item.category }}{% endif %} — {{ item.price }}
 {% endfor %}{% endif %}
 {% else %}
-Здравствуйте, {{ request.contact_name }}!
+Здравствуйте!
 
 Игра на заказ №{{ request.payment_account_no }} готова к оплате.
 
 Название игры: {{ request.subject }}
 Сумма к оплате: {{ amount }}
-{% if request.deadline %}Дедлайн выполнения: {{ request.deadline|date:"d.m.Y" }}
+{% if request.deadline %}Срок выполнения: {{ request.deadline|date:"d.m.Y" }}
 {% endif %}{% if expires_at %}Оплатите до: {{ expires_at|date:"d.m.Y H:i" }}{% else %}Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).{% endif %}
 {% endif %}
 

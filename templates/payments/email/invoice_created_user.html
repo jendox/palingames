@@ -20,12 +20,12 @@
       {% endfor %}
     {% endif %}
   {% else %}
-    <p>Здравствуйте, {{ request.contact_name }}!</p>
+    <p>Здравствуйте!</p>
     <p>Игра на заказ №{{ request.payment_account_no }} готова к оплате.</p>
     <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
     <p><strong>Сумма к оплате:</strong> {{ amount }}</p>
     {% if request.deadline %}
-      <p><strong>Дедлайн выполнения:</strong> {{ request.deadline|date:"d.m.Y" }}</p>
+      <p><strong>Срок выполнения:</strong> {{ request.deadline|date:"d.m.Y" }}</p>
     {% endif %}
     {% if expires_at %}
       <p><strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}</p>
