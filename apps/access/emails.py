@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+from typing import Any
 from urllib.parse import urljoin
 
 from django.conf import settings
@@ -11,6 +12,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from apps.core.logging import log_event
+from apps.orders.models import Order
 from apps.products.pricing import format_price
 
 logger = logging.getLogger("apps.access.email")
@@ -22,7 +24,7 @@ def build_absolute_url(path_or_url: str) -> str:
     return urljoin(settings.SITE_BASE_URL.rstrip("/") + "/", path_or_url.lstrip("/"))
 
 
-def send_guest_order_download_email(*, order, guest_access_payloads: list[dict]) -> None:
+def send_guest_order_download_email(*, order: Order, guest_access_payloads: list[dict[str, Any]]) -> None:
     subject = f"Ссылки на скачивание заказа {order.payment_account_no}"
     items = [
         {
