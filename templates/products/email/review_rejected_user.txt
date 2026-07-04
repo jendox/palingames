@@ -9,4 +9,4 @@
 {{ product_url }}
 
 С уважением,
-команда PaliGames
+команда PalinGames

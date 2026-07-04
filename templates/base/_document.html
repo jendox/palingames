@@ -4,19 +4,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}{{ seo_title|default:"PaliGames" }}{% endblock %}</title>
-    <meta name="description" content="{{ seo_description|default:'PaliGames — развивающие игры и материалы для занятий.' }}" />
+    <title>{% block title %}{{ seo_title|default:"PalinGames" }}{% endblock %}</title>
+    <meta name="description" content="{{ seo_description|default:'PalinGames — развивающие игры и материалы для занятий.' }}" />
     <meta name="robots" content="{{ seo_robots|default:'index,follow' }}" />
     <link rel="canonical" href="{{ seo_canonical_url|default:request.build_absolute_uri }}" />
-    <meta property="og:site_name" content="{{ seo_site_name|default:'PaliGames' }}" />
+    <meta property="og:site_name" content="{{ seo_site_name|default:'PalinGames' }}" />
     <meta property="og:type" content="{{ seo_og_type|default:'website' }}" />
-    <meta property="og:title" content="{{ seo_title|default:'PaliGames' }}" />
-    <meta property="og:description" content="{{ seo_description|default:'PaliGames — развивающие игры и материалы для занятий.' }}" />
+    <meta property="og:title" content="{{ seo_title|default:'PalinGames' }}" />
+    <meta property="og:description" content="{{ seo_description|default:'PalinGames — развивающие игры и материалы для занятий.' }}" />
     <meta property="og:url" content="{{ seo_canonical_url|default:request.build_absolute_uri }}" />
     <meta property="og:image" content="{{ seo_image_url }}" />
     <meta name="twitter:card" content="{{ seo_twitter_card|default:'summary_large_image' }}" />
-    <meta name="twitter:title" content="{{ seo_title|default:'PaliGames' }}" />
-    <meta name="twitter:description" content="{{ seo_description|default:'PaliGames — развивающие игры и материалы для занятий.' }}" />
+    <meta name="twitter:title" content="{{ seo_title|default:'PalinGames' }}" />
+    <meta name="twitter:description" content="{{ seo_description|default:'PalinGames — развивающие игры и материалы для занятий.' }}" />
     <meta name="twitter:image" content="{{ seo_image_url }}" />
     <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
     {% if analytics_enabled %}
@@ -51,7 +51,7 @@
   <body
     class="min-h-screen bg-gray-50 text-gray-900 pb-[110px] min-[1024px]:pb-0"
     data-page-name="{{ request.resolver_match.url_name|default:'' }}"
-    data-page-title="{% block page_title %}{% block title_text %}PaliGames{% endblock %}{% endblock %}"
+    data-page-title="{% block page_title %}{% block title_text %}PalinGames{% endblock %}{% endblock %}"
     data-user-type="{% if request.user.is_authenticated %}authenticated{% else %}guest{% endif %}"
     data-catalog-suggest-url="{% url 'catalog-search-suggest' %}"
     {% if analytics_enabled %}data-gtm-id="{{ gtm_id|escape }}"{% endif %}

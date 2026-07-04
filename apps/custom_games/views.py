@@ -62,7 +62,7 @@ class CustomGamePageView(FormView):
             context["custom_game_created_request"] = None
         context.update(
             build_seo_context(
-                title="Игра на заказ — PaliGames",
+                title="Игра на заказ — PalinGames",
                 description="Закажите персональную развивающую игру для ребенка с учетом возраста и ваших пожеланий.",
                 canonical_url=reverse("custom-game"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),

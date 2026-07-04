@@ -11,6 +11,6 @@ class TimeStampedModel(models.Model):
 
 
 class OrderSource(models.TextChoices):
-    PALINGAMES = "PG", _("Сайт PaliGames")
+    PALINGAMES = "PG", _("Сайт PalinGames")
     TELEGRAM = "TG", _("Telegram")
     INSTAGRAM = "IG", _("Instagram")

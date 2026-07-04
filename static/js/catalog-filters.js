@@ -700,8 +700,8 @@ function initCatalogProductCards(root = document) {
 
       if (button.dataset.isPurchased === "true") {
         const downloadUrl = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
-        if (window.PaliGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
-          window.PaliGamesDownloads.start(downloadUrl, button);
+        if (window.PalinGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
+          window.PalinGamesDownloads.start(downloadUrl, button);
         } else {
           window.location.href = downloadUrl;
         }
@@ -717,15 +717,15 @@ function initCatalogProductCards(root = document) {
           button.dataset.isPurchased = "true";
           setCartState(button, false);
           const downloadUrl = button.dataset.catalogDownloadUrl || "/account/?tab=orders";
-          if (window.PaliGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
-            window.PaliGamesDownloads.start(downloadUrl, button);
+          if (window.PalinGamesDownloads?.start && button.dataset.catalogDownloadUrl) {
+            window.PalinGamesDownloads.start(downloadUrl, button);
           } else {
             window.location.href = downloadUrl;
           }
           return;
         }
         if (payload.already_pending_purchase) {
-          window.PaliGamesDownloads?.showNotification?.(
+          window.PalinGamesDownloads?.showNotification?.(
             payload.message ||
               "У вас уже есть неоплаченный заказ с этим товаром. Завершите оплату текущего заказа или дождитесь истечения срока оплаты.",
           );

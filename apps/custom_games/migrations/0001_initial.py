@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('public_id', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name='Публичный идентификатор')),
                 ('payment_account_no', models.CharField(blank=True, editable=False, max_length=22, null=True, unique=True, verbose_name='Номер лицевого счёта для оплаты')),
                 ('status', models.CharField(choices=[('NEW', 'Новая'), ('IN_PROGRESS', 'В работе'), ('READY', 'Готова'), ('WAITING_FOR_PAYMENT', 'Ожидает оплаты'), ('PAYMENT_EXPIRED', 'Срок оплаты истёк'), ('DELIVERED', 'Передана'), ('CANCELLED', 'Отменена')], default='NEW', max_length=20, verbose_name='Статус')),
-                ('source', models.CharField(choices=[('PG', 'Сайт PaliGames'), ('TG', 'Telegram'), ('IG', 'Instagram')], default='PG', max_length=2, verbose_name='Источник заявки')),
+                ('source', models.CharField(choices=[('PG', 'Сайт PalinGames'), ('TG', 'Telegram'), ('IG', 'Instagram')], default='PG', max_length=2, verbose_name='Источник заявки')),
                 ('contact_name', models.CharField(max_length=120, verbose_name='Имя')),
                 ('contact_email', models.EmailField(max_length=254, verbose_name='Имейл')),
                 ('contact_phone', models.CharField(blank=True, max_length=64, null=True, verbose_name='Телефон')),

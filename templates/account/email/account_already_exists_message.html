@@ -2,12 +2,12 @@
 
 {% block content %}
   <p>Здравствуйте!</p>
-  <p>Кто-то попытался зарегистрировать аккаунт PaliGames на email:</p>
+  <p>Кто-то попытался зарегистрировать аккаунт PalinGames на email:</p>
   <p><strong>{{ email }}</strong></p>
   <p>Но аккаунт с этим адресом уже существует.</p>
   <p>Если это были вы и вы забыли пароль, воспользуйтесь ссылкой для восстановления:</p>
   <p><a href="{{ password_reset_url }}">Восстановить пароль</a></p>
   <p style="word-break:break-word;"><a href="{{ password_reset_url }}">{{ password_reset_url }}</a></p>
   <p>Если это были не вы, просто проигнорируйте это письмо.</p>
-  <p>С уважением,<br>команда PaliGames</p>
+  <p>С уважением,<br>команда PalinGames</p>
 {% endblock %}

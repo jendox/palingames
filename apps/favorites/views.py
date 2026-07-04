@@ -34,8 +34,8 @@ class FavoritesPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Избранное — PaliGames",
-                description="Сохраненные товары в избранном на PaliGames.",
+                title="Избранное — PalinGames",
+                description="Сохраненные товары в избранном на PalinGames.",
                 canonical_url=reverse("favorites"),
                 robots="noindex,follow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),

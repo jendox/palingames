@@ -717,11 +717,11 @@ class SeoTemplateTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<title>PaliGames — развивающие игры для детей</title>", html=True)
+        self.assertContains(response, "<title>PalinGames — развивающие игры для детей</title>", html=True)
         self.assertContains(response, '<link rel="canonical" href="https://example.com/" />', html=True)
         self.assertContains(
             response,
-            'property="og:title" content="PaliGames — развивающие игры для детей"',
+            'property="og:title" content="PalinGames — развивающие игры для детей"',
             html=False,
         )
 

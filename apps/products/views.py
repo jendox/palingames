@@ -491,8 +491,8 @@ class CatalogView(TemplateView):
         if not products_mode:
             context.update(
                 build_seo_context(
-                    title="Каталог — PaliGames",
-                    description="Каталог развивающих игр и материалов для занятий от PaliGames.",
+                    title="Каталог — PalinGames",
+                    description="Каталог развивающих игр и материалов для занятий от PalinGames.",
                     canonical_url=reverse("catalog"),
                     json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
                 ),
@@ -519,18 +519,18 @@ class CatalogView(TemplateView):
         )
 
         canonical_url = reverse("catalog")
-        title = "Каталог — PaliGames"
-        description = "Каталог развивающих игр и материалов для занятий от PaliGames."
+        title = "Каталог — PalinGames"
+        description = "Каталог развивающих игр и материалов для занятий от PalinGames."
         robots = "index,follow"
 
         if selected_category is not None:
-            title = f"{selected_category.title} — каталог PaliGames"
-            description = f"Каталог раздела «{selected_category.title}» на PaliGames."
+            title = f"{selected_category.title} — каталог PalinGames"
+            description = f"Каталог раздела «{selected_category.title}» на PalinGames."
             canonical_url = f"{reverse('catalog')}?category={selected_category.slug}"
 
         if search_q:
-            title = f"Поиск: {search_q} — PaliGames"
-            description = f"Результаты поиска по запросу «{search_q}» в каталоге PaliGames."
+            title = f"Поиск: {search_q} — PalinGames"
+            description = f"Результаты поиска по запросу «{search_q}» в каталоге PalinGames."
             robots = "noindex,follow"
 
         if has_extra_filters:
@@ -896,7 +896,7 @@ class ProductDetailView(DetailView):
         primary_image_url = images[0] if images else static("images/example-product-image-1.png")
         product_description = normalize_seo_description(
             product.description or product.content,
-            fallback=f"Купить игру «{product.title}» на PaliGames.",
+            fallback=f"Купить игру «{product.title}» на PalinGames.",
         )
         product_json_ld = {
             "@context": "https://schema.org",
@@ -907,7 +907,7 @@ class ProductDetailView(DetailView):
             "url": build_absolute_url(product.get_absolute_url()),
             "brand": {
                 "@type": "Brand",
-                "name": "PaliGames",
+                "name": "PalinGames",
             },
             "offers": {
                 "@type": "Offer",
@@ -926,7 +926,7 @@ class ProductDetailView(DetailView):
 
         context.update(
             build_seo_context(
-                title=f"{product.title} — PaliGames",
+                title=f"{product.title} — PalinGames",
                 description=product_description,
                 canonical_url=product.get_absolute_url(),
                 image_url=primary_image_url,

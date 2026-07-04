@@ -371,7 +371,7 @@ class LegalPolicyPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "<title>Политика конфиденциальности — PaliGames</title>",
+            "<title>Политика конфиденциальности — PalinGames</title>",
             html=True,
         )
         self.assertContains(
@@ -386,7 +386,7 @@ class LegalPolicyPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "<title>Политика cookie — PaliGames</title>",
+            "<title>Политика cookie — PalinGames</title>",
             html=True,
         )
         self.assertContains(

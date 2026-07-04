@@ -429,8 +429,8 @@ function initProductCartButtons() {
     button.addEventListener("click", async () => {
       if (button.dataset.isPurchased === "true") {
         const downloadUrl = button.dataset.productDownloadUrl || "/account/?tab=orders";
-        if (window.PaliGamesDownloads?.start && button.dataset.productDownloadUrl) {
-          window.PaliGamesDownloads.start(downloadUrl, button);
+        if (window.PalinGamesDownloads?.start && button.dataset.productDownloadUrl) {
+          window.PalinGamesDownloads.start(downloadUrl, button);
         } else {
           window.location.href = downloadUrl;
         }
@@ -465,15 +465,15 @@ function initProductCartButtons() {
           }
           button.setAttribute("aria-label", "Скачать");
           const downloadUrl = button.dataset.productDownloadUrl || "/account/?tab=orders";
-          if (window.PaliGamesDownloads?.start && button.dataset.productDownloadUrl) {
-            window.PaliGamesDownloads.start(downloadUrl, button);
+          if (window.PalinGamesDownloads?.start && button.dataset.productDownloadUrl) {
+            window.PalinGamesDownloads.start(downloadUrl, button);
           } else {
             window.location.href = downloadUrl;
           }
           return;
         }
         if (payload.already_pending_purchase) {
-          window.PaliGamesDownloads?.showNotification?.(
+          window.PalinGamesDownloads?.showNotification?.(
             payload.message ||
               "У вас уже есть неоплаченный заказ с этим товаром. Завершите оплату текущего заказа или дождитесь истечения срока оплаты.",
           );

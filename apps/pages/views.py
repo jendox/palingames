@@ -57,7 +57,7 @@ class HomePageView(TemplateView):
         context = super().get_context_data(**kwargs)
         context.update(
             build_seo_context(
-                title="PaliGames — развивающие игры для детей",
+                title="PalinGames — развивающие игры для детей",
                 description=(
                     "Развивающие игры, материалы для занятий и игры на заказ для детей, родителей и педагогов."
                 ),
@@ -65,7 +65,7 @@ class HomePageView(TemplateView):
                 json_ld={
                     "@context": "https://schema.org",
                     "@type": "WebSite",
-                    "name": "PaliGames",
+                    "name": "PalinGames",
                     "url": build_absolute_url(reverse("home")),
                 },
             ),
@@ -84,8 +84,8 @@ class AboutPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="О нас — PaliGames",
-                description="Узнайте больше о PaliGames, подходе к созданию развивающих игр и материалов для детей.",
+                title="О нас — PalinGames",
+                description="Узнайте больше о PalinGames, подходе к созданию развивающих игр и материалов для детей.",
                 canonical_url=reverse("about"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),
@@ -104,8 +104,8 @@ class PaymentPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Оплата — PaliGames",
-                description="Способы оплаты заказов на PaliGames и ответы на частые вопросы по оплате.",
+                title="Оплата — PalinGames",
+                description="Способы оплаты заказов на PalinGames и ответы на частые вопросы по оплате.",
                 canonical_url=reverse("payment"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),
@@ -172,8 +172,8 @@ class AccountPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Личный кабинет — PaliGames",
-                description="Личный кабинет пользователя PaliGames.",
+                title="Личный кабинет — PalinGames",
+                description="Личный кабинет пользователя PalinGames.",
                 canonical_url=reverse("account"),
                 robots="noindex,nofollow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
@@ -359,8 +359,8 @@ class PrivacyPolicyPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Политика конфиденциальности — PaliGames",
-                description="Как PaliGames обрабатывает персональные данные пользователей сайта.",
+                title="Политика конфиденциальности — PalinGames",
+                description="Как PalinGames обрабатывает персональные данные пользователей сайта.",
                 canonical_url=reverse("privacy-policy"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),
@@ -379,8 +379,8 @@ class CookiePolicyPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Политика cookie — PaliGames",
-                description="Какие файлы cookie использует сайт PaliGames и как управлять настройками.",
+                title="Политика cookie — PalinGames",
+                description="Какие файлы cookie использует сайт PalinGames и как управлять настройками.",
                 canonical_url=reverse("cookie-policy"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),

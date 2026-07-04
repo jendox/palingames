@@ -207,8 +207,8 @@ class CheckoutPageView(TemplateView):
         context["checkout_error_message"] = kwargs.get("checkout_error_message", "")
         context.update(
             build_seo_context(
-                title="Оформление заказа — PaliGames",
-                description="Оформление заказа на PaliGames.",
+                title="Оформление заказа — PalinGames",
+                description="Оформление заказа на PalinGames.",
                 canonical_url=reverse("checkout"),
                 robots="noindex,nofollow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),

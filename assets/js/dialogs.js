@@ -204,7 +204,7 @@
     }
   }
 
-  window.PaliGamesDownloads = {
+  window.PalinGamesDownloads = {
     start: startProductDownload,
     showNotification: showPageNotification,
   };

@@ -38,6 +38,6 @@ def analytics(request):
 
 def seo_defaults(request):
     return build_seo_context(
-        title="PaliGames",
+        title="PalinGames",
         canonical_url=request.path,
     )

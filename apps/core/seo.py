@@ -9,9 +9,9 @@ from django.utils.html import strip_tags
 from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
-DEFAULT_SEO_TITLE = "PaliGames"
+DEFAULT_SEO_TITLE = "PalinGames"
 DEFAULT_SEO_DESCRIPTION = (
-    "PaliGames — развивающие игры, материалы для занятий и игры на заказ для детей и родителей."
+    "PalinGames — развивающие игры, материалы для занятий и игры на заказ для детей и родителей."
 )
 
 
@@ -94,6 +94,6 @@ def build_seo_context(  # noqa: PLR0913
         "seo_robots": robots,
         "seo_og_type": og_type,
         "seo_json_ld": serialize_json_ld(json_ld),
-        "seo_site_name": "PaliGames",
+        "seo_site_name": "PalinGames",
         "seo_twitter_card": "summary_large_image",
     }

@@ -27,7 +27,7 @@
   }
 
   function showReviewSubmittedNotification() {
-    const notify = window.PaliGamesDownloads?.showNotification;
+    const notify = window.PalinGamesDownloads?.showNotification;
     if (typeof notify === "function") {
       notify(REVIEW_SUBMITTED_MESSAGE);
       return;

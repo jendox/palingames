@@ -362,7 +362,7 @@ class ProductSeoTests(TestCase):
         response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<title>Математическая игра — PaliGames</title>", html=True)
+        self.assertContains(response, "<title>Математическая игра — PalinGames</title>", html=True)
         self.assertContains(
             response,
             'content="Подробное описание игры для занятий дома и в детском саду."',

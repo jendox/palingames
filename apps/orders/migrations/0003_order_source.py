@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='order',
             name='source',
-            field=models.CharField(choices=[('PG', 'Сайт PaliGames'), ('TG', 'Telegram'), ('IG', 'Instagram')], default='PG', max_length=2, verbose_name='Источник заказа'),
+            field=models.CharField(choices=[('PG', 'Сайт PalinGames'), ('TG', 'Telegram'), ('IG', 'Instagram')], default='PG', max_length=2, verbose_name='Источник заказа'),
         ),
     ]

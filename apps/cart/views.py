@@ -40,8 +40,8 @@ class CartPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Корзина — PaliGames",
-                description="Корзина пользователя PaliGames.",
+                title="Корзина — PalinGames",
+                description="Корзина пользователя PalinGames.",
                 canonical_url=reverse("cart"),
                 robots="noindex,nofollow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),

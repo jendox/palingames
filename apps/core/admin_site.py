@@ -32,8 +32,8 @@ _CELERY_BEAT_ADMIN = (
 
 
 class PaliAdminSite(AdminSite):
-    site_header = "PaliGames Admin"
-    site_title = "PaliGames Admin"
+    site_header = "PalinGames Admin"
+    site_title = "PalinGames Admin"
     index_title = "Администрирование"
 
     APP_ORDER = {

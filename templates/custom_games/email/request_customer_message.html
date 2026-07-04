@@ -1,7 +1,7 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Здравствуйте, {{ request.contact_name }}!</p>
+  <p>Здравствуйте!</p>
   <p>Мы получили вашу заявку на игру №{{ request.payment_account_no }}.</p>
   <p><strong>Детали заявки:</strong></p>
   <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
@@ -9,5 +9,5 @@
   <p><strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}</p>
   <p><strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
   <p>Мы посмотрим детали и свяжемся с вами по этому email.</p>
-  <p>С уважением,<br>команда PaliGames</p>
+  <p>С уважением,<br>команда PalinGames</p>
 {% endblock %}
