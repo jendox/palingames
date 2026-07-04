@@ -7,11 +7,13 @@ from urllib.parse import urljoin
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 
 from apps.core.logging import log_event
+from apps.emails.senders import OutboundEmail, send_outbound_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.products.pricing import format_price
 
@@ -24,7 +26,12 @@ def build_absolute_url(path_or_url: str) -> str:
     return urljoin(settings.SITE_BASE_URL.rstrip("/") + "/", path_or_url.lstrip("/"))
 
 
-def send_guest_order_download_email(*, order: Order, guest_access_payloads: list[dict[str, Any]]) -> None:
+def send_guest_order_download_email(
+    *,
+    order: Order,
+    guest_access_payloads: list[dict[str, Any]],
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     subject = f"Ссылки на скачивание заказа {order.payment_account_no}"
     items = [
         {
@@ -49,14 +56,19 @@ def send_guest_order_download_email(*, order: Order, guest_access_payloads: list
     text_body = render_to_string("access/email/guest_download_message.txt", context)
     html_body = render_to_string("access/email/guest_download_message.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[order.email],
+    send_outbound_email(
+        OutboundEmail(
+            recipient=order.email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            template_key="access/email/guest_download_message",
+            notification_outbox=notification_outbox,
+            metadata={"order_id": order.id, "items_count": len(items)},
+        ),
     )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
+
     log_event(
         logger,
         logging.INFO,

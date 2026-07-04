@@ -5,12 +5,14 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 from apps.access.emails import build_absolute_url
 from apps.core.logging import log_event
 from apps.custom_games.models import CustomGameRequest
+from apps.emails.senders import OutboundEmail, send_outbound_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.payments.models import Invoice
 from apps.products.pricing import format_price
@@ -46,7 +48,11 @@ def _build_email_context(*, invoice: Invoice, target: Order | CustomGameRequest)
     return context
 
 
-def send_invoice_created_user_email(*, invoice: Invoice) -> None:
+def send_invoice_created_user_email(
+    *,
+    invoice: Invoice,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     invoice = (
         Invoice.objects.select_related("order", "custom_game_request")
         .prefetch_related("order__items")
@@ -94,14 +100,23 @@ def send_invoice_created_user_email(*, invoice: Invoice) -> None:
     text_body = render_to_string("payments/email/invoice_created_user.txt", context)
     html_body = render_to_string("payments/email/invoice_created_user.html", context)
 
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[recipient],
+    send_outbound_email(
+        OutboundEmail(
+            recipient=recipient,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            template_key="payments/email/invoice_created_user",
+            notification_outbox=notification_outbox,
+            metadata={
+                "invoice_id": invoice.id,
+                "provider_invoice_no": invoice.provider_invoice_no,
+                "payment_url": invoice.invoice_url,
+                "target_kind": invoice.target_kind,
+            },
+        ),
     )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
 
     Invoice.objects.filter(pk=invoice.pk).update(
         payment_email_sent_for_provider_invoice_no=invoice.provider_invoice_no,

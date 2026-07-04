@@ -2,21 +2,27 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 
 from apps.access.emails import build_absolute_url
 from apps.core.logging import log_event
+from apps.emails.senders import OutboundEmail, send_outbound_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.promocodes.models import PromoCode
 
 logger = logging.getLogger("apps.orders.email")
 
 
-def send_order_reward_user_email(*, order: Order, promo_code: PromoCode) -> None:
+def send_order_reward_user_email(
+    *,
+    order: Order,
+    promo_code: PromoCode,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     to_email = order.email
     if not to_email:
         log_event(
@@ -39,14 +45,20 @@ def send_order_reward_user_email(*, order: Order, promo_code: PromoCode) -> None
     }
     text_body = render_to_string("orders/email/order_reward_user.txt", context)
     html_body = render_to_string("orders/email/order_reward_user.html", context)
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to_email],
+
+    send_outbound_email(
+        OutboundEmail(
+            recipient=order.email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.ORDER_REWARD_USER,
+            template_key="orders/email/order_reward_user",
+            notification_outbox=notification_outbox,
+            metadata={"order_id": order.id, "promo_code_id": promo_code.id},
+        ),
     )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
+
     log_event(
         logger,
         logging.INFO,

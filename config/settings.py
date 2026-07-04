@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.notifications.apps.NotificationsConfig",
     "apps.promocodes.apps.PromocodesConfig",
     "apps.custom_games.apps.CustomGamesConfig",
+    "apps.emails.apps.EmailsConfig",
 ]
 
 MIDDLEWARE = [
@@ -321,7 +322,9 @@ EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=30)
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="noreply@palingames.by")
+SERVER_EMAIL = env.str("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 CUSTOM_GAME_ADMIN_EMAILS = env.list("CUSTOM_GAME_ADMIN_EMAILS", default=[])
 REVIEW_ADMIN_EMAILS = env.list("REVIEW_ADMIN_EMAILS", default=[])
 REVIEW_REWARD_DISCOUNT_PERCENT = env.int("REVIEW_REWARD_DISCOUNT_PERCENT", default=10)

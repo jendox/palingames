@@ -4,12 +4,14 @@ import logging
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 
 from apps.access.emails import build_absolute_url
 from apps.core.logging import log_event
+from apps.emails.senders import OutboundEmail, send_outbound_email
+from apps.notifications.models import NotificationOutbox
+from apps.notifications.types import NotificationType
 from apps.products.models import Review
 from apps.promocodes.models import PromoCode
 
@@ -17,10 +19,14 @@ logger = logging.getLogger("apps.products.email")
 
 
 def _admin_recipients() -> list[str]:
-    return [e for e in settings.REVIEW_ADMIN_EMAILS if e]
+    return [email for email in settings.REVIEW_ADMIN_EMAILS if email]
 
 
-def send_review_submitted_admin_email(*, review: Review) -> None:
+def send_review_submitted_admin_email(
+    *,
+    review: Review,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     recipients = _admin_recipients()
     if not recipients:
         log_event(
@@ -46,14 +52,21 @@ def send_review_submitted_admin_email(*, review: Review) -> None:
     }
     text_body = render_to_string("products/email/review_submitted_admin.txt", context)
     html_body = render_to_string("products/email/review_submitted_admin.html", context)
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=recipients,
-    )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
+
+    for recipient in recipients:
+        send_outbound_email(
+            OutboundEmail(
+                recipient=recipient,
+                subject=subject,
+                text_body=text_body,
+                html_body=html_body,
+                notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+                template_key="products/email/review_submitted_admin",
+                notification_outbox=notification_outbox,
+                metadata={"user_id": review.user.id, "product_id": product.id, "review_id": review.id},
+            ),
+        )
+
     log_event(
         logger,
         logging.INFO,
@@ -64,7 +77,11 @@ def send_review_submitted_admin_email(*, review: Review) -> None:
     )
 
 
-def send_review_rejected_user_email(*, review: Review) -> None:
+def send_review_rejected_user_email(
+    *,
+    review: Review,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     to_email = review.user.email
     if not to_email:
         log_event(
@@ -88,14 +105,20 @@ def send_review_rejected_user_email(*, review: Review) -> None:
     }
     text_body = render_to_string("products/email/review_rejected_user.txt", context)
     html_body = render_to_string("products/email/review_rejected_user.html", context)
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to_email],
+
+    send_outbound_email(
+        OutboundEmail(
+            recipient=to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.REVIEW_REJECTED_USER,
+            template_key="products/email/review_rejected_user",
+            notification_outbox=notification_outbox,
+            metadata={"user_id": review.user.id, "product_id": product.id, "review_id": review.id},
+        ),
     )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
+
     log_event(
         logger,
         logging.INFO,
@@ -105,7 +128,12 @@ def send_review_rejected_user_email(*, review: Review) -> None:
     )
 
 
-def send_review_reward_user_email(*, review: Review, promo_code: PromoCode) -> None:
+def send_review_reward_user_email(
+    *,
+    review: Review,
+    promo_code: PromoCode,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
     to_email = review.user.email
     if not to_email:
         log_event(
@@ -132,14 +160,20 @@ def send_review_reward_user_email(*, review: Review, promo_code: PromoCode) -> N
     }
     text_body = render_to_string("products/email/review_reward_user.txt", context)
     html_body = render_to_string("products/email/review_reward_user.html", context)
-    message = EmailMultiAlternatives(
-        subject=subject,
-        body=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to_email],
+
+    send_outbound_email(
+        OutboundEmail(
+            recipient=to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.REVIEW_REWARD_USER,
+            template_key="products/email/review_reward_user",
+            notification_outbox=notification_outbox,
+            metadata={"user_id": review.user.id, "product_id": product.id, "review_id": review.id},
+        ),
     )
-    message.attach_alternative(html_body, "text/html")
-    message.send()
+
     log_event(
         logger,
         logging.INFO,
