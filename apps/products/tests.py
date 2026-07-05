@@ -2,6 +2,7 @@ import shutil
 import tempfile
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.conf import settings
@@ -747,6 +748,73 @@ class MigrateProductImagesCommandTests(TestCase):
         migrated_count = ProductImage.objects.filter(image__startswith="previews/").count()
         self.assertEqual(migrated_count, 1)
         self.assertEqual(mock_get_s3_client.return_value.upload_fileobj.call_count, 1)
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_migrates_shared_legacy_key_for_multiple_products(self, mock_get_s3_client):
+        mock_client = mock_product_image_s3_client()
+        mock_get_s3_client.return_value = mock_client
+        shared_key = "products/shared/photo.png"
+        shared_path = Path(settings.MEDIA_ROOT) / shared_key
+        shared_path.parent.mkdir(parents=True, exist_ok=True)
+        shared_path.write_bytes(b"shared-image")
+
+        product_a = Product.objects.create(title="A", slug="product-a", price=Decimal("10.00"))
+        product_b = Product.objects.create(title="B", slug="product-b", price=Decimal("10.00"))
+        image_a = ProductImage.objects.create(product=product_a, order=0, image=shared_key)
+        image_b = ProductImage.objects.create(product=product_b, order=0, image=shared_key)
+
+        with patch("apps.products.storage.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "abc123456789abcd"
+            call_command("migrate_product_images_to_s3", verbosity=0)
+
+        image_a.refresh_from_db()
+        image_b.refresh_from_db()
+        self.assertEqual(image_a.image.name, "previews/product-a/abc123456789abcd.png")
+        self.assertEqual(image_b.image.name, "previews/product-b/abc123456789abcd.png")
+        self.assertFalse(shared_path.exists())
+        self.assertEqual(mock_client.upload_fileobj.call_count, 2)
+        mock_client.delete_object.assert_called_once_with(
+            Bucket="products",
+            Key=shared_key,
+        )
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_reuses_migrated_peer_when_legacy_source_missing(self, mock_get_s3_client):
+        from botocore.exceptions import ClientError
+
+        mock_client = mock_product_image_s3_client()
+        mock_get_s3_client.return_value = mock_client
+        shared_key = "products/shared/photo.png"
+
+        product_a = Product.objects.create(title="A", slug="product-a", price=Decimal("10.00"))
+        product_b = Product.objects.create(title="B", slug="product-b", price=Decimal("10.00"))
+        ProductImage.objects.create(
+            product=product_a,
+            order=0,
+            image="previews/product-a/already-migrated.png",
+        )
+        image_b = ProductImage.objects.create(product=product_b, order=0, image=shared_key)
+
+        def get_object_side_effect(*, Bucket, Key, **kwargs):
+            if Key == shared_key:
+                raise ClientError({"Error": {"Code": "404"}}, "GetObject")
+            if Key == "previews/product-a/already-migrated.png":
+                return {"Body": SimpleNamespace(read=lambda: b"peer-image-bytes")}
+            raise ClientError({"Error": {"Code": "404"}}, "GetObject")
+
+        mock_client.get_object.side_effect = get_object_side_effect
+
+        with patch("apps.products.storage.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "def987654321fedc"
+            call_command("migrate_product_images_to_s3", verbosity=0)
+
+        image_b.refresh_from_db()
+        self.assertEqual(image_b.image.name, "previews/product-b/def987654321fedc.png")
+        self.assertEqual(mock_client.upload_fileobj.call_count, 1)
+        mock_client.get_object.assert_any_call(
+            Bucket="products",
+            Key="previews/product-a/already-migrated.png",
+        )
 
     @override_settings(S3_PRODUCT_IMAGES_ENABLED=False)
     def test_command_requires_s3_enabled(self):

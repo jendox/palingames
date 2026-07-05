@@ -52,22 +52,35 @@ class Command(BaseCommand):
         mode = "DRY RUN" if dry_run else "MIGRATE"
         self.stdout.write(f"{mode}: processing {len(images)} product image(s).")
 
+        outcomes, errors = self._migrate_images(images, dry_run=dry_run)
+        self._write_summary(outcomes, errors)
+
+    def _migrate_images(self, images, *, dry_run: bool):
         outcomes = []
+        errors = []
         for image in images:
             try:
                 outcome = migrate_product_image(image, dry_run=dry_run)
             except ProductImageMigrationError as exc:
-                raise CommandError(str(exc)) from exc
+                errors.append(str(exc))
+                self.stderr.write(self.style.ERROR(str(exc)))
+                continue
             outcomes.append(outcome)
             self._write_outcome(outcome)
+        return outcomes, errors
 
-        summary = Counter(outcome.status for outcome in outcomes)
-        self.stdout.write(
-            self.style.SUCCESS(
-                "Done: "
-                + ", ".join(f"{status}={count}" for status, count in sorted(summary.items())),
-            ),
-        )
+    def _write_summary(self, outcomes, errors) -> None:
+        if outcomes:
+            summary = Counter(outcome.status for outcome in outcomes)
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "Done: "
+                    + ", ".join(f"{status}={count}" for status, count in sorted(summary.items())),
+                ),
+            )
+
+        if errors:
+            raise CommandError(f"Migration failed for {len(errors)} image(s). See errors above.")
 
     def _write_outcome(self, outcome) -> None:
         if outcome.status == "skipped":
