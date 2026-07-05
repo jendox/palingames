@@ -34,7 +34,7 @@
         <div class="flex items-start gap-[6px] pt-[8px]">
           <img src="{% static 'images/header/menu_catalog.svg' %}" alt="" class="mt-[1px] h-[26px] w-[28px]" aria-hidden="true" draggable="false">
           <h2 class="text-[20px] font-bold leading-[24px] text-[var(--color-black)]">
-            {% trans "Покупка без регистрации" %}
+            {% trans "Гостевая покупка" %}
           </h2>
         </div>
 
@@ -45,9 +45,9 @@
 
         <a
           href="{% url 'checkout' %}"
-          class="mt-[30px] flex h-[60px] w-[211px] items-center justify-center rounded-[10px] bg-[#FF9E8D] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[#ff8e7a]"
+          class="mt-[30px] flex h-[60px] w-[211px] items-center justify-center whitespace-nowrap rounded-[10px] bg-[#FF9E8D] px-[12px] py-[15px] text-center text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[#ff8e7a]"
         >
-            {% trans "Покупка без регистрации" %}
+          {% trans "Гостевая покупка" %}
         </a>
       </section>
     </div>

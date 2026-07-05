@@ -896,7 +896,7 @@ class ProductDetailView(DetailView):
         primary_image_url = images[0] if images else static("images/example-product-image-1.png")
         product_description = normalize_seo_description(
             product.description or product.content,
-            fallback=f"Купить игру «{product.title}» на PalinGames.",
+            fallback=f"Материал «{product.title}» на PalinGames.",
         )
         product_json_ld = {
             "@context": "https://schema.org",

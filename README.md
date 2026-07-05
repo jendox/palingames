@@ -239,9 +239,13 @@ uv run python manage.py createsuperuser
 
 ### 6. Загрузить fixture для тегов
 
+Файл `tags_fixture.json` в корне проекта (в `.gitignore`, не в git). Содержит категории, подтипы, возрастные группы, области развития и темы.
+
 ```bash
 uv run python manage.py loaddata tags_fixture.json
 ```
+
+На **staging/prod (Docker на VPS)** — scp + `docker cp` + `loaddata` внутри контейнера `web`. Подробно: [deploy/README.md](deploy/README.md#справочник-каталога-tags_fixturejson).
 
 ### 7. Запустить Django
 

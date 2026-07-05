@@ -86,11 +86,11 @@
             </div>
           </div>
           {% if request.user.is_authenticated %}
-            <a href="{% url 'checkout' %}" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+            <a href="{% url 'checkout' %}" class="cursor-pointer mt-[52px] flex h-[60px] w-[250px] items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
               {% trans "Оплатить доступ" %}
             </a>
           {% else %}
-            <button type="button" data-dialog-open="checkoutAuthChoiceDialog" class="cursor-pointer mt-[52px] flex h-[60px] w-[211px] items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
+            <button type="button" data-dialog-open="checkoutAuthChoiceDialog" class="cursor-pointer mt-[52px] flex h-[60px] w-[250px] items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)] mx-auto">
               {% trans "Оплатить доступ" %}
             </button>
           {% endif %}
