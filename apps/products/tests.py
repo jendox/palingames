@@ -1,10 +1,16 @@
+import shutil
+import tempfile
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -15,7 +21,17 @@ from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import process_notification_outbox
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order
-from apps.products.models import AgeGroup, AgeGroupTag, Category, Product, ProductFile, Review, ReviewStatus, SubType
+from apps.products.models import (
+    AgeGroup,
+    AgeGroupTag,
+    Category,
+    Product,
+    ProductFile,
+    ProductImage,
+    Review,
+    ReviewStatus,
+    SubType,
+)
 from apps.products.services.s3 import (
     ProductFileDownloadUrlError,
     ProductFileMetadataError,
@@ -472,6 +488,270 @@ class ProductS3ServiceTests(TestCase):
                 original_filename="game.zip",
             )
         record_storage_unavailable_incident_mock.assert_called_once()
+
+
+PRODUCT_IMAGE_S3_SETTINGS = {
+    "S3_PRODUCT_IMAGES_ENABLED": True,
+    "S3_PRODUCT_IMAGES_PREFIX": "previews",
+    "S3_PRODUCT_IMAGES_PUBLIC_BASE_URL": "",
+    "S3_ENDPOINT_URL": "http://127.0.0.1:9000",
+    "S3_BUCKET_NAME": "products",
+    "S3_ADDRESSING_STYLE": "path",
+}
+
+
+def mock_product_image_s3_client() -> Mock:
+    from botocore.exceptions import ClientError
+
+    client = Mock()
+    error_response = {"Error": {"Code": "404"}}
+    client.head_object.side_effect = ClientError(error_response, "HeadObject")
+    return client
+
+
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
+class ProductImageStorageTests(TestCase):
+    @patch("apps.products.storage.get_s3_client")
+    def test_save_uploads_with_content_type_and_cache_control(self, mock_get_s3_client):
+        from apps.products.storage import ProductImageS3Storage
+
+        mock_get_s3_client.return_value = Mock()
+        storage = ProductImageS3Storage()
+        content = SimpleUploadedFile("photo.png", b"png-bytes", content_type="image/png")
+        key = "previews/alpha/abc123.png"
+
+        saved_name = storage._save(key, content)
+
+        self.assertEqual(saved_name, key)
+        mock_get_s3_client.return_value.upload_fileobj.assert_called_once_with(
+            Fileobj=content,
+            Bucket="products",
+            Key=key,
+            ExtraArgs={
+                "ContentType": "image/png",
+                "CacheControl": "public, max-age=31536000, immutable",
+            },
+        )
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_delete_removes_object_from_bucket(self, mock_get_s3_client):
+        from apps.products.storage import ProductImageS3Storage
+
+        mock_get_s3_client.return_value = Mock()
+        storage = ProductImageS3Storage()
+
+        storage.delete("previews/alpha/abc123.png")
+
+        mock_get_s3_client.return_value.delete_object.assert_called_once_with(
+            Bucket="products",
+            Key="previews/alpha/abc123.png",
+        )
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_exists_returns_false_for_missing_object(self, mock_get_s3_client):
+        from botocore.exceptions import ClientError
+
+        from apps.products.storage import ProductImageS3Storage
+
+        error_response = {"Error": {"Code": "404"}}
+        mock_get_s3_client.return_value.head_object.side_effect = ClientError(error_response, "HeadObject")
+        storage = ProductImageS3Storage()
+
+        self.assertFalse(storage.exists("previews/alpha/missing.png"))
+
+    def test_url_builds_path_style_public_url(self):
+        from apps.products.storage import ProductImageS3Storage, build_product_image_public_url
+
+        url = build_product_image_public_url("previews/slug/file.png")
+        self.assertEqual(url, "http://127.0.0.1:9000/products/previews/slug/file.png")
+        self.assertEqual(
+            ProductImageS3Storage().url("previews/slug/file.png"),
+            "http://127.0.0.1:9000/products/previews/slug/file.png",
+        )
+
+    @override_settings(S3_PRODUCT_IMAGES_PUBLIC_BASE_URL="https://cdn.example.com/assets")
+    def test_url_uses_explicit_public_base_url(self):
+        from apps.products.storage import build_product_image_public_url
+
+        url = build_product_image_public_url("previews/slug/file.png")
+        self.assertEqual(url, "https://cdn.example.com/assets/previews/slug/file.png")
+
+    def test_build_product_image_object_key(self):
+        from apps.products.storage import build_product_image_object_key
+
+        with patch("apps.products.storage.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "deadbeefcafebabe"
+            key = build_product_image_object_key(product_slug="my-slug", filename="photo.PNG")
+
+        self.assertEqual(key, "previews/my-slug/deadbeefcafebabe.png")
+
+    @override_settings(S3_PRODUCT_IMAGES_ENABLED=False)
+    def test_get_product_image_storage_returns_filesystem_when_disabled(self):
+        from django.core.files.storage import FileSystemStorage
+
+        from apps.products.storage import get_product_image_storage
+
+        self.assertIsInstance(get_product_image_storage(), FileSystemStorage)
+
+    @override_settings(S3_PRODUCT_IMAGES_ENABLED=True)
+    def test_get_product_image_storage_returns_s3_when_enabled(self):
+        from apps.products.storage import ProductImageS3Storage, get_product_image_storage
+
+        self.assertIsInstance(get_product_image_storage(), ProductImageS3Storage)
+
+
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
+class ProductImageSignalTests(TestCase):
+    @patch("apps.products.storage.get_s3_client")
+    def test_replace_deletes_previous_object_key(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        product = Product.objects.create(title="Signal", slug="signal", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        image.save()
+        old_key = image.image.name
+
+        image.image = SimpleUploadedFile("second.png", b"second", content_type="image/png")
+        image.save()
+
+        deleted_keys = [
+            call.kwargs["Key"]
+            for call in mock_get_s3_client.return_value.delete_object.call_args_list
+        ]
+        self.assertIn(old_key, deleted_keys)
+        self.assertNotEqual(image.image.name, old_key)
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_row_delete_removes_object_from_storage(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        product = Product.objects.create(title="Delete", slug="delete-me", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("remove.png", b"remove", content_type="image/png")
+        image.save()
+        object_key = image.image.name
+
+        image.delete()
+
+        deleted_keys = [
+            call.kwargs["Key"]
+            for call in mock_get_s3_client.return_value.delete_object.call_args_list
+        ]
+        self.assertIn(object_key, deleted_keys)
+        self.assertFalse(ProductImage.objects.filter(pk=image.pk).exists())
+
+
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
+class MigrateProductImagesCommandTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._media_root = tempfile.mkdtemp(prefix="product-image-migration-")
+        cls._media_override = override_settings(MEDIA_ROOT=cls._media_root)
+        cls._media_override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._media_override.disable()
+        shutil.rmtree(cls._media_root, ignore_errors=True)
+        super().tearDownClass()
+
+    def _create_local_product_image(self, *, slug: str, old_key: str, content: bytes = b"png-data"):
+        local_path = Path(settings.MEDIA_ROOT) / old_key
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_bytes(content)
+        product = Product.objects.create(title=f"Product {slug}", slug=slug, price=Decimal("10.00"))
+        image = ProductImage.objects.create(product=product, order=0, image=old_key)
+        return product, image, local_path
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_migrates_local_file_to_previews_prefix(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        _, image, local_path = self._create_local_product_image(
+            slug="migrate-me",
+            old_key="products/migrate-me/photo.png",
+        )
+
+        with patch("apps.products.storage.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "deadbeefcafebabe"
+            call_command("migrate_product_images_to_s3", verbosity=0)
+
+        image.refresh_from_db()
+        self.assertEqual(image.image.name, "previews/migrate-me/deadbeefcafebabe.png")
+        self.assertFalse(local_path.exists())
+        mock_get_s3_client.return_value.upload_fileobj.assert_called_once()
+        mock_get_s3_client.return_value.delete_object.assert_called_once_with(
+            Bucket="products",
+            Key="products/migrate-me/photo.png",
+        )
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_dry_run_does_not_upload_or_update(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        _, image, local_path = self._create_local_product_image(
+            slug="dry-run",
+            old_key="products/dry-run/photo.png",
+        )
+
+        call_command("migrate_product_images_to_s3", "--dry-run", verbosity=0)
+
+        image.refresh_from_db()
+        self.assertEqual(image.image.name, "products/dry-run/photo.png")
+        self.assertTrue(local_path.exists())
+        mock_get_s3_client.return_value.upload_fileobj.assert_not_called()
+        mock_get_s3_client.return_value.delete_object.assert_not_called()
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_skips_already_migrated_image(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        product = Product.objects.create(title="Done", slug="done", price=Decimal("10.00"))
+        image = ProductImage.objects.create(
+            product=product,
+            order=0,
+            image="previews/done/already.png",
+        )
+
+        call_command("migrate_product_images_to_s3", verbosity=0)
+
+        image.refresh_from_db()
+        self.assertEqual(image.image.name, "previews/done/already.png")
+        mock_get_s3_client.return_value.upload_fileobj.assert_not_called()
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_filters_by_product_slug(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        self._create_local_product_image(slug="alpha", old_key="products/alpha/one.png")
+        self._create_local_product_image(slug="beta", old_key="products/beta/two.png")
+
+        with patch("apps.products.storage.uuid4") as mock_uuid:
+            mock_uuid.return_value.hex = "abc123456789abcd"
+            call_command("migrate_product_images_to_s3", "--product-slug=alpha", verbosity=0)
+
+        self.assertEqual(
+            ProductImage.objects.filter(product__slug="alpha").get().image.name,
+            "previews/alpha/abc123456789abcd.png",
+        )
+        self.assertEqual(
+            ProductImage.objects.filter(product__slug="beta").get().image.name,
+            "products/beta/two.png",
+        )
+        self.assertEqual(mock_get_s3_client.return_value.upload_fileobj.call_count, 1)
+
+    @patch("apps.products.storage.get_s3_client")
+    def test_limit_processes_only_requested_number(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = mock_product_image_s3_client()
+        self._create_local_product_image(slug="one", old_key="products/one/1.png")
+        self._create_local_product_image(slug="two", old_key="products/two/2.png")
+
+        call_command("migrate_product_images_to_s3", "--limit=1", verbosity=0)
+
+        migrated_count = ProductImage.objects.filter(image__startswith="previews/").count()
+        self.assertEqual(migrated_count, 1)
+        self.assertEqual(mock_get_s3_client.return_value.upload_fileobj.call_count, 1)
+
+    @override_settings(S3_PRODUCT_IMAGES_ENABLED=False)
+    def test_command_requires_s3_enabled(self):
+        with self.assertRaisesMessage(CommandError, "S3_PRODUCT_IMAGES_ENABLED must be true"):
+            call_command("migrate_product_images_to_s3", verbosity=0)
 
 
 @override_settings(

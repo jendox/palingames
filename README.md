@@ -454,12 +454,17 @@ http://127.0.0.1:3000
 
 ## Настройка MinIO для разработки
 
+`make up-develop` поднимает MinIO и one-shot контейнер `minio-init`, который:
+- создаёт bucket `products` (если ещё нет);
+- включает anonymous read только для `previews/*` (превью товаров).
+
 В `.env` можно использовать, например:
 
 ```env
+S3_PRODUCT_IMAGES_ENABLED=true
 S3_ENDPOINT_URL=http://127.0.0.1:9000
 S3_ACCESS_KEY_ID=minioadmin
-S3_SECRET_ACCESS_KEY=minioadmin
+S3_SECRET_ACCESS_KEY=minioadmin123
 S3_REGION_NAME=us-east-1
 S3_BUCKET_NAME=products
 S3_ADDRESSING_STYLE=path
@@ -467,9 +472,9 @@ S3_USE_SSL=False
 ```
 
 Важно:
-- bucket должен существовать;
-- файлы должны храниться приватно;
-- backend сам генерирует presigned URLs.
+- download-файлы (`{slug}/{uuid}.zip`) остаются private — backend генерирует presigned URLs;
+- превью (`previews/{slug}/{uuid}.png`) открываются по public URL: `http://127.0.0.1:9000/products/previews/...`;
+- MinIO Console: http://127.0.0.1:9001 (`minioadmin` / `minioadmin123`).
 
 ## Celery и периодические задачи
 

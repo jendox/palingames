@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import markdown
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -10,6 +12,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
+from apps.products.storage import build_product_image_object_key, get_product_image_storage
 
 
 class Currency(models.IntegerChoices):
@@ -148,13 +151,16 @@ class Product(TimeStampedModel):
         return self.reviews.published_only()
 
 
-def product_image_upload_to(instance, filename):
+def product_image_upload_to(instance: ProductImage, filename: str) -> str:
     slug = instance.product.slug or slugify(instance.product.title)
-    return f"products/{slug}/{filename}"
+    return build_product_image_object_key(product_slug=slug, filename=filename)
 
 
 class ProductImage(TimeStampedModel):
-    image = models.ImageField(upload_to=product_image_upload_to)
+    image = models.ImageField(
+        upload_to=product_image_upload_to,
+        storage=get_product_image_storage,
+    )
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
     order = models.PositiveSmallIntegerField(default=0)
 
