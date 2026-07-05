@@ -207,6 +207,8 @@ class ExpressPayNotificationViewTests(TestCase):
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         SITE_BASE_URL="http://127.0.0.1:8000",
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
         ORDER_REWARD_MIN_TOTAL_AMOUNT="25.00",
         ORDER_REWARD_DISCOUNT_PERCENT=10,
         ORDER_REWARD_VALID_DAYS=14,
