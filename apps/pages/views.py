@@ -105,7 +105,7 @@ class PaymentPageView(TemplateView):
         context.update(
             build_seo_context(
                 title="Оплата — PalinGames",
-                description="Способы оплаты заказов на PalinGames и ответы на частые вопросы по оплате.",
+                description="Способы оплаты доступа к материалам на PalinGames и ответы на частые вопросы по оплате.",
                 canonical_url=reverse("payment"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),

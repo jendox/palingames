@@ -17,7 +17,7 @@
 
   <div class="relative z-10 mx-auto max-w-[1500px] px-[42px] pb-[88px] pt-[70px] min-[1600px]:px-[72px]">
     <h1 class="text-center text-[40px] font-bold uppercase leading-[40px] text-[var(--color-black)]">
-      {% trans "Оформление заказа" %}
+      {% trans "Оплата доступа" %}
     </h1>
 
     <form method="post" class="mx-auto mt-[70px] grid max-w-[1440px] grid-cols-[minmax(0,1fr)_minmax(460px,595px)] items-start gap-[72px]" novalidate>
@@ -116,7 +116,7 @@
                 {% trans "Оплата прошла успешно. Ссылка для скачивания находится в личном кабинете." %}
               </p>
               <div class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-                <span>{% trans "Если вы оформили заказ как гость, ссылка для оплаты будет отправлена на Вашу почту в течение 3 - 5 минут." %}</span>
+                <span>{% trans "Если вы оформили покупку как гость, ссылка для оплаты будет отправлена на вашу почту в течение 3–5 минут." %}</span>
               </div>
             </div>
           </div>
@@ -157,7 +157,7 @@
         </p>
 
         <button type="submit" class="mx-auto mt-[20px] flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-green-hover)]" data-checkout-submit>
-          {% trans "Оформить заказ" %}
+          {% trans "Оплатить доступ" %}
         </button>
 
         {% if checkout_error_message %}

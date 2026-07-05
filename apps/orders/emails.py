@@ -34,7 +34,7 @@ def send_order_reward_user_email(
         )
         return
 
-    subject = f"Спасибо за заказ! Ваш промокод на {promo_code.discount_percent}%"
+    subject = f"Спасибо за покупку! Ваш промокод на {promo_code.discount_percent}%"
     context = {
         "order": order,
         "promo_code": promo_code,

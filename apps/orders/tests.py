@@ -308,7 +308,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         response = self.client.post(reverse("checkout"), {"email": self.user.email})
 
         self.assertEqual(response.status_code, 409)
-        self.assertContains(response, "неоплаченный заказ", status_code=409)
+        self.assertContains(response, "неоплаченная покупка", status_code=409)
         self.assertContains(response, pending_order.payment_account_no, status_code=409)
         self.assertEqual(Order.objects.exclude(pk=pending_order.pk).count(), 0)
         self.assertTrue(CartItem.objects.filter(cart=cart, product=self.product).exists())
@@ -491,7 +491,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertEqual(second_response.status_code, 429)
         self.assertContains(
             second_response,
-            "Слишком много попыток оформления заказа. Попробуйте позже.",
+            "Слишком много попыток оплаты доступа. Попробуйте позже.",
             status_code=429,
         )
         self.assertEqual(second_response["Retry-After"], "600")
@@ -555,7 +555,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertEqual(second_response.status_code, 429)
         self.assertContains(
             second_response,
-            "Слишком много попыток оформления заказа. Попробуйте позже.",
+            "Слишком много попыток оплаты доступа. Попробуйте позже.",
             status_code=429,
         )
         self.assertEqual(second_response["Retry-After"], "3600")

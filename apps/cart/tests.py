@@ -177,7 +177,7 @@ class CartViewsTests(TestCase):
         self.assertFalse(payload["in_cart"])
         self.assertFalse(payload["already_purchased"])
         self.assertTrue(payload["already_pending_purchase"])
-        self.assertIn("неоплаченный заказ", payload["message"])
+        self.assertIn("неоплаченная покупка", payload["message"])
         self.assertFalse(CartItem.objects.filter(cart__user=user, product=self.product_1).exists())
 
     def test_guest_cart_merges_to_user_after_login(self):

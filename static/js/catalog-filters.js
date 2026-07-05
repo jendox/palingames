@@ -284,7 +284,7 @@ function setCartState(button, isInCart) {
   }
   button.setAttribute(
     "aria-label",
-    isPurchased ? "Скачать" : (isInCart ? "Удалить из корзины" : "Добавить в корзину"),
+    isPurchased ? "Скачать" : (isInCart ? "Убрать из выбранного" : "Добавить в выбранное"),
   );
 
   const icon = button.querySelector("[data-cart-icon]");
@@ -727,7 +727,7 @@ function initCatalogProductCards(root = document) {
         if (payload.already_pending_purchase) {
           window.PalinGamesDownloads?.showNotification?.(
             payload.message ||
-              "У вас уже есть неоплаченный заказ с этим товаром. Завершите оплату текущего заказа или дождитесь истечения срока оплаты.",
+              "У вас уже есть неоплаченная покупка этого материала. Завершите оплату текущей покупки или дождитесь истечения срока оплаты.",
           );
           setCartState(button, false);
           return;

@@ -36,12 +36,12 @@ class CartPageView(TemplateView):
         context.update(get_cart_page_context(self.request))
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},
-            {"title": "Корзина"},
+            {"title": "Выбранное"},
         ]
         context.update(
             build_seo_context(
-                title="Корзина — PalinGames",
-                description="Корзина пользователя PalinGames.",
+                title="Выбранное — PalinGames",
+                description="Выбранные материалы на PalinGames.",
                 canonical_url=reverse("cart"),
                 robots="noindex,nofollow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
@@ -82,12 +82,12 @@ def cart_remove_view(request, product_id: int):
     remove_cart_product(request, product_id)
     if request.headers.get("HX-Request") == "true":
         return render(request, "pages/cart/_content.html", get_cart_page_context(request))
-    messages.success(request, "Товар удален из корзины.")
+    messages.success(request, "Материал убран из выбранного.")
     return redirect("cart")
 
 
 @require_POST
 def cart_clear_view(request):
     clear_cart(request)
-    messages.success(request, "Корзина очищена.")
+    messages.success(request, "Выбранное очищено.")
     return redirect("cart")

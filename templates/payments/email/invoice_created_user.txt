@@ -1,12 +1,12 @@
 {% if target_kind == "order" %}
 Здравствуйте!
 
-Ваш заказ №{{ order.payment_account_no }} оформлен и ожидает оплату.
+Доступ к материалам №{{ order.payment_account_no }} ожидает оплату.
 
 Сумма к оплате: {{ amount }}
 {% if expires_at %}Оплатите до: {{ expires_at|date:"d.m.Y H:i" }}{% else %}Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).{% endif %}
 
-{% if items %}Состав заказа:
+{% if items %}Выбранные материалы:
 {% for item in items %}- {{ item.title }}{% if item.category %} · {{ item.category }}{% endif %} — {{ item.price }}
 {% endfor %}{% endif %}
 {% else %}

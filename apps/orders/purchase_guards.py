@@ -31,6 +31,6 @@ def get_user_pending_order_item_by_product_ids(user, *, product_ids: list[int]):
 def build_pending_purchase_message(*, order: Order, product_title: str) -> str:
     order_number = order.payment_account_no or f"#{order.id}"
     return (
-        f"У вас уже есть неоплаченный заказ {order_number} с товаром «{product_title}». "
-        "Завершите оплату текущего заказа или дождитесь истечения срока оплаты."
+        f"У вас уже есть неоплаченная покупка {order_number} с материалом «{product_title}». "
+        "Завершите оплату текущей покупки или дождитесь истечения срока оплаты."
     )

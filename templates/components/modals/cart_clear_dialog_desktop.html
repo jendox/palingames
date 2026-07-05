@@ -21,7 +21,7 @@
     <img src="{% static 'images/icons/trash-light-green.svg' %}" alt="" class="h-[137px] w-[120px]" aria-hidden="true" draggable="false">
 
     <p class="mt-[24px] text-[18px] font-bold leading-none text-[var(--color-black)]">
-      {% trans "Уверены, что хотите чистить корзину?" %}
+      {% trans "Уверены, что хотите очистить выбранное?" %}
     </p>
 
     <form method="post" action="{% url 'cart-clear' %}" class="mt-[24px] flex items-center justify-center gap-[21px]">
@@ -30,7 +30,7 @@
         {% trans "отменить" %}
       </button>
       <button type="submit" class="btn-soft-green h-[55px] w-[165px]">
-        {% trans "очистить корзину" %}
+        {% trans "очистить выбранное" %}
       </button>
     </form>
   </div>

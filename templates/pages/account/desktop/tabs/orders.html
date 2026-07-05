@@ -1,7 +1,7 @@
 {% load i18n static %}
 
 <section class="max-w-[920px]">
-  <h2 class="text-[36px] font-bold leading-[47px]">{% trans "Заказы" %}</h2>
+  <h2 class="text-[36px] font-bold leading-[47px]">{% trans "Покупки" %}</h2>
 
   {% if account_orders %}
     <div class="mt-[40px] space-y-[20px]">
@@ -11,7 +11,7 @@
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-[16px]">
                 <p class="text-[18px] font-bold leading-[23px] text-[var(--color-black)]">
-                  {% trans "Заказ №" %} {{ order.number }}
+                  {% trans "Покупка №" %} {{ order.number }}
                 </p>
                 <span class="inline-flex h-[23px] items-center rounded-[10px] px-[10px] text-[12px] font-bold leading-none {{ order.status_classes }}">
                   {{ order.status }}
@@ -98,10 +98,10 @@
   {% else %}
     <div class="mt-[50px] rounded-[20px] border border-[rgba(0,0,0,0.08)] bg-[var(--color-white)] px-[32px] py-[30px]">
       <p class="text-[18px] font-bold leading-[24px] text-[var(--color-black)]">
-        {% trans "У вас пока нет заказов." %}
+        {% trans "У вас пока нет покупок." %}
       </p>
       <p class="mt-[12px] max-w-[540px] text-[16px] leading-[22px] text-[var(--color-black-80)]">
-        {% trans "После оформления и оплаты заказа он появится здесь вместе с текущим статусом." %}
+        {% trans "После оплаты доступа покупка появится здесь вместе с текущим статусом." %}
       </p>
     </div>
   {% endif %}

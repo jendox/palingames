@@ -18,7 +18,7 @@
 
   <div class="relative z-10 mx-auto max-w-[335px]">
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-      {% trans "Оформление заказа" %}
+      {% trans "Оплата доступа" %}
     </h1>
 
     <form method="post" novalidate>
@@ -139,7 +139,7 @@
             {% trans "Оплата прошла успешно. Ссылка для скачивания находится в личном кабинете." %}
           </p>
           <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black-80)]">
-            {% trans "Если Вы оформили заказ как гость, ссылка для оплаты будет отправлена на Ваш почтовый ящик в течении 3 - 5 минут." %}
+            {% trans "Если вы оформили покупку как гость, ссылка для оплаты будет отправлена на ваш почтовый ящик в течение 3–5 минут." %}
           </p>
         </div>
       </div>
@@ -154,7 +154,7 @@
       class="mt-[15px] flex h-[40px] w-full cursor-pointer items-center justify-center rounded-[10px] bg-[var(--color-green)] px-[20px] text-[16px] font-bold leading-none text-[var(--color-white)]"
       data-checkout-submit
     >
-      {% trans "Оформить заказ" %}
+      {% trans "Оплатить доступ" %}
     </button>
     {% if checkout_error_message %}
     <p class="mt-[10px] text-center text-[10px] font-bold leading-[13px] text-[#D45A5A]" role="alert">

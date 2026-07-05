@@ -37,7 +37,7 @@ from .services import (
 
 logger = logging.getLogger("apps.checkout")
 
-CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оформления заказа. Попробуйте позже."
+CHECKOUT_RATE_LIMIT_MESSAGE = "Слишком много попыток оплаты доступа. Попробуйте позже."
 CHECKOUT_PROMO_RATE_LIMIT_MESSAGE = "Слишком много попыток применения промокода. Попробуйте позже."
 
 
@@ -201,14 +201,14 @@ class CheckoutPageView(TemplateView):
             context["checkout_analytics_payload"] = _build_checkout_analytics_payload(context)
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},
-            {"title": "Корзина", "url": reverse("cart")},
-            {"title": "Оформление заказа"},
+            {"title": "Выбранное", "url": reverse("cart")},
+            {"title": "Оплата доступа"},
         ]
         context["checkout_error_message"] = kwargs.get("checkout_error_message", "")
         context.update(
             build_seo_context(
-                title="Оформление заказа — PalinGames",
-                description="Оформление заказа на PalinGames.",
+                title="Оплата доступа — PalinGames",
+                description="Оплата доступа к материалам на PalinGames.",
                 canonical_url=reverse("checkout"),
                 robots="noindex,nofollow",
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
@@ -281,7 +281,7 @@ class CheckoutPageView(TemplateView):
                     checkout_error_message=exc.message,
                 )
                 return self.render_to_response(context, status=409)
-            messages.error(request, "Некоторые товары уже куплены и недоступны для повторного заказа.")
+            messages.error(request, "Некоторые материалы уже куплены и недоступны для повторной покупки.")
             return redirect("cart")
         order = result.order
         if result.created:

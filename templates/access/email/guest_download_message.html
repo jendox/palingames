@@ -1,8 +1,8 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Спасибо за ваш заказ!</p>
-  <p>Заказ №{{ order.payment_account_no }} успешно оплачен. Ниже находятся ссылки на скачивание ваших материалов.</p>
+  <p>Спасибо! Ваши материалы готовы.</p>
+  <p>Покупка №{{ order.payment_account_no }} успешно оплачена. Ниже находятся ссылки на скачивание ваших материалов.</p>
   <p>Каждая ссылка действует <strong>{{ guest_access_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ guest_access_max_downloads }} раз</strong>.</p>
 
   {% for item in items %}

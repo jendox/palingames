@@ -91,7 +91,7 @@
         <button
           type="button"
           class="catalog-card-cart-button inline-flex size-[48px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04] {% if product.is_in_cart %}catalog-card-cart-button-active{% endif %}"
-          aria-label="{% if product.is_in_cart %}{% trans 'Удалить из корзины' %}{% else %}{% trans 'Добавить в корзину' %}{% endif %}"
+          aria-label="{% if product.is_in_cart %}{% trans 'Убрать из выбранного' %}{% else %}{% trans 'Добавить в выбранное' %}{% endif %}"
           data-catalog-cart-toggle
           data-product-id="{{ product.id }}"
           data-in-cart="{% if product.is_in_cart %}true{% else %}false{% endif %}"

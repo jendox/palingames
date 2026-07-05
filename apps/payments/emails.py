@@ -71,7 +71,7 @@ def send_invoice_created_user_email(
 
     if isinstance(target, Order):
         recipient = target.email
-        subject = f"Оплата заказа {target.payment_account_no}"
+        subject = f"Оплата доступа {target.payment_account_no}"
     else:
         recipient = target.contact_email
         subject = f"Оплата игры на заказ {target.payment_account_no}"

@@ -20,11 +20,19 @@
     <img src="{% static 'images/decor/balloons/order-balloon.svg' %}" alt="" class="h-[125px] w-[95px]" aria-hidden="true" draggable="false">
 
     <p class="mt-[10px] text-[16px] font-bold leading-[20px] text-[var(--color-black)]">
-      {% trans "Ваш заказ оформлен!" %}
+      {% if custom_game_created_request %}
+        {% trans "Заявка принята!" %}
+      {% else %}
+        {% trans "Покупка оформлена!" %}
+      {% endif %}
     </p>
 
     <p class="mt-[10px] text-[10px] leading-[14px] text-[var(--color-black)]">
-      {% trans "Номер заказа" %}
+      {% if custom_game_created_request %}
+        {% trans "Номер заявки" %}
+      {% else %}
+        {% trans "Номер покупки" %}
+      {% endif %}
       <span class="font-bold">
         №
         {% if custom_game_created_request %}
@@ -37,11 +45,11 @@
 
     {% if custom_game_created_request %}
       <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "Мы отправили письмо с описанием заказа на Вашу электронную почту. Пожалуйста, проверьте почтовый ящик (включая папку “Спам”)." %}
+        {% trans "Мы отправили письмо с описанием заявки на вашу электронную почту. Пожалуйста, проверьте почтовый ящик (включая папку “Спам”)." %}
       </p>
 
       <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "Мы свяжемся с Вами для уточнения деталей заказа." %}
+        {% trans "Мы свяжемся с вами для уточнения деталей заявки." %}
       </p>
     {% else %}
       <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">

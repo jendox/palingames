@@ -3,7 +3,7 @@
 <section class="relative overflow-hidden px-4 pb-[50px] pt-[50px]">
   <div class="mx-auto max-w-[420px]">
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
-      {% trans "Моя корзина" %}
+      {% trans "Выбранное" %}
     </h1>
 
     <div class="mt-[40px] space-y-[20px]">
@@ -11,15 +11,15 @@
         {% include "pages/cart/mobile/_cart_item.html" %}
       {% empty %}
         <div class="text-center text-[14px] leading-[18px] text-[var(--color-black)]">
-          <p class="text-[16px] font-bold leading-[20px]">{% trans "Корзина пока пуста." %}</p>
+          <p class="text-[16px] font-bold leading-[20px]">{% trans "Пока ничего не выбрано." %}</p>
           <p class="mt-[10px] text-[13px] leading-[18px] text-[var(--color-black-80)]">
-            {% trans "Загляните в каталог и добавьте игры, которые вам понравились." %}
+            {% trans "Загляните в коллекцию и добавьте игры, которые вам понравились." %}
           </p>
           <a
             href="{% url 'catalog' %}"
             class="btn-primary btn-primary--h40 mt-[18px] inline-flex items-center justify-center px-[22px] text-[14px]"
           >
-            {% trans "Перейти в каталог" %}
+            {% trans "Перейти в коллекцию" %}
           </a>
         </div>
       {% endfor %}
@@ -32,16 +32,16 @@
           data-dialog-open="cartClearDialog"
           class="inline-flex cursor-pointer text-[12px] font-bold leading-[14px] text-[var(--color-black)] underline underline-offset-[2px]"
         >
-          {% trans "очистить корзину" %}
+          {% trans "очистить выбранное" %}
         </a>
       </div>
 
       <div class="mt-[50px] rounded-[5px] border border-[var(--color-grey)] bg-[var(--color-white)] p-[20px]">
         <p class="text-[16px] font-bold leading-none text-[var(--color-black)]">
-          {% trans "Ваш заказ" %}
+          {% trans "Ваш выбор" %}
         </p>
         <div class="mt-[20px] flex items-end justify-between gap-[14px] text-[12px] leading-[130%] text-[var(--color-black-80)]">
-          <span>{% blocktrans count count=cart_items|length %}товары, {{ count }} шт{% plural %}товары, {{ count }} шт{% endblocktrans %}</span>
+          <span>{% blocktrans count count=cart_items|length %}материалы, {{ count }} шт{% plural %}материалы, {{ count }} шт{% endblocktrans %}</span>
           <span class="font-normal text-[var(--color-black)]">{{ cart_total }}</span>
         </div>
         <div class="mt-[20px] border-t border-[var(--color-grey)] pt-[20px]">
@@ -54,11 +54,11 @@
 
       {% if request.user.is_authenticated %}
         <a href="{% url 'checkout' %}" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
-          {% trans "Оформить заказ" %}
+          {% trans "Оплатить доступ" %}
         </a>
       {% else %}
         <button type="button" data-dialog-open="checkoutAuthChoiceDialog" class="mt-[50px] flex h-[40px] w-full items-center justify-center gap-[10px] rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[16px] font-bold leading-none text-[var(--color-white)] hover:bg-[var(--color-green-hover)]">
-          {% trans "Оформить заказ" %}
+          {% trans "Оплатить доступ" %}
         </button>
       {% endif %}
     {% endif %}

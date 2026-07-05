@@ -475,7 +475,7 @@ function initProductCartButtons() {
         if (payload.already_pending_purchase) {
           window.PalinGamesDownloads?.showNotification?.(
             payload.message ||
-              "У вас уже есть неоплаченный заказ с этим товаром. Завершите оплату текущего заказа или дождитесь истечения срока оплаты.",
+              "У вас уже есть неоплаченная покупка этого материала. Завершите оплату текущей покупки или дождитесь истечения срока оплаты.",
           );
           setProductCartState(button, false);
           return;

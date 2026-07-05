@@ -30,7 +30,7 @@ class PromoCodeInactiveError(PromoCodeError):
 
 
 class PromoCodeNotApplicableError(PromoCodeError):
-    default_message = "Промокод не применяется к товарам в заказе."
+    default_message = "Промокод не применяется к материалам в выборе."
 
 
 class PromoCodeLimitExceededError(PromoCodeError):
@@ -167,13 +167,13 @@ def calculate_promo_code_discount(
         raise PromoCodeNotApplicableError
     if promo_code.min_order_amount is not None and eligible_amount < promo_code.min_order_amount:
         raise PromoCodeNotApplicableError(
-            f"Промокод действует для подходящих товаров от {promo_code.min_order_amount} BYN.",
+            f"Промокод действует для подходящих материалов от {promo_code.min_order_amount} BYN.",
         )
 
     discount_amount = calculate_percent_discount(eligible_amount, promo_code.discount_percent)
     subtotal_amount = sum((product.price for product in products), Decimal("0.00"))
     if subtotal_amount - discount_amount <= 0:
-        raise PromoCodeNotApplicableError("Промокод не может сделать заказ бесплатным.")
+        raise PromoCodeNotApplicableError("Промокод не может сделать покупку бесплатной.")
 
     return PromoCodeDiscount(
         promo_code=promo_code,

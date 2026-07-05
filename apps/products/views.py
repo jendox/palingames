@@ -480,7 +480,7 @@ class CatalogView(TemplateView):
 
         breadcrumbs = [
             {"title": "Главная", "url": reverse("home")},
-            {"title": "Каталог", "url": reverse("catalog") if (selected_category or search_ok) else None},
+            {"title": "Коллекция", "url": reverse("catalog") if (selected_category or search_ok) else None},
         ]
         if selected_category:
             breadcrumbs.append({"title": selected_category.title})
@@ -491,8 +491,8 @@ class CatalogView(TemplateView):
         if not products_mode:
             context.update(
                 build_seo_context(
-                    title="Каталог — PalinGames",
-                    description="Каталог развивающих игр и материалов для занятий от PalinGames.",
+                    title="Коллекция — PalinGames",
+                    description="Коллекция развивающих игр и материалов для занятий от PalinGames.",
                     canonical_url=reverse("catalog"),
                     json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
                 ),
@@ -519,18 +519,18 @@ class CatalogView(TemplateView):
         )
 
         canonical_url = reverse("catalog")
-        title = "Каталог — PalinGames"
-        description = "Каталог развивающих игр и материалов для занятий от PalinGames."
+        title = "Коллекция — PalinGames"
+        description = "Коллекция развивающих игр и материалов для занятий от PalinGames."
         robots = "index,follow"
 
         if selected_category is not None:
-            title = f"{selected_category.title} — каталог PalinGames"
-            description = f"Каталог раздела «{selected_category.title}» на PalinGames."
+            title = f"{selected_category.title} — коллекция PalinGames"
+            description = f"Коллекция раздела «{selected_category.title}» на PalinGames."
             canonical_url = f"{reverse('catalog')}?category={selected_category.slug}"
 
         if search_q:
             title = f"Поиск: {search_q} — PalinGames"
-            description = f"Результаты поиска по запросу «{search_q}» в каталоге PalinGames."
+            description = f"Результаты поиска по запросу «{search_q}» в коллекции PalinGames."
             robots = "noindex,follow"
 
         if has_extra_filters:
@@ -881,7 +881,7 @@ class ProductDetailView(DetailView):
         }
         breadcrumbs = [
             {"title": "Главная", "url": reverse("home")},
-            {"title": "Каталог", "url": reverse("catalog")},
+            {"title": "Коллекция", "url": reverse("catalog")},
         ]
         if primary_category is not None:
             breadcrumbs.append(

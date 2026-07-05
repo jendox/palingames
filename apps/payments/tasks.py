@@ -97,7 +97,7 @@ def _build_invoice_expiration(now: datetime) -> tuple[str, datetime]:
 def _build_invoice_info(target: InvoiceTarget) -> str:
     if isinstance(target, CustomGameRequest):
         return f"Оплата игры на заказ {target.payment_account_no}"
-    return f"Оплата заказа {target.payment_account_no}"
+    return f"Оплата доступа {target.payment_account_no}"
 
 
 def _build_test_invoice_no() -> str:

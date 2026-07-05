@@ -32,7 +32,7 @@ def send_guest_order_download_email(
     guest_access_payloads: list[dict[str, Any]],
     notification_outbox: NotificationOutbox | None = None,
 ) -> None:
-    subject = f"Ссылки на скачивание заказа {order.payment_account_no}"
+    subject = f"Ссылки на скачивание материалов {order.payment_account_no}"
     items = [
         {
             "title": payload["title"],

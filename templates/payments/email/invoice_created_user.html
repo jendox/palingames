@@ -3,7 +3,7 @@
 {% block content %}
   {% if target_kind == "order" %}
     <p>Здравствуйте!</p>
-    <p>Ваш заказ №{{ order.payment_account_no }} оформлен и ожидает оплату.</p>
+    <p>Доступ к материалам №{{ order.payment_account_no }} ожидает оплату.</p>
     <p><strong>Сумма к оплате:</strong> {{ amount }}</p>
     {% if expires_at %}
       <p><strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}</p>
@@ -12,7 +12,7 @@
     {% endif %}
 
     {% if items %}
-      <p><strong>Состав заказа:</strong></p>
+      <p><strong>Выбранные материалы:</strong></p>
       {% for item in items %}
         <p style="margin:0 0 8px;">
           {{ item.title }}{% if item.category %} · {{ item.category }}{% endif %} — {{ item.price }}
