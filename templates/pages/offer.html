@@ -1,7 +1,7 @@
 {% extends "base/base.html" %}
 {% load i18n %}
 
-{% block title %}{{ seo_title|default:"Политика и настройки cookie — PalinGames" }}{% endblock %}
+{% block title %}{{ seo_title|default:"Публичная оферта — PalinGames" }}{% endblock %}
 
 {% block main_class %}w-full px-0 py-0{% endblock %}
 
@@ -10,9 +10,9 @@
 
   <article class="mx-auto max-w-3xl px-4 py-10 text-[var(--color-black)] min-[1024px]:py-14">
     <h1 class="text-2xl font-bold min-[1024px]:text-3xl">
-      {% trans "Политика использования файлов cookie" %}
+      {% trans "Публичная оферта" %}
     </h1>
-    {% include "pages/legal/_cookies_content.html" %}
+    {% include "pages/legal/_offer_content.html" %}
   </article>
 
   {% include "components/dividers/clouds.html" %}

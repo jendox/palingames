@@ -374,6 +374,8 @@ class LegalPolicyPageTests(TestCase):
             "<title>Политика конфиденциальности — PalinGames</title>",
             html=True,
         )
+        self.assertContains(response, "Партач Евгений Васильевич")
+        self.assertNotContains(response, "Заглушка")
         self.assertContains(
             response,
             '<link rel="canonical" href="https://example.com/privacy/" />',
@@ -386,12 +388,28 @@ class LegalPolicyPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            "<title>Политика cookie — PalinGames</title>",
+            "<title>Политика и настройки cookie — PalinGames</title>",
             html=True,
         )
+        self.assertContains(response, 'id="cookie-settings"')
+        self.assertContains(response, "data-open-cookie-consent")
+        self.assertContains(response, "Изменить настройки cookie")
+        self.assertNotContains(response, "после внедрения баннера")
         self.assertContains(
             response,
             '<link rel="canonical" href="https://example.com/cookies/" />',
+            html=True,
+        )
+
+    def test_public_offer_page_renders_with_seo(self):
+        response = self.client.get(reverse("public-offer"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Публичная оферта — PalinGames</title>", html=True)
+        self.assertContains(response, "УНП: BA8137841")
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="https://example.com/offer/" />',
             html=True,
         )
 
@@ -401,3 +419,6 @@ class LegalPolicyPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("privacy-policy"))
         self.assertContains(response, reverse("cookie-policy"))
+        self.assertContains(response, "Политика и настройки cookie")
+        self.assertNotContains(response, "Настройки cookie")
+        self.assertContains(response, reverse("public-offer"))

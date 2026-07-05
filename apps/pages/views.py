@@ -379,9 +379,29 @@ class CookiePolicyPageView(TemplateView):
         ]
         context.update(
             build_seo_context(
-                title="Политика cookie — PalinGames",
+                title="Политика и настройки cookie — PalinGames",
                 description="Какие файлы cookie использует сайт PalinGames и как управлять настройками.",
                 canonical_url=reverse("cookie-policy"),
+                json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
+            ),
+        )
+        return context
+
+
+class PublicOfferPageView(TemplateView):
+    template_name = "pages/offer.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["breadcrumbs"] = [
+            {"title": "Главная", "url": reverse("home")},
+            {"title": "Публичная оферта"},
+        ]
+        context.update(
+            build_seo_context(
+                title="Публичная оферта — PalinGames",
+                description="Условия предоставления доступа к цифровым дидактическим материалам PalinGames.",
+                canonical_url=reverse("public-offer"),
                 json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
             ),
         )
