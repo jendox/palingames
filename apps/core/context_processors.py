@@ -41,3 +41,11 @@ def seo_defaults(request):
         title="PalinGames",
         canonical_url=request.path,
     )
+
+
+def support_contact(request):
+    from django.conf import settings
+
+    return {
+        "support_email": settings.SUPPORT_EMAIL,
+    }

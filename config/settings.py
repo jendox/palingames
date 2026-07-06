@@ -122,6 +122,7 @@ TEMPLATES = [
                 "apps.core.context_processors.analytics",
                 "apps.core.context_processors.default_currency",
                 "apps.core.context_processors.seo_defaults",
+                "apps.core.context_processors.support_contact",
             ],
         },
     },
@@ -329,6 +330,7 @@ EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=30)
 DEFAULT_FROM_EMAIL = env.str("DEFAULT_FROM_EMAIL", default="noreply@palingames.by")
 SERVER_EMAIL = env.str("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
+SUPPORT_EMAIL = env.str("SUPPORT_EMAIL", default="support@palingames.by")
 CUSTOM_GAME_ADMIN_EMAILS = env.list("CUSTOM_GAME_ADMIN_EMAILS", default=[])
 REVIEW_ADMIN_EMAILS = env.list("REVIEW_ADMIN_EMAILS", default=[])
 REVIEW_REWARD_DISCOUNT_PERCENT = env.int("REVIEW_REWARD_DISCOUNT_PERCENT", default=10)

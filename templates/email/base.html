@@ -1,4 +1,4 @@
-{% load static %}
+{% load static site_contact %}
 <!doctype html>
 <html lang="ru">
   <body style="margin:0;padding:24px;background:#f7f7f7;font-family:Arial,sans-serif;color:#222;">
@@ -9,6 +9,10 @@
         <img src="{{ request.scheme }}://{{ current_site.domain }}{% static 'images/logo.svg' %}" alt="PalinGames" style="display:block;height:40px;margin-bottom:24px;">
       {% endif %}
       {% block content %}{% endblock %}
+      <p style="margin-top:24px;font-size:14px;color:#666;">
+        Вопросы по заказу или доступу:
+        <a href="mailto:{% support_email %}" style="color:#65C5C2;">{% support_email %}</a>
+      </p>
     </div>
   </body>
 </html>

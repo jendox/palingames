@@ -174,6 +174,7 @@ class AccountOrdersDownloadTests(TestCase):
             item for item in response.context["account_orders"] if item["number"] == failed_order.payment_account_no
         )
         self.assertIn("Не удалось завершить оплату", order_ctx["status_failure_hint"])
+        self.assertIn("support@palingames.by", order_ctx["status_failure_hint"])
         self.assertContains(response, order_ctx["status_failure_hint"])
 
     def test_account_orders_include_merged_guest_orders(self):
@@ -422,3 +423,11 @@ class LegalPolicyPageTests(TestCase):
         self.assertContains(response, "Политика и настройки cookie")
         self.assertNotContains(response, "Настройки cookie")
         self.assertContains(response, reverse("public-offer"))
+
+    def test_home_includes_support_email_in_footer(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "support@palingames.by")
+        self.assertContains(response, 'href="mailto:support@palingames.by"')
+        self.assertContains(response, "Поддержка")

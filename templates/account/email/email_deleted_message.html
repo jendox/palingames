@@ -1,9 +1,10 @@
 {% extends "email/base.html" %}
+{% load site_contact %}
 
 {% block content %}
   <p>Здравствуйте!</p>
   <p>Из вашего аккаунта PalinGames был удалён email:</p>
   <p><strong>{{ deleted_email }}</strong></p>
-  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой.</p>
+  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой: <a href="mailto:{% support_email %}">{% support_email %}</a>.</p>
   <p>С уважением,<br>команда PalinGames</p>
 {% endblock %}

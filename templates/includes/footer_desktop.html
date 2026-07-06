@@ -39,6 +39,14 @@
               <img src="{% static 'images/social/instagram.svg' %}" alt="" class="h-[65px] w-[65px]" aria-hidden="true">
             </a>
           </div>
+          <div class="mt-[56px] text-center">
+            <div class="text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
+              {% trans "Поддержка" %}
+            </div>
+            <p class="mt-[16px] text-[20px] font-semibold leading-[24px] text-[var(--color-black)]">
+              {% include "includes/_support_email_link.html" %}
+            </p>
+          </div>
         </div>
       </div>
 
