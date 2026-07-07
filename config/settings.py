@@ -87,15 +87,12 @@ MIDDLEWARE = [
 ]
 
 if DJANGO_USE_WHITENOISE:
-    # CompressedManifestStaticFilesStorage fails on source CSS with Tailwind v4
-    # `@import "tailwindcss"` (not a real relative file). CompressedStaticFilesStorage
-    # still pre-compresses assets without rewriting url() references for a manifest.
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
 
@@ -339,7 +336,7 @@ ORDER_REWARD_DISCOUNT_PERCENT = env.int("ORDER_REWARD_DISCOUNT_PERCENT", default
 ORDER_REWARD_VALID_DAYS = env.int("ORDER_REWARD_VALID_DAYS", default=14)
 ORDER_REWARD_MIN_TOTAL_AMOUNT = Decimal(env.str("ORDER_REWARD_MIN_TOTAL_AMOUNT", default="25"))
 
-TAILWIND_CLI_SRC_CSS = "assets/css/input.css"
+TAILWIND_CLI_SRC_CSS = "tailwind/input.css"
 TAILWIND_CLI_DIST_CSS = "css/tailwind.css"
 TAILWIND_CLI_USE_MINIFY = env.bool("TAILWIND_CLI_USE_MINIFY", default=not DEBUG)
 TAILWIND_CLI_VERSION = "4.1.18"

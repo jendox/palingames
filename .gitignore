@@ -298,3 +298,4 @@ media/
 fixtures/
 .cursor/
 AGENTS.md
+staticfiles/
