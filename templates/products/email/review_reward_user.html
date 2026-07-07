@@ -1,10 +1,34 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Спасибо за ваш отзыв на игру «{{ product.title }}»!</p>
-  <p>В знак благодарности дарим вам персональный промокод на <strong>{{ discount_percent }}%</strong>:</p>
-  <p style="font-size:24px;font-weight:700;letter-spacing:1px;">{{ promo_code.code }}</p>
-  <p>Промокод действует до <strong>{{ expires_at|date:"d.m.Y H:i" }}</strong> и может быть использован один раз при покупке, оформленной на ваш аккаунт или email {{ user.email }}.</p>
-  <p>Используйте его для следующей покупки на PalinGames.</p>
-  <p><a href="{{ catalog_url }}" style="color:#82d8d9;">Перейти к коллекции</a></p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!<br>Спасибо за ваш отзыв!
+  </p>
+
+  <p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Игра:</strong> {{ product.title }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    В знак благодарности дарим вам персональный промокод на скидку <strong>{{ discount_percent }}%</strong>:
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:24px;font-weight:700;line-height:32px;letter-spacing:1px;">
+    {{ promo_code.code }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Действует до:</strong> {{ expires_at|date:"d.m.Y H:i" }}
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Промокод можно использовать один раз при покупке, оформленной на ваш аккаунт или email {{ user.email }}.
+  </p>
+
+  <p style="margin:28px 0 18px;">
+    <a href="{{ catalog_url }}" style="display:inline-block;padding:14px 22px;background:#2dc0c2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;line-height:20px;">
+      Перейти к коллекции
+    </a>
+  </p>
+
+  <p style="margin:0;font-size:14px;line-height:22px;color:#555;">
+    Если кнопка не открывается, используйте ссылку:<br>
+    <a href="{{ catalog_url }}" style="color:#82d8d9;">{{ catalog_url }}</a>
+  </p>
 {% endblock %}

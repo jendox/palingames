@@ -1,9 +1,21 @@
 {% extends "email/base.html" %}
-{% load site_contact %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>Email для вашего аккаунта PalinGames был изменён:</p>
-  <p>с <strong>{{ from_email }}</strong><br>на <strong>{{ to_email }}</strong>.</p>
-  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой: <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Email для вашего аккаунта PalinGames был изменён.
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Было:</strong> {{ from_email }}
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Стало:</strong> {{ to_email }}
+  </p>
+
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если это были не вы, рекомендуем как можно скорее написать в поддержку.
+  </p>
 {% endblock %}

@@ -1,12 +1,27 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>Мы получили вашу заявку на игру №{{ request.payment_account_no }}.</p>
-  <p><strong>Детали заявки:</strong></p>
-  <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
-  <p><strong>Возраст:</strong> {{ request.audience|linebreaksbr }}</p>
-  <p><strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}</p>
-  <p><strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
-  <p>Мы посмотрим детали и свяжемся с вами по этому email.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!<br>Спасибо за заявку!
+  </p>
+
+  <p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Номер заявки:</strong> {{ request.payment_account_no }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Название игры:</strong> {{ request.subject|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Возраст:</strong> {{ request.audience|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}
+  </p>
+
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Мы посмотрим детали и свяжемся с вами по этому email.
+  </p>
 {% endblock %}

@@ -1,12 +1,40 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Поступила новая заявка на игру №{{ request.payment_account_no }}.</p>
-  <p><strong>Контактные данные:</strong><br>Имя: {{ request.contact_name }}<br>Email: {{ request.contact_email }}</p>
-  <p><strong>Детали заявки:</strong></p>
-  <p><strong>Название игры:</strong> {{ request.subject|linebreaksbr }}</p>
-  <p><strong>Возраст:</strong> {{ request.audience|linebreaksbr }}</p>
-  <p><strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}</p>
-  <p><strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
-  <p><a href="{{ admin_url }}" style="color:#82d8d9;">Открыть заявку в админке</a></p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!<br>Поступила новая заявка на игру.
+  </p>
+
+  <p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Номер заявки:</strong> {{ request.payment_account_no }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Имя:</strong> {{ request.contact_name }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Email:</strong> {{ request.contact_email }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Название игры:</strong> {{ request.subject|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Возраст:</strong> {{ request.audience|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}
+  </p>
+
+  <p style="margin:28px 0 18px;">
+    <a href="{{ admin_url }}" style="display:inline-block;padding:14px 22px;background:#2dc0c2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;line-height:20px;">
+      Открыть заявку в админке
+    </a>
+  </p>
+
+  <p style="margin:0;font-size:14px;line-height:22px;color:#555;">
+    Если кнопка не открывается, используйте ссылку:<br>
+    <a href="{{ admin_url }}" style="color:#82d8d9;">{{ admin_url }}</a>
+  </p>
 {% endblock %}

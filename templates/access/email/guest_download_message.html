@@ -1,23 +1,36 @@
 {% extends "email/base.html" %}
-{% load site_contact %}
 
 {% block content %}
-  <p>Спасибо! Ваши материалы готовы.</p>
-  <p>Покупка №{{ order.payment_account_no }} успешно оплачена. Ниже находятся ссылки на скачивание ваших материалов.</p>
-  <p>Каждая ссылка действует <strong>{{ guest_access_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ guest_access_max_downloads }} раз</strong>.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!<br>Спасибо за покупку!
+  </p>
+
+  <p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Номер заказа:</strong> {{ order.payment_account_no }}
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Оплата подтверждена. Ниже находятся ссылки на скачивание ваших материалов.
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Каждая ссылка действует <strong>{{ guest_access_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ guest_access_max_downloads }} раз</strong>.
+  </p>
 
   {% for item in items %}
     <div style="margin:0 0 18px;padding:18px;border:1px solid #ececec;border-radius:12px;">
-      <p style="margin:0 0 8px;font-size:18px;font-weight:700;">{{ item.title }}</p>
+      <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:18px;font-weight:700;line-height:24px;">{{ item.title }}</p>
       {% if item.category %}
-        <p style="margin:0 0 8px;color:#666;">{{ item.category }}</p>
+        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;color:#666;">{{ item.category }}</p>
       {% endif %}
-      <p style="margin:0 0 16px;font-weight:700;">{{ item.price }}</p>
+      <p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;font-weight:700;">{{ item.price }}</p>
       <p style="margin:0;">
-        <a href="{{ item.download_url }}" style="color:#82d8d9;">Скачать</a>
+        <a href="{{ item.download_url }}" style="display:inline-block;padding:14px 22px;background:#2dc0c2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;line-height:20px;">
+          Скачать
+        </a>
       </p>
     </div>
   {% endfor %}
 
-  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний. Напишите в поддержку: <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>.</p>
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний.
+  </p>
 {% endblock %}

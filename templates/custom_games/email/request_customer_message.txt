@@ -1,8 +1,7 @@
 Здравствуйте!
+Спасибо за заявку!
 
-Мы получили вашу заявку на игру №{{ request.payment_account_no }}.
-
-Детали заявки:
+Номер заявки: {{ request.payment_account_no }}
 Название игры: {{ request.subject }}
 Возраст: {{ request.audience }}
 Количество страниц: {{ request.page_count }}

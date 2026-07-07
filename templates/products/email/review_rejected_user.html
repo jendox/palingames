@@ -1,11 +1,32 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>К сожалению, ваш отзыв на игру «{{ product.title }}» не прошёл модерацию.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    К сожалению, ваш отзыв не прошёл модерацию.
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Игра:</strong> {{ product.title }}
+  </p>
+
   {% if review.rejection_reason %}
-    <p><strong>Причина отклонения:</strong></p>
-    <p style="white-space: pre-wrap;">{{ review.rejection_reason }}</p>
+    <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+      <strong>Причина отклонения:</strong>
+    </p>
+    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;white-space:pre-wrap;">{{ review.rejection_reason }}</p>
   {% endif %}
-  <p>Вы можете исправить отзыв и отправить его заново на <a href="{{ product_url }}" style="color:#82d8d9;">странице игры</a>.</p>
+
+  <p style="margin:28px 0 18px;">
+    <a href="{{ product_url }}" style="display:inline-block;padding:14px 22px;background:#2dc0c2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;line-height:20px;">
+      Перейти на страницу игры
+    </a>
+  </p>
+
+  <p style="margin:0;font-size:14px;line-height:22px;color:#555;">
+    Если кнопка не открывается, используйте ссылку:<br>
+    <a href="{{ product_url }}" style="color:#82d8d9;">{{ product_url }}</a>
+  </p>
 {% endblock %}

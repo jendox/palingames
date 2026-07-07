@@ -1,8 +1,18 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>Для входа в аккаунт PalinGames используйте этот код:</p>
-  <p style="font-size:24px;font-weight:700;letter-spacing:3px;">{{ code }}</p>
-  <p>Если вы не запрашивали код входа, просто проигнорируйте это письмо.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Для входа в аккаунт PalinGames используйте этот код:
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:24px;font-weight:700;line-height:32px;letter-spacing:3px;">
+    {{ code }}
+  </p>
+
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если вы не запрашивали код входа, просто проигнорируйте это письмо.
+  </p>
 {% endblock %}

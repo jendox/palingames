@@ -1,9 +1,18 @@
 {% extends "email/base.html" %}
-{% load site_contact %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>Из вашего аккаунта PalinGames был удалён email:</p>
-  <p><strong>{{ deleted_email }}</strong></p>
-  <p>Если это были не вы, рекомендуем как можно скорее связаться с поддержкой: <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Из вашего аккаунта PalinGames был удалён email:
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>{{ deleted_email }}</strong>
+  </p>
+
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если это были не вы, рекомендуем как можно скорее написать в поддержку.
+  </p>
 {% endblock %}

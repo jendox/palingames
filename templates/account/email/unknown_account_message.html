@@ -1,12 +1,36 @@
 {% extends "email/base.html" %}
 
 {% block content %}
-  <p>Здравствуйте!</p>
-  <p>Поступил запрос на восстановление доступа к аккаунту PalinGames для email:</p>
-  <p><strong>{{ email }}</strong></p>
-  <p>Но аккаунт с таким адресом у нас не найден.</p>
-  <p>Если это были вы, вы можете зарегистрироваться по ссылке:</p>
-  <p><a href="{{ signup_url }}" style="color:#82d8d9;">Создать аккаунт</a></p>
-  <p style="word-break:break-word;"><a href="{{ signup_url }}" style="color:#82d8d9;">{{ signup_url }}</a></p>
-  <p>Если это были не вы, просто проигнорируйте это письмо.</p>
+  <p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+    Здравствуйте!
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Поступил запрос на восстановление доступа к аккаунту PalinGames для email:
+  </p>
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>{{ email }}</strong>
+  </p>
+  <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Но аккаунт с таким адресом у нас не найден.
+  </p>
+
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если это были вы, вы можете зарегистрироваться по ссылке:
+  </p>
+
+  <p style="margin:28px 0 18px;">
+    <a href="{{ signup_url }}" style="display:inline-block;padding:14px 22px;background:#2dc0c2;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:16px;line-height:20px;">
+      Создать аккаунт
+    </a>
+  </p>
+
+  <p style="margin:0 0 20px;font-size:14px;line-height:22px;color:#555;">
+    Если кнопка не открывается, используйте ссылку:<br>
+    <a href="{{ signup_url }}" style="color:#82d8d9;">{{ signup_url }}</a>
+  </p>
+
+  <p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    Если это были не вы, просто проигнорируйте это письмо.
+  </p>
 {% endblock %}
