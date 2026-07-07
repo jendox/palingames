@@ -8,5 +8,5 @@
   <p><strong>Возраст:</strong> {{ request.audience|linebreaksbr }}</p>
   <p><strong>Количество страниц:</strong> {{ request.page_count|linebreaksbr }}</p>
   <p><strong>Пожелания к содержанию:</strong> {% if request.idea %}{{ request.idea|linebreaksbr }}{% else %}—{% endif %}</p>
-  <p><a href="{{ admin_url }}">Открыть заявку в админке</a></p>
+  <p><a href="{{ admin_url }}" style="color:#82d8d9;">Открыть заявку в админке</a></p>
 {% endblock %}

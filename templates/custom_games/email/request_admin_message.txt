@@ -12,3 +12,5 @@ Email: {{ request.contact_email }}
 
 Открыть заявку в админке:
 {{ admin_url }}
+
+{% include "email/footer.txt" %}

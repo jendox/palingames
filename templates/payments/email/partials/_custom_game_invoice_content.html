@@ -1,0 +1,32 @@
+<p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+  Здравствуйте!<br>Спасибо за заявку!
+</p>
+
+<p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  <strong>Номер заявки:</strong> {{ request.payment_account_no }}
+</p>
+<p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  <strong>Название игры:</strong> {{ request.subject|linebreaksbr }}
+</p>
+<p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  <strong>Сумма к оплате:</strong> {{ amount }}
+</p>
+{% if request.deadline %}
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Срок выполнения:</strong> {{ request.deadline|date:"d.m.Y" }}
+  </p>
+{% endif %}
+<p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  {% if expires_at %}
+    <strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}
+  {% else %}
+    Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).
+  {% endif %}
+</p>
+
+{% include "payments/email/partials/_payment_instructions.html" with payment_account_no=request.payment_account_no %}
+
+<p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  После подтверждения платежа заявка перейдет в работу. Если нам потребуется уточнить детали,
+  мы свяжемся с вами по указанным контактам.
+</p>

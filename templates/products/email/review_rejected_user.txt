@@ -8,5 +8,4 @@
 {% endif %}Вы можете исправить отзыв и отправить его заново на странице игры:
 {{ product_url }}
 
-С уважением,
-команда PalinGames
+{% include "email/footer.txt" %}

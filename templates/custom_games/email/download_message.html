@@ -5,7 +5,6 @@
   <p>Ваша игра готова!</p>
   <p>Игра на заказ №{{ request.payment_account_no }} готова к скачиванию.</p>
   <p>Ссылка действует <strong>{{ custom_game_download_expire_hours }} часа(ов)</strong> и может быть использована до <strong>{{ custom_game_download_max_downloads }} раз</strong>.</p>
-  <p><a href="{{ download_url }}">Скачать игру</a></p>
-  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний. Напишите в поддержку: <a href="mailto:{% support_email %}">{% support_email %}</a>.</p>
-  <p>С уважением,<br>команда PalinGames</p>
+  <p><a href="{{ download_url }}" style="color:#82d8d9;">Скачать игру</a></p>
+  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний. Напишите в поддержку: <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>.</p>
 {% endblock %}

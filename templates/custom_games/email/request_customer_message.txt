@@ -10,5 +10,4 @@
 
 Мы посмотрим детали и свяжемся с вами по этому email.
 
-С уважением,
-команда PalinGames
+{% include "email/footer.txt" %}

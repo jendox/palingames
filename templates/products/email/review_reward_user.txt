@@ -8,3 +8,5 @@
 Используйте его для следующей покупки на PalinGames.
 
 Перейти к коллекции: {{ catalog_url }}
+
+{% include "email/footer.txt" %}

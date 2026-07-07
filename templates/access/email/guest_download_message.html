@@ -14,11 +14,10 @@
       {% endif %}
       <p style="margin:0 0 16px;font-weight:700;">{{ item.price }}</p>
       <p style="margin:0;">
-        <a href="{{ item.download_url }}">Скачать</a>
+        <a href="{{ item.download_url }}" style="color:#82d8d9;">Скачать</a>
       </p>
     </div>
   {% endfor %}
 
-  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний. Напишите в поддержку: <a href="mailto:{% support_email %}">{% support_email %}</a>.</p>
-  <p>С уважением,<br>команда PalinGames</p>
+  <p>Если ссылка больше не открывается, скорее всего истёк срок действия или исчерпан лимит скачиваний. Напишите в поддержку: <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>.</p>
 {% endblock %}

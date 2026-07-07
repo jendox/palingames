@@ -334,6 +334,7 @@ def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARG
 
         expiration, expires_at = _build_invoice_expiration(timezone.now())
         response = get_express_pay_request_client().create_invoice(
+            # Do not pass EmailNotification: payment links are sent only by our notification flow.
             CreateInvoiceRequest(
                 account_no=target.payment_account_no,
                 amount=_get_target_amount(target),
@@ -341,7 +342,6 @@ def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARG
                 info=_build_invoice_info(target),
                 expiration=expiration,
                 return_invoice_url=True,
-                email_notification=_get_target_email(target),
             ),
         )
         with transaction.atomic():

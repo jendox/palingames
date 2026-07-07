@@ -1,0 +1,40 @@
+<p style="margin:0 0 16px;font-size:16px;line-height:24px;">
+  Здравствуйте!<br>Спасибо за заказ!
+</p>
+
+<p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  <strong>Номер заказа:</strong> {{ order.payment_account_no }}
+</p>
+<p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  <strong>Сумма к оплате:</strong> {{ amount }}
+</p>
+<p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  {% if expires_at %}
+    <strong>Оплатите до:</strong> {{ expires_at|date:"d.m.Y H:i" }}
+  {% else %}
+    Ссылка на оплату действует {{ invoice_lifetime_hours }} часа(ов).
+  {% endif %}
+</p>
+
+{% if items %}
+  <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    <strong>Выбранные материалы:</strong>
+  </p>
+
+  <ul style="margin:0 0 20px;padding-left:20px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+    {% for item in items %}
+      <li style="margin:0 0 6px;padding-left:0;">
+        {{ item.title }} — {{ item.price }}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <div style="height:12px;line-height:12px;">&nbsp;</div>
+{% endif %}
+
+{% include "payments/email/partials/_payment_instructions.html" with payment_account_no=order.payment_account_no %}
+
+<p style="margin:20px 0 0;font-family:Arial,sans-serif;font-size:15px;line-height:22px;">
+  После подтверждения платежа материалы будут доступны в личном кабинете в разделе «Покупки».
+  Если заказ оформлен как гостевой, ссылка для скачивания будет отправлена на этот Email.
+</p>

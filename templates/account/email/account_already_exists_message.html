@@ -6,8 +6,7 @@
   <p><strong>{{ email }}</strong></p>
   <p>Но аккаунт с этим адресом уже существует.</p>
   <p>Если это были вы и вы забыли пароль, воспользуйтесь ссылкой для восстановления:</p>
-  <p><a href="{{ password_reset_url }}">Восстановить пароль</a></p>
-  <p style="word-break:break-word;"><a href="{{ password_reset_url }}">{{ password_reset_url }}</a></p>
+  <p><a href="{{ password_reset_url }}" style="color:#82d8d9;">Восстановить пароль</a></p>
+  <p style="word-break:break-word;"><a href="{{ password_reset_url }}" style="color:#82d8d9;">{{ password_reset_url }}</a></p>
   <p>Если это были не вы, просто проигнорируйте это письмо.</p>
-  <p>С уважением,<br>команда PalinGames</p>
 {% endblock %}

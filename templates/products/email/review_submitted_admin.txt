@@ -9,3 +9,5 @@
 
 Открыть отзыв в админке:
 {{ admin_review_url }}
+
+{% include "email/footer.txt" %}
