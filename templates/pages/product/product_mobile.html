@@ -135,6 +135,9 @@
           <span data-product-cart-label>{% if product_is_purchased %}{% trans "Скачать" %}{% else %}{% trans "Выбрать" %}{% endif %}</span>
         </button>
       </div>
+      {% if product_is_purchased %}
+        {% include "pages/account/copy/_download_vpn_hint.html" with hint_class="mt-[12px] text-[12px] leading-[16px] text-[var(--color-black-80)]" %}
+      {% endif %}
     </div>
 
     <div class="mt-[45px] divide-y divide-black/10 rounded-[16px] bg-transparent">

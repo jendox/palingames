@@ -165,7 +165,11 @@ class AccountPageView(TemplateView):
         context["password_form"] = password_form
         context["password_form_saved"] = password_form_saved
         context["password_form_expanded"] = password_form.is_bound or password_form_saved
-        context["account_orders"] = self._get_orders_context()
+        account_orders = self._get_orders_context()
+        context["account_orders"] = account_orders
+        context["account_has_downloadable_items"] = any(
+            item["download_url"] for order in account_orders for item in order["items"]
+        )
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},
             {"title": "Личный кабинет"},

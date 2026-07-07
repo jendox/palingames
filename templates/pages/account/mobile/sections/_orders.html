@@ -22,6 +22,10 @@
   </summary>
 
   <div class="mt-[20px]">
+    {% if account_has_downloadable_items %}
+      {% include "pages/account/copy/_download_vpn_hint.html" with hint_class="mb-[16px] text-[11px] leading-[15px] text-[var(--color-black-80)]" %}
+    {% endif %}
+
     {% if account_orders %}
       <div class="space-y-[20px]">
         {% for order in account_orders %}

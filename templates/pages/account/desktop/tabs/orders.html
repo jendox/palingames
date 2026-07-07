@@ -3,6 +3,10 @@
 <section class="max-w-[920px]">
   <h2 class="text-[36px] font-bold leading-[47px]">{% trans "Покупки" %}</h2>
 
+  {% if account_has_downloadable_items %}
+    {% include "pages/account/copy/_download_vpn_hint.html" with hint_class="mt-[16px] max-w-[640px] text-[14px] leading-[20px] text-[var(--color-black-80)]" %}
+  {% endif %}
+
   {% if account_orders %}
     <div class="mt-[40px] space-y-[20px]">
       {% for order in account_orders %}
