@@ -1,6 +1,7 @@
 {% load static i18n %}
 
 <section class="relative overflow-hidden bg-[var(--color-white)] px-[20px] pb-[50px] pt-[50px]" data-checkout-scope="mobile">
+  {% comment %}
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-[18px] top-[128px] w-[46px] opacity-80" draggable="false">
     <img src="{% static 'images/decor/clouds/cloud-2.svg' %}" alt="" class="absolute left-1/2 top-[14px] w-[28px] -translate-x-1/2 opacity-80" draggable="false">
@@ -15,6 +16,7 @@
     <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[22px] top-[518px] w-[36px]" draggable="false">
     <img src="{% static 'images/decor/stars/star-yellow.svg' %}" alt="" class="absolute right-[14px] top-[246px] w-[26px] rotate-[20deg]" draggable="false">
   </div>
+  {% endcomment %}
 
   <div class="relative z-10 mx-auto max-w-[335px]">
     <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">

@@ -1,7 +1,9 @@
 {% load static i18n %}
 
 <section class="relative mx-auto max-w-6xl px-4 py-[50px]" data-account-mobile>
+  {% comment %}
   {% include "pages/account/mobile/_decor.html" %}
+  {% endcomment %}
 
   <div class="relative z-10">
     {% include "pages/account/copy/greeting.html" %}
@@ -16,6 +18,8 @@
       {% include "pages/account/mobile/sections/_logout.html" %}
     </div>
 
+    {% comment %}
     {% include "pages/account/mobile/_demo_data.html" %}
+    {% endcomment %}
   </div>
 </section>

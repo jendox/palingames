@@ -1,6 +1,7 @@
 {% load static i18n %}
 
 <section class="relative overflow-hidden bg-[var(--color-white)]">
+  {% comment %}
   <div class="pointer-events-none absolute inset-0 select-none" aria-hidden="true">
     <img
       src="{% static 'images/decor/clouds/cloud-3.svg' %}"
@@ -27,6 +28,7 @@
       draggable="false"
     >
   </div>
+  {% endcomment %}
 
   <div class="mx-auto w-full px-4 py-[50px] text-center">
     <div class="mx-auto max-w-[520px]">

@@ -1,6 +1,7 @@
 {% load static i18n %}
 
 <section class="relative overflow-hidden">
+  {% comment %}
   <img
     src="{% static 'images/decor/clouds/cloud-2.svg' %}"
     alt=""
@@ -31,7 +32,7 @@
     class="pointer-events-none absolute bottom-[85px] right-[350px] h-[200px] w-[144px] opacity-90"
     aria-hidden="true"
   >
-
+  {% endcomment %}
   <div class="relative z-10 mx-auto max-w-[1500px] px-6 pb-[90px] pt-[56px] min-[1280px]:px-[42px] min-[1600px]:px-[72px]">
     <h1 class="text-center text-[32px] font-bold uppercase leading-[32px] text-[var(--color-black)] min-[1280px]:text-[40px] min-[1280px]:leading-[40px]">
       {% trans "Выбранное" %}
