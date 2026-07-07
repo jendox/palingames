@@ -45,19 +45,19 @@
 
     {% if custom_game_created_request %}
       <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "Мы отправили письмо с описанием заявки на вашу электронную почту. Пожалуйста, проверьте почтовый ящик (включая папку “Спам”)." %}
+        {% include "components/modals/checkout_order_created/copy/_custom_game_email_sent.html" %}
       </p>
 
       <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "Мы свяжемся с вами для уточнения деталей заявки." %}
+        {% include "components/modals/checkout_order_created/copy/_custom_game_followup.html" %}
       </p>
     {% else %}
       <p class="mt-[20px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "Мы отправили письмо с деталями для оплаты на Вашу электронную почту. Проверьте почтовый ящик, включая папку “Спам”." %}
+        {% include "components/modals/checkout_order_created/copy/_order_payment_email_sent.html" %}
       </p>
 
       <p class="mt-[12px] text-[12px] leading-[18px] text-[var(--color-black)]">
-        {% trans "После оплаты материалы будут доступны для скачивания." %}
+        {% include "components/modals/checkout_order_created/copy/_order_payment_waiting.html" %}
       </p>
     {% endif %}
   </div>

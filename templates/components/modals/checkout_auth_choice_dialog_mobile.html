@@ -14,9 +14,7 @@
       </div>
 
       <p class="mt-[20px] text-[14px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
-        {% trans "Вы получите" %}
-        <span class="font-bold text-[var(--color-pink)]">{% trans "неограниченный доступ" %}</span>
-        {% trans "к файлам в личном кабинете, без ограничений по времени и количеству скачиваний." %}
+        {% include "components/modals/checkout_auth_choice/copy/_registered_benefits.html" %}
       </p>
 
       <button
@@ -38,8 +36,7 @@
       </div>
 
       <p class="mt-[18px] text-[14px] leading-[20px] tracking-[0.02em] text-[var(--color-black)]">
-        {% trans "В этом случае ссылки на скачивание будут отправлены на Ваш Email и будут доступны" %}
-        <span class="font-bold text-[var(--color-orange)]">{% trans "ограниченное время и ограниченное количество скачиваний." %}</span>
+        {% include "components/modals/checkout_auth_choice/copy/_guest_limitations.html" %}
       </p>
 
       <a

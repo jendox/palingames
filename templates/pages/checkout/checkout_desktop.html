@@ -45,10 +45,10 @@
 
             <div class="pt-[40px]">
               <h2 class="text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
-                {% trans "Введите Ваш" %} <span class="text-[var(--color-green)]">Email</span>
+                {% trans "Введите ваш" %} <span class="text-[var(--color-green)]">Email</span>
               </h2>
               <p class="mt-[15px] max-w-[310px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-                {% trans "На этот адрес мы отправим ссылку на оплату" %}
+                {% include "pages/checkout/copy/_email_payment_instruction_short.html" %}
               </p>
               <input
                 id="checkout-email"
@@ -93,7 +93,7 @@
                 {% trans "Оплата" %}
               </h3>
               <p class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-                {% trans "Ссылку на оплату мы отправим на Вашу электронную почту. Проверьте “Входящие” (а также папку “Спам”) и перейдите по ссылке для завершения покупки." %}
+                {% include "pages/checkout/copy/_email_payment_instruction_full.html" %}
               </p>
             </div>
           </div>
@@ -115,10 +115,10 @@
                 {% trans "Завершение покупки" %}
               </h3>
               <p class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-                {% trans "Оплата прошла успешно. Ссылка для скачивания находится в личном кабинете." %}
+                {% include "pages/checkout/copy/_registered_access_after_payment.html" %}
               </p>
               <div class="mt-[15px] text-[14px] leading-[18px] text-[var(--color-black-80)]">
-                <span>{% trans "Если вы оформили покупку как гость, ссылка для оплаты будет отправлена на вашу почту в течение 3–5 минут." %}</span>
+                <span>{% include "pages/checkout/copy/_guest_access_after_payment.html" %}</span>
               </div>
             </div>
           </div>
@@ -159,7 +159,7 @@
         {% endif %}
 
         <p class="mx-auto mt-[45px] max-w-[260px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
-          {% trans "После нажатия на кнопку мы отправим ссылку для оплаты на указанный E-mail" %}
+          {% include "pages/checkout/copy/_submit_email_hint.html" %}
         </p>
 
         <button type="submit" class="mx-auto mt-[20px] flex h-[60px] w-[211px] cursor-pointer items-center justify-center gap-[10px] whitespace-nowrap rounded-[10px] bg-[var(--color-green)] px-[30px] py-[15px] text-[20px] font-bold leading-none text-[var(--color-white)] transition-colors hover:bg-[var(--color-green-hover)]" data-checkout-submit>
