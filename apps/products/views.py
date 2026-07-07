@@ -973,7 +973,7 @@ class ProductReviewSubmitView(LoginRequiredMixin, View):
                 request,
                 _review_panel_template_name(request),
                 base_ctx,
-                status=400,
+                status=200,
             )
 
         try:

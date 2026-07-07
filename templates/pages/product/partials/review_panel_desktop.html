@@ -84,7 +84,7 @@
           <textarea
             name="comment"
             rows="6"
-            class="account-input mt-[20px] h-[170px] w-full rounded-[12px] border-[0.5px] border-[var(--color-grey)] bg-transparent px-[20px] py-[16px] text-[20px]"
+            class="account-input mt-[20px] h-[170px] w-full rounded-[12px] border-[0.5px] border-[var(--color-grey)] bg-transparent !px-[20px] !py-[18px] text-[20px] leading-[24px]"
           >{{ review_form.comment.value|default_if_none:"" }}</textarea>
           {% if review_form.comment.errors %}
             <p class="mt-[8px] text-[14px] text-red-700">{{ review_form.comment.errors|join:", " }}</p>

@@ -18,6 +18,11 @@ class ProductReviewForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 6}),
         min_length=10,
         max_length=4000,
+        error_messages={
+            "min_length": "Отзыв должен быть не короче 10 символов.",
+            "max_length": "Отзыв должен быть не длиннее 4000 символов.",
+            "required": "Напишите текст отзыва.",
+        },
     )
 
 
