@@ -500,7 +500,7 @@ class CustomGamePageTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [custom_game_request.contact_email])
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
-        self.assertIn("Мы получили вашу заявку", mail.outbox[0].body)
+        self.assertIn("Спасибо за заявку", mail.outbox[0].body)
 
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
