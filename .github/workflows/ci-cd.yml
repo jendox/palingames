@@ -61,7 +61,8 @@ jobs:
       YANDEX_OAUTH_CLIENT_ID: ci-yandex-client-id
       YANDEX_OAUTH_CLIENT_SECRET: ci-yandex-client-secret
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,example.ngrok-free.app,testserver
-      S3_PRODUCT_IMAGES_ENABLED: "true"
+      S3_PRODUCT_IMAGES_ENABLED: "True"
+      DJANGO_USE_WHITENOISE: "False"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
