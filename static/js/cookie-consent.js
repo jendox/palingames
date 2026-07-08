@@ -1,5 +1,5 @@
 (function () {
-  const COOKIE_NAME = "pali_consent";
+  const COOKIE_NAME = "palin_consent";
 
   function getConfig() {
     const el = document.getElementById("cookie-consent-config");
