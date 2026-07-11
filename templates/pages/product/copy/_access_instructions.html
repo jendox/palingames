@@ -1,0 +1,65 @@
+{% load i18n %}
+
+<p>
+  {% trans "Получить материал можно за несколько шагов." %}
+</p>
+
+<div class="product-access-steps">
+  <p class="product-access-step">
+    <span class="product-access-step-title">{% trans "Выберите материал." %}</span>
+    <span class="product-access-step-text">{% trans "На странице игры нажмите кнопку «Выбрать» — материал добавится в «Выбранное»." %}</span>
+  </p>
+  <p class="product-access-step">
+    <span class="product-access-step-title">{% trans "Перейдите в «Выбранное»." %}</span>
+    <span class="product-access-step-text">{% trans "Откройте раздел «Выбранное» и нажмите «Оплатить доступ»." %}</span>
+  </p>
+  <p class="product-access-step">
+    <span class="product-access-step-title">{% trans "Укажите email." %}</span>
+    <span class="product-access-step-text">{% trans "Введите адрес почты — на него придёт письмо со ссылкой на оплату и инструкцией. Проверьте «Входящие» и папку «Спам»." %}</span>
+  </p>
+  <p class="product-access-step">
+    <span class="product-access-step-title">{% trans "Оплатите заказ." %}</span>
+    <span class="product-access-step-text">{% trans "Перейдите по ссылке из письма и оплатите через систему E-POS / ЕРИП." %}</span>
+  </p>
+  <p class="product-access-step">
+    <span class="product-access-step-title">{% trans "Скачайте материал." %}</span>
+    <span class="product-access-step-text">{% trans "После подтверждения оплаты PDF будет доступен в личном кабинете или по ссылке из письма." %}</span>
+  </p>
+</div>
+
+<div class="product-access-payment-block">
+  <p>
+    {% trans "Оплата проходит через белорусскую систему ЕРИП (E-POS). Самый простой способ — перейти по ссылке из письма и следовать подсказкам на странице оплаты." %}
+  </p>
+
+  <p>
+    {% trans "Также счёт можно оплатить вручную через ЕРИП в интернет-банке, мобильном банке или инфокиоске." %}
+  </p>
+
+  <p>
+    {% trans "Путь в ЕРИП: Сервис E-POS → E-POS — оплата товаров и услуг → Оплата товара." %}
+  </p>
+
+  <p>
+    {% trans "На странице оплаты в системе E-POS можно выбрать оплату картой зарубежного банка, если этот способ доступен для вашей карты (" %}
+    <a
+      href="https://erip.paritetbank.by"
+      rel="noopener noreferrer"
+      target="_blank"
+    >{% trans "Paritetbank — ЕРИП без границ" %}</a>).
+  </p>
+</div>
+
+<div class="product-access-after-payment-block">
+  <p>
+    {% trans "Если вы вошли в аккаунт, материалы останутся в личном кабинете — скачивать можно без ограничений по времени." %}
+  </p>
+
+  <p>
+    {% trans "Если оформили покупку без регистрации, ссылка на скачивание придёт на email. Она действует ограниченное время и имеет лимит по количеству скачиваний." %}
+  </p>
+
+  <p>
+    {% trans "До подтверждения оплаты рекомендуем сохранить чек или квитанцию." %}
+  </p>
+</div>

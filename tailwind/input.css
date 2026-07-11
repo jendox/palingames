@@ -72,6 +72,103 @@
     }
   }
 
+  /* Инструкция «Как получить доступ»: arbitrary-классы из partial не всегда попадают в JIT */
+  .product-access-instructions {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-black-80);
+  }
+
+  .product-access-instructions--panel {
+    padding-top: 14px;
+  }
+
+  .product-access-instructions p {
+    margin: 0;
+  }
+
+  .product-access-instructions .product-access-steps {
+    margin: 16px 0 0;
+  }
+
+  .product-access-instructions .product-access-step {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .product-access-instructions .product-access-step:first-child {
+    padding-top: 0;
+  }
+
+  .product-access-instructions .product-access-step-title {
+    display: block;
+    font-weight: 700;
+    color: var(--color-black);
+  }
+
+  .product-access-instructions .product-access-step-text {
+    display: block;
+    margin-top: 6px;
+  }
+
+  .product-access-instructions .product-access-payment-block {
+    margin-top: 24px;
+  }
+
+  .product-access-instructions .product-access-payment-block > p + p,
+  .product-access-instructions .product-access-after-payment-block > p + p {
+    margin-top: 14px;
+  }
+
+  .product-access-instructions .product-access-after-payment-block {
+    margin-top: 14px;
+  }
+
+  .product-access-instructions a {
+    color: var(--color-turquoise);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  .product-access-instructions a:hover {
+    text-decoration: none;
+  }
+
+  @media (min-width: 1024px) {
+    .product-access-instructions {
+      max-width: 610px;
+      font-size: 18px;
+      line-height: 22px;
+    }
+
+    .product-access-instructions--panel {
+      padding-top: 22px;
+    }
+
+    .product-access-instructions .product-access-step {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+
+    .product-access-instructions .product-access-step:first-child {
+      padding-top: 0;
+    }
+
+    .product-access-instructions .product-access-payment-block {
+      margin-top: 28px;
+    }
+
+    .product-access-instructions .product-access-payment-block > p + p,
+    .product-access-instructions .product-access-after-payment-block > p + p {
+      margin-top: 16px;
+    }
+
+    .product-access-instructions .product-access-after-payment-block {
+      margin-top: 16px;
+    }
+  }
+
   .checkbox-pink {
     appearance: none;
     display: inline-block;

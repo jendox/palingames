@@ -1,10 +1,3 @@
-{% load i18n %}
-
-<div class="max-w-[610px] pt-[22px] text-[18px] leading-[22px] text-[var(--color-black-80)]">
-  <p>
-    {% trans "После оплаты вы получаете цифровой материал в формате PDF для самостоятельного скачивания и печати." %}
-  </p>
-  <p class="mt-[16px]">
-    {% trans "После подтверждения платежа мы предоставим ссылку на скачивание." %}
-  </p>
+<div class="product-access-instructions product-access-instructions--panel">
+  {% include "pages/product/copy/_access_instructions.html" %}
 </div>

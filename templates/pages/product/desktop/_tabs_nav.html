@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<div class="mt-[70px] grid grid-cols-4 gap-x-[30px] pb-[14px] text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
+<div class="mt-[70px] grid grid-cols-3 gap-x-[30px] pb-[14px] text-[20px] font-bold leading-[20px] text-[var(--color-black)]">
   <a
     href="{% url 'product-detail' slug=product.slug %}?tab=description"
     hx-get="{% url 'product-detail' slug=product.slug %}?tab=description"
@@ -24,7 +24,8 @@
     hx-swap="outerHTML"
     hx-push-url="true"
     class="whitespace-nowrap text-left {% if product_active_tab == 'payment' %}text-[var(--color-orange)]{% endif %}"
-  >{% trans "Оплата" %}</a>
+  >{% trans "Как получить доступ" %}</a>
+  {% comment %}
   <a
     href="{% url 'product-detail' slug=product.slug %}?tab=how_to_play"
     hx-get="{% url 'product-detail' slug=product.slug %}?tab=how_to_play"
@@ -33,4 +34,5 @@
     hx-push-url="true"
     class="whitespace-nowrap text-left {% if product_active_tab == 'how_to_play' %}text-[var(--color-orange)]{% endif %}"
   >{% trans "Как играть в игру" %}</a>
+  {% endcomment %}
 </div>

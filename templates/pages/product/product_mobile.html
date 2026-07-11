@@ -175,7 +175,7 @@
 
       <details class="group py-[14px]" data-mobile-disclosure>
         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
-          <span>{% trans "Оплата" %}</span>
+          <span>{% trans "Как получить доступ" %}</span>
           <img
             src="{% static 'images/icons/arrow-down-black.svg' %}"
             alt=""
@@ -184,16 +184,12 @@
             data-mobile-disclosure-icon
           >
         </summary>
-        <div class="pt-[14px] text-[14px] leading-[20px] text-[var(--color-black-80)]">
-          <p>
-            {% trans "После оплаты вы получаете цифровой материал в формате PDF для самостоятельного скачивания и печати." %}
-          </p>
-          <p class="mt-[14px]">
-            {% trans "Ссылка на скачивание предоставляется сразу после подтверждения платежа." %}
-          </p>
+        <div class="product-access-instructions product-access-instructions--panel">
+          {% include "pages/product/copy/_access_instructions.html" %}
         </div>
       </details>
 
+      {% comment %}
       <details class="group py-[14px]" data-mobile-disclosure>
         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-[18px] font-bold text-[var(--color-black)] marker:hidden">
           <span>{% trans "Как играть в игру" %}</span>
@@ -214,6 +210,7 @@
           </p>
         </div>
       </details>
+      {% endcomment %}
     </div>
   </div>
 </section>
