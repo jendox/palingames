@@ -91,9 +91,11 @@
               <span class="ml-[8px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
             </div>
 
+            {% comment %}
             <p class="mt-[30px] max-w-[486px] text-[16px] text-[var(--color-black-80)]">
               {{ product.description|default:product.content|striptags|truncatechars:170 }}
             </p>
+            {% endcomment %}
 
             {% if product.content %}
               <div class="mt-[40px]">

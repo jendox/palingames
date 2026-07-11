@@ -97,9 +97,11 @@
         </div>
       </div>
 
+      {% comment %}
       <p class="mt-[20px] max-w-[330px] text-[14px] text-[var(--color-black-80)]">
         {{ product.description|default:product.content|striptags|truncatechars:140 }}
       </p>
+      {% endcomment %}
 
       {% if product.content %}
         <div class="mt-[20px]">
