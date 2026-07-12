@@ -1268,3 +1268,38 @@ class AuthRateLimitMiddlewareTests(TestCase):
         self.assertNotEqual(first.status_code, 429)
         self.assertEqual(second.status_code, 429)
         self.assertEqual(second["Retry-After"], "600")
+
+
+class ErrorPageTests(TestCase):
+    def test_page_not_found_handler_renders_custom_template(self):
+        from apps.core.error_views import page_not_found
+
+        request = self.client.get("/missing-page/").wsgi_request
+        response = page_not_found(request, Exception())
+
+        self.assertEqual(response.status_code, 404)
+        content = response.content.decode()
+        self.assertIn("Страница не найдена", content)
+        self.assertIn("На главную", content)
+        self.assertIn('name="robots" content="noindex,nofollow"', content)
+
+    def test_server_error_handler_renders_custom_template(self):
+        from apps.core.error_views import server_error
+
+        request = self.client.get("/").wsgi_request
+        response = server_error(request)
+
+        self.assertEqual(response.status_code, 500)
+        content = response.content.decode()
+        self.assertIn("Внутренняя ошибка сервера", content)
+        self.assertIn("Обновить страницу", content)
+        self.assertIn('name="robots" content="noindex,nofollow"', content)
+
+    @override_settings(DEBUG=False)
+    def test_custom_404_page_is_used_when_debug_is_disabled(self):
+        response = self.client.get("/this-page-definitely-does-not-exist/")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, "Страница не найдена", status_code=404)
+        self.assertContains(response, "На главную", status_code=404)
+        self.assertNotContains(response, "Page not found at", status_code=404)

@@ -20,3 +20,6 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+handler404 = "apps.core.error_views.page_not_found"
+handler500 = "apps.core.error_views.server_error"
