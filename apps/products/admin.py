@@ -46,11 +46,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(SubType, site=admin_site)
 class SubTypeAdmin(admin.ModelAdmin):
-    list_display = ("title", "category", "products_count", "created_at")
-    list_filter = ("category",)
-    search_fields = ("title", "category__title")
-    autocomplete_fields = ("category",)
-    ordering = ("category__title", "title")
+    list_display = ("title", "products_count", "created_at")
+    search_fields = ("title",)
+    ordering = ("title",)
 
     @admin.display(description=_("Товаров"))
     def products_count(self, obj):

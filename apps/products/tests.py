@@ -53,8 +53,8 @@ class CatalogViewTests(TestCase):
         cls.age_2_3 = AgeGroupTag.objects.create(value=AgeGroup.AGE_2_3)
         cls.age_4_5 = AgeGroupTag.objects.create(value=AgeGroup.AGE_4_5)
 
-        cls.subtype_cards = SubType.objects.create(title="Карточки", category=cls.category)
-        cls.subtype_sets = SubType.objects.create(title="Наборы", category=cls.category)
+        cls.subtype_cards = SubType.objects.create(title="Карточки")
+        cls.subtype_sets = SubType.objects.create(title="Наборы")
 
         cls.alpha = cls._make_product("Альфа", "alpha", Decimal("30.00"), cls.category, cls.subtype_cards, cls.age_2_3)
         cls.beta = cls._make_product("Бета", "beta", Decimal("10.00"), cls.category, cls.subtype_sets, cls.age_4_5)
@@ -262,8 +262,8 @@ class AlphabetNavigatorViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
-        cls.subtype = SubType.objects.create(title="Карточки", category=cls.category)
-        cls.alt_subtype = SubType.objects.create(title="Наборы", category=cls.category)
+        cls.subtype = SubType.objects.create(title="Карточки")
+        cls.alt_subtype = SubType.objects.create(title="Наборы")
         cls.age = AgeGroupTag.objects.create(value=AgeGroup.AGE_2_3)
         cls.alt_age = AgeGroupTag.objects.create(value=AgeGroup.AGE_4_5)
 

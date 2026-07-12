@@ -265,15 +265,7 @@ class CatalogView(TemplateView):
         selected_areas,
         selected_themes,
     ):
-        subtype_filters = {}
-        if selected_category is not None:
-            subtype_filters["category"] = selected_category
-        subtype_options = self._filter_option_queryset(
-            SubType,
-            "products",
-            category_queryset,
-            **subtype_filters,
-        )
+        subtype_options = self._filter_option_queryset(SubType, "products", category_queryset)
         age_options = self._filter_option_queryset(AgeGroupTag, "products", category_queryset)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", category_queryset)
         theme_options = self._filter_option_queryset(Theme, "products", category_queryset)

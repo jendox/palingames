@@ -59,19 +59,13 @@ class AgeGroupTag(TimeStampedModel):
 
 class SubType(TimeStampedModel):
     title = models.CharField("Название", unique=True, max_length=100)
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.CASCADE,
-        related_name="subtypes",
-        verbose_name="Категория",
-    )
 
     class Meta:
         verbose_name = _("Подтип")
         verbose_name_plural = _("Подтипы")
 
     def __str__(self) -> str:
-        return f"{self.title} ({self.category.title})"
+        return self.title
 
 
 class DevelopmentAreaTag(TimeStampedModel):
