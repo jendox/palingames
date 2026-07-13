@@ -1143,6 +1143,73 @@ class ProductImageSignalTests(TestCase):
         self.assertFalse(ProductImage.objects.filter(pk=image.pk).exists())
 
 
+class ProductFileSignalTests(TestCase):
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_row_delete_removes_object_from_storage(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = Mock()
+        product = Product.objects.create(title="File delete", slug="file-delete", price=Decimal("10.00"))
+        product_file = ProductFile.objects.create(
+            product=product,
+            file_key="file-delete/archive.zip",
+            original_filename="archive.zip",
+            size_bytes=128,
+            is_active=True,
+        )
+
+        product_file.delete()
+
+        mock_get_s3_client.return_value.delete_object.assert_called_once_with(
+            Bucket=settings.S3_BUCKET_NAME,
+            Key="file-delete/archive.zip",
+        )
+        self.assertFalse(ProductFile.objects.filter(pk=product_file.pk).exists())
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_product_delete_cascades_file_storage_delete(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = Mock()
+        product = Product.objects.create(title="Cascade", slug="cascade-delete", price=Decimal("10.00"))
+        ProductFile.objects.create(
+            product=product,
+            file_key="cascade-delete/active.zip",
+            original_filename="active.zip",
+            is_active=True,
+        )
+        ProductFile.objects.create(
+            product=product,
+            file_key="cascade-delete/old.zip",
+            original_filename="old.zip",
+            is_active=False,
+        )
+
+        product.delete()
+
+        deleted_keys = [
+            call.kwargs["Key"]
+            for call in mock_get_s3_client.return_value.delete_object.call_args_list
+        ]
+        self.assertEqual(
+            sorted(deleted_keys),
+            ["cascade-delete/active.zip", "cascade-delete/old.zip"],
+        )
+        self.assertFalse(ProductFile.objects.filter(product_id=product.pk).exists())
+
+    @patch("apps.products.services.s3.get_s3_client")
+    @override_settings(S3_PRODUCT_IMAGES_PREFIX="previews")
+    def test_row_delete_skips_preview_prefix_keys(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = Mock()
+        product = Product.objects.create(title="Preview guard", slug="preview-guard", price=Decimal("10.00"))
+        product_file = ProductFile.objects.create(
+            product=product,
+            file_key="previews/legacy-mistake.zip",
+            is_active=True,
+        )
+
+        product_file.delete()
+
+        mock_get_s3_client.return_value.delete_object.assert_not_called()
+        self.assertFalse(ProductFile.objects.filter(pk=product_file.pk).exists())
+
+
 @override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
 class MigrateProductImagesCommandTests(TestCase):
     @classmethod

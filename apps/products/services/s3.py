@@ -303,6 +303,14 @@ def upload_custom_game_file(*, payment_account_no: str, uploaded_file: UploadedF
     }
 
 
+def is_deletable_download_file_key(file_key: str) -> bool:
+    key = file_key.strip()
+    if not key:
+        return False
+    prefix = settings.S3_PRODUCT_IMAGES_PREFIX
+    return not (key.startswith(f"{prefix}/") or key == prefix)
+
+
 def delete_product_file(*, file_key: str) -> None:
     try:
         get_s3_client().delete_object(Bucket=settings.S3_BUCKET_NAME, Key=file_key)

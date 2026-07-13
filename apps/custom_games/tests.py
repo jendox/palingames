@@ -3,6 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import caches
@@ -952,3 +953,30 @@ class AdminCustomGameDirectUploadTests(TestCase):
         mock_upload_custom_game_file.assert_called_once()
         custom_game_file = CustomGameFile.objects.get()
         self.assertEqual(custom_game_file.file_key, "custom-games/server.zip")
+
+
+class CustomGameFileSignalTests(TestCase):
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_row_delete_removes_object_from_storage(self, mock_get_s3_client):
+        mock_get_s3_client.return_value = Mock()
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            quoted_price=Decimal("100.00"),
+            deadline=timezone.localdate() + timedelta(days=7),
+            status=CustomGameRequest.Status.IN_PROGRESS,
+        )
+        custom_game_file = CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/12345/game.zip",
+            original_filename="game.zip",
+            size_bytes=256,
+            is_active=True,
+        )
+
+        custom_game_file.delete()
+
+        mock_get_s3_client.return_value.delete_object.assert_called_once_with(
+            Bucket=settings.S3_BUCKET_NAME,
+            Key="custom-games/12345/game.zip",
+        )
+        self.assertFalse(CustomGameFile.objects.filter(pk=custom_game_file.pk).exists())
