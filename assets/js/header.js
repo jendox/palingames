@@ -220,7 +220,11 @@
       const si = document.querySelector("[data-mobile-search-input]");
       const su = document.querySelector("[data-mobile-search-suggestions]");
       if (si) si.value = "";
-      if (su) su.replaceChildren();
+      if (su) {
+        su.replaceChildren();
+        su.hidden = true;
+        su.classList.remove("invisible", "opacity-0", "pointer-events-none");
+      }
     } else {
       const si = document.querySelector("[data-mobile-search-input]");
       window.requestAnimationFrame(() => si?.focus());
@@ -291,12 +295,18 @@
   let desktopTimer = null;
   let mobileTimer = null;
 
+  function setSuggestionsVisible(listEl, visible) {
+    listEl.hidden = !visible;
+    listEl.classList.toggle("invisible", !visible);
+    listEl.classList.toggle("opacity-0", !visible);
+    listEl.classList.toggle("pointer-events-none", !visible);
+  }
+
   function debouncedFetch(inputEl, listEl, abortRef, minChars) {
     const q = (inputEl.value || "").trim();
     if (q.length < minChars) {
-      listEl.hidden = true;
-      listEl.classList.add("invisible", "opacity-0", "pointer-events-none");
       listEl.replaceChildren();
+      setSuggestionsVisible(listEl, false);
       return;
     }
 
@@ -324,17 +334,11 @@
           li.appendChild(a);
           listEl.appendChild(li);
         }
-        const has = listEl.children.length > 0;
-        listEl.hidden = !has;
-        if (listEl.id === "header-search-suggestions") {
-          listEl.classList.toggle("invisible", !has);
-          listEl.classList.toggle("opacity-0", !has);
-          listEl.classList.toggle("pointer-events-none", !has);
-        }
+        setSuggestionsVisible(listEl, listEl.children.length > 0);
       })
       .catch(() => {
         listEl.replaceChildren();
-        listEl.hidden = true;
+        setSuggestionsVisible(listEl, false);
       });
   }
 
@@ -363,16 +367,10 @@
       }, debounceMs);
     });
     desktopInput.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        desktopList.hidden = true;
-        desktopList.classList.add("invisible", "opacity-0", "pointer-events-none");
-      }, 200);
+      window.setTimeout(() => setSuggestionsVisible(desktopList, false), 200);
     });
     desktopInput.addEventListener("focus", () => {
-      if (desktopList.children.length > 0) {
-        desktopList.hidden = false;
-        desktopList.classList.remove("invisible", "opacity-0", "pointer-events-none");
-      }
+      if (desktopList.children.length > 0) setSuggestionsVisible(desktopList, true);
     });
   }
 
