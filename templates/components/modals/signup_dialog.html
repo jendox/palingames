@@ -8,6 +8,21 @@
     opacity-0 scale-95 transition duration-150"
 >
   <div class="relative h-full w-full">
+    <button
+      type="button"
+      data-dialog-close
+      class="absolute right-[20px] top-[20px] z-20 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center min-[1024px]:right-[25px] min-[1024px]:top-[25px] min-[1024px]:h-[25px] min-[1024px]:w-[25px]"
+      aria-label="{% trans 'Закрыть' %}"
+    >
+      <img
+        src="{% static 'images/icons/close-icon.svg' %}"
+        alt=""
+        class="h-[20px] w-[20px] min-[1024px]:h-[25px] min-[1024px]:w-[25px]"
+        aria-hidden="true"
+        draggable="false"
+      >
+    </button>
+
     <div
       aria-hidden="true"
       class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 min-[1024px]:hidden"
