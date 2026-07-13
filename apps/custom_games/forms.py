@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -145,6 +146,8 @@ class CustomGameFileAdminForm(forms.ModelForm):
         upload = cleaned_data.get("upload")
 
         if self.instance.pk is None and not upload:
+            if settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+                raise ValidationError("Выберите файл — загрузка в S3 начнётся автоматически.")
             raise ValidationError("Загрузите файл.")
 
         if upload and not upload.name:

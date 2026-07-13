@@ -1,12 +1,14 @@
+import json
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import caches
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -679,3 +681,274 @@ class CustomGamePageTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("custom-game"))
         self.assertEqual(response.context["form"].initial.get("contact_email"), "user@example.com")
+
+
+ADMIN_DIRECT_S3_SETTINGS = {
+    "ADMIN_DIRECT_S3_UPLOAD_ENABLED": True,
+    "ADMIN_DIRECT_S3_UPLOAD_MAX_BYTES": 1024 * 1024,
+    "ADMIN_DIRECT_S3_UPLOAD_PRESIGN_TTL_SECONDS": 900,
+    "ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS": ".zip,.pdf",
+    "S3_BUCKET_NAME": "products",
+    "S3_ENDPOINT_URL": "http://127.0.0.1:9000",
+    "S3_PRODUCT_IMAGES_PREFIX": "previews",
+}
+
+
+@override_settings(**ADMIN_DIRECT_S3_SETTINGS)
+class AdminCustomGameDirectUploadTests(TestCase):
+    def setUp(self):
+        caches["default"].clear()
+        self.custom_game_request = CustomGameRequest.objects.create(**CUSTOM_GAME_MODEL_DATA)
+        self.staff_user = get_user_model().objects.create_user(
+            email="staff@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.other_staff = get_user_model().objects.create_user(
+            email="other-staff@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.staff_user)
+
+    def _csrf_token(self) -> str:
+        response = self.client.get(reverse("admin:custom_games_customgamefile_add"))
+        self.assertEqual(response.status_code, 200)
+        return self.client.cookies["csrftoken"].value
+
+    def _presign_payload(self, **overrides):
+        payload = {
+            "request_id": self.custom_game_request.id,
+            "filename": "game.zip",
+            "content_type": "application/zip",
+            "size_bytes": 128,
+        }
+        payload.update(overrides)
+        return payload
+
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_presign_returns_upload_metadata(self, mock_generate_presigned_upload_url):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-custom-game-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode())
+        self.assertIn("intent_id", payload)
+        self.assertTrue(payload["file_key"].startswith("custom-games/"))
+        self.assertIn(self.custom_game_request.payment_account_no, payload["file_key"])
+
+    def test_presign_requires_staff(self):
+        client = Client(enforce_csrf_checks=True)
+        client.get(reverse("home"))
+        token = client.cookies["csrftoken"].value
+
+        response = client.post(
+            reverse("admin-custom-game-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "staff_required"})
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False)
+    def test_presign_disabled_when_feature_flag_off(self):
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-custom-game-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "feature_disabled"})
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object")
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_happy_path_creates_custom_game_file(
+        self,
+        mock_generate_presigned_upload_url,
+        mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        mock_verify_uploaded_object.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+        token = self._csrf_token()
+        presign_payload = json.loads(
+            self.client.post(
+                reverse("admin-custom-game-file-presign"),
+                data=json.dumps(self._presign_payload()),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=token,
+            ).content.decode(),
+        )
+
+        finalize_response = self.client.post(
+            reverse("admin-custom-game-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "request_id": self.custom_game_request.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(finalize_response.status_code, 200)
+        finalize_payload = json.loads(finalize_response.content.decode())
+        self.assertTrue(finalize_payload["ok"])
+
+        custom_game_file = CustomGameFile.objects.get()
+        self.assertEqual(custom_game_file.request_id, self.custom_game_request.id)
+        self.assertEqual(custom_game_file.file_key, presign_payload["file_key"])
+        self.assertEqual(custom_game_file.uploaded_by_id, self.staff_user.id)
+        self.assertEqual(
+            finalize_payload["redirect_url"],
+            reverse("admin:custom_games_customgamefile_change", args=[custom_game_file.pk]),
+        )
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object")
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_rejects_foreign_intent_user(
+        self,
+        mock_generate_presigned_upload_url,
+        mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        mock_verify_uploaded_object.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+        token = self._csrf_token()
+        presign_payload = json.loads(
+            self.client.post(
+                reverse("admin-custom-game-file-presign"),
+                data=json.dumps(self._presign_payload()),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=token,
+            ).content.decode(),
+        )
+
+        other_client = Client(enforce_csrf_checks=True)
+        other_client.force_login(self.other_staff)
+        other_client.get(reverse("admin:custom_games_customgamefile_add"))
+        other_token = other_client.cookies["csrftoken"].value
+
+        response = other_client.post(
+            reverse("admin-custom-game-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "request_id": self.custom_game_request.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=other_token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(CustomGameFile.objects.count(), 0)
+
+        staff_finalize = self.client.post(
+            reverse("admin-custom-game-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "request_id": self.custom_game_request.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(staff_finalize.status_code, 200)
+
+    def test_custom_game_file_admin_includes_direct_upload_assets_when_enabled(self):
+        response = self.client.get(reverse("admin:custom_games_customgamefile_add"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "admin-custom-game-file-upload.js")
+        self.assertContains(response, "custom-game-file-direct-upload-config")
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False)
+    def test_custom_game_file_admin_hides_direct_upload_assets_when_disabled(self):
+        response = self.client.get(reverse("admin:custom_games_customgamefile_add"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "admin-custom-game-file-upload.js")
+        self.assertNotContains(response, "custom-game-file-direct-upload-config")
+
+    @patch("apps.custom_games.forms.validate_storage_bucket_access")
+    @patch("apps.custom_games.admin.upload_custom_game_file")
+    def test_save_model_uses_server_side_upload_when_feature_flag_disabled(
+        self,
+        mock_upload_custom_game_file,
+        _mock_validate_storage_bucket_access,
+    ):
+        mock_upload_custom_game_file.return_value = {
+            "file_key": "custom-games/server.zip",
+            "original_filename": "game.zip",
+            "mime_type": "application/zip",
+            "size_bytes": 12,
+            "checksum_sha256": "a" * 64,
+        }
+
+        with override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False):
+            add_response = self.client.get(reverse("admin:custom_games_customgamefile_add"))
+            csrf_token = add_response.cookies["csrftoken"].value
+            response = self.client.post(
+                reverse("admin:custom_games_customgamefile_add"),
+                {
+                    "csrfmiddlewaretoken": csrf_token,
+                    "request": str(self.custom_game_request.id),
+                    "is_active": "on",
+                    "upload": SimpleUploadedFile("game.zip", b"zip-content", content_type="application/zip"),
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        mock_upload_custom_game_file.assert_called_once()
+        custom_game_file = CustomGameFile.objects.get()
+        self.assertEqual(custom_game_file.file_key, "custom-games/server.zip")

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -390,6 +391,7 @@ class CustomGameRequestAdmin(admin.ModelAdmin):
 @admin.register(CustomGameFile, site=admin_site)
 class CustomGameFileAdmin(admin.ModelAdmin):
     form = CustomGameFileAdminForm
+    change_form_template = "admin/custom_games/customgamefile/change_form.html"
     list_display = ("id", "request", "original_filename", "size_bytes", "uploaded_at", "is_active")
     list_filter = ("is_active", "uploaded_at")
     search_fields = ("file_key", "original_filename", "request__payment_account_no", "request__contact_email")
@@ -442,6 +444,28 @@ class CustomGameFileAdmin(admin.ModelAdmin):
             initial["request"] = request_id
         return initial
 
+    def _direct_s3_upload_context(self, object_id: str | None) -> dict:
+        context = {
+            "direct_s3_upload_enabled": settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED,
+        }
+        if not settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+            return context
+
+        context["direct_s3_upload_config"] = {
+            "presignUrl": reverse("admin-custom-game-file-presign"),
+            "finalizeUrl": reverse("admin-custom-game-file-finalize"),
+            "customGameFileId": int(object_id) if object_id else None,
+            "maxBytes": settings.ADMIN_DIRECT_S3_UPLOAD_MAX_BYTES,
+        }
+        return context
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = {
+            **(extra_context or {}),
+            **self._direct_s3_upload_context(object_id),
+        }
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     @transaction.atomic
     def save_model(self, request, obj, form, change):
         uploaded_file = form.cleaned_data.get("upload")
@@ -449,6 +473,9 @@ class CustomGameFileAdmin(admin.ModelAdmin):
 
         if change:
             previous_file_key = type(obj).objects.only("file_key").get(pk=obj.pk).file_key
+
+        if uploaded_file and settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+            uploaded_file = None
 
         if uploaded_file:
             uploaded_metadata = upload_custom_game_file(

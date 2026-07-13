@@ -18,13 +18,21 @@ from apps.products.models import Product, ProductFile
 from apps.products.services.s3 import (
     ProductFileMetadataError,
     ProductFileUploadUrlError,
+    build_custom_game_file_key,
     build_product_file_key,
     delete_product_file,
     generate_presigned_upload_url,
     validate_upload_filename,
     verify_uploaded_object,
 )
-from apps.products.upload_intents import UploadIntent, consume_upload_intent, create_upload_intent
+from apps.products.upload_intents import (
+    CustomGameUploadIntent,
+    UploadIntent,
+    consume_custom_game_upload_intent,
+    consume_upload_intent,
+    create_custom_game_upload_intent,
+    create_upload_intent,
+)
 
 
 def staff_json_required(view: Callable[..., JsonResponse]) -> Callable[..., JsonResponse]:
@@ -271,5 +279,204 @@ def product_file_finalize(request: HttpRequest) -> JsonResponse:
             "ok": True,
             "product_file_id": obj.pk,
             "redirect_url": reverse("admin:products_productfile_change", args=[obj.pk]),
+        },
+    )
+
+
+@dataclass(frozen=True)
+class CustomGamePresignRequest:
+    custom_game_request: Any
+    safe_name: str
+    content_type: str
+    size_bytes: int
+
+
+@dataclass(frozen=True)
+class CustomGameFinalizeRequest:
+    intent_id: str
+    request_id: int
+    file_key: str
+    original_filename: str
+    mime_type: str
+    size_bytes: int
+    is_active: bool
+    custom_game_file_id: int | None
+
+
+def _parse_custom_game_presign_request(data: dict[str, Any]) -> CustomGamePresignRequest:
+    from apps.custom_games.models import CustomGameRequest
+
+    request_id = _parse_positive_int(data.get("request_id"), field_name="request_id")
+    size_bytes = _parse_positive_int(data.get("size_bytes"), field_name="size_bytes")
+    _validate_size_bytes(size_bytes)
+
+    safe_name = validate_upload_filename(_parse_required_str(data.get("filename"), field_name="filename"))
+    content_type = data.get("content_type")
+    if not isinstance(content_type, str) or not content_type.strip():
+        content_type = _guess_content_type(safe_name)
+    else:
+        content_type = content_type.strip()
+
+    custom_game_request = CustomGameRequest.objects.get(pk=request_id)
+    return CustomGamePresignRequest(
+        custom_game_request=custom_game_request,
+        safe_name=safe_name,
+        content_type=content_type,
+        size_bytes=size_bytes,
+    )
+
+
+def _parse_custom_game_finalize_request(data: dict[str, Any]) -> CustomGameFinalizeRequest:
+    custom_game_file_id = data.get("custom_game_file_id")
+    if custom_game_file_id is not None:
+        custom_game_file_id = _parse_positive_int(custom_game_file_id, field_name="custom_game_file_id")
+
+    return CustomGameFinalizeRequest(
+        intent_id=_parse_required_str(data.get("intent_id"), field_name="intent_id"),
+        request_id=_parse_positive_int(data.get("request_id"), field_name="request_id"),
+        file_key=_parse_required_str(data.get("file_key"), field_name="file_key"),
+        original_filename=_parse_required_str(data.get("original_filename"), field_name="original_filename"),
+        mime_type=_parse_required_str(data.get("mime_type"), field_name="mime_type"),
+        size_bytes=_parse_positive_int(data.get("size_bytes"), field_name="size_bytes"),
+        is_active=_parse_bool(data.get("is_active"), default=True),
+        custom_game_file_id=custom_game_file_id,
+    )
+
+
+def _validate_custom_game_intent_bindings(
+    intent: CustomGameUploadIntent,
+    request_data: CustomGameFinalizeRequest,
+) -> None:
+    if intent.request_id != request_data.request_id:
+        raise ValidationError("request_id не совпадает с upload intent.")
+    if intent.file_key != request_data.file_key:
+        raise ValidationError("file_key не совпадает с upload intent.")
+    if intent.size_bytes != request_data.size_bytes:
+        raise ValidationError("size_bytes не совпадает с upload intent.")
+    if intent.content_type.strip().lower() != request_data.mime_type.strip().lower():
+        raise ValidationError("mime_type не совпадает с upload intent.")
+
+
+def _upsert_custom_game_file_from_intent(
+    *,
+    intent: CustomGameUploadIntent,
+    request_data: CustomGameFinalizeRequest,
+    uploaded_by_id: int,
+) -> tuple[Any, str | None]:
+    from apps.custom_games.models import CustomGameFile, CustomGameRequest
+
+    CustomGameRequest.objects.get(pk=request_data.request_id)
+    safe_name = validate_upload_filename(request_data.original_filename)
+
+    previous_file_key: str | None = None
+    if request_data.custom_game_file_id is not None:
+        obj = CustomGameFile.objects.select_for_update().get(
+            pk=request_data.custom_game_file_id,
+            request_id=request_data.request_id,
+        )
+        previous_file_key = obj.file_key
+    else:
+        obj = CustomGameFile(request_id=request_data.request_id)
+
+    obj.file_key = intent.file_key
+    obj.original_filename = safe_name
+    obj.mime_type = intent.content_type
+    obj.size_bytes = intent.size_bytes
+    obj.checksum_sha256 = None
+    obj.is_active = request_data.is_active
+    if not obj.uploaded_by_id:
+        obj.uploaded_by_id = uploaded_by_id
+
+    if request_data.is_active:
+        CustomGameFile.objects.filter(request_id=request_data.request_id, is_active=True).exclude(pk=obj.pk).update(
+            is_active=False,
+        )
+
+    obj.save()
+    return obj, previous_file_key
+
+
+@staff_json_required
+@require_POST
+def custom_game_file_presign(request: HttpRequest) -> JsonResponse:
+    from apps.custom_games.models import CustomGameRequest
+
+    if not settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+        return _feature_disabled_response()
+
+    try:
+        presign_request = _parse_custom_game_presign_request(_parse_json(request))
+        payment_account_no = presign_request.custom_game_request.payment_account_no
+        if not payment_account_no:
+            raise ValidationError("У заказа отсутствует payment_account_no.")
+        file_key = build_custom_game_file_key(
+            payment_account_no=payment_account_no,
+            filename=presign_request.safe_name,
+        )
+        intent_id = create_custom_game_upload_intent(
+            user_id=request.user.id,
+            request_id=presign_request.custom_game_request.id,
+            file_key=file_key,
+            size_bytes=presign_request.size_bytes,
+            content_type=presign_request.content_type,
+        )
+        presign = generate_presigned_upload_url(file_key=file_key, content_type=presign_request.content_type)
+    except ValidationError as exc:
+        return _validation_error_response(exc)
+    except CustomGameRequest.DoesNotExist:
+        return JsonResponse({"error": "Заказ не найден."}, status=400)
+    except ProductFileUploadUrlError:
+        return JsonResponse({"error": "storage_unavailable"}, status=503)
+
+    return JsonResponse(
+        {
+            "intent_id": intent_id,
+            "file_key": file_key,
+            "upload_url": presign["upload_url"],
+            "required_headers": presign["required_headers"],
+            "expires_in": presign["expires_in"],
+        },
+    )
+
+
+@staff_json_required
+@require_POST
+@transaction.atomic
+def custom_game_file_finalize(request: HttpRequest) -> JsonResponse:
+    from apps.custom_games.models import CustomGameFile, CustomGameRequest
+
+    if not settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+        return _feature_disabled_response()
+
+    try:
+        finalize_request = _parse_custom_game_finalize_request(_parse_json(request))
+        intent = consume_custom_game_upload_intent(intent_id=finalize_request.intent_id, user_id=request.user.id)
+        _validate_custom_game_intent_bindings(intent, finalize_request)
+        verify_uploaded_object(
+            file_key=intent.file_key,
+            expected_size=intent.size_bytes,
+            content_type=intent.content_type,
+        )
+        obj, previous_file_key = _upsert_custom_game_file_from_intent(
+            intent=intent,
+            request_data=finalize_request,
+            uploaded_by_id=request.user.id,
+        )
+        if previous_file_key and previous_file_key != obj.file_key:
+            delete_product_file(file_key=previous_file_key)
+    except ValidationError as exc:
+        return _validation_error_response(exc)
+    except CustomGameRequest.DoesNotExist:
+        return JsonResponse({"error": "Заказ не найден."}, status=400)
+    except CustomGameFile.DoesNotExist:
+        return JsonResponse({"error": "Файл заказа не найден."}, status=400)
+    except ProductFileMetadataError:
+        return JsonResponse({"error": "uploaded_file_not_found"}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "custom_game_file_id": obj.pk,
+            "redirect_url": reverse("admin:custom_games_customgamefile_change", args=[obj.pk]),
         },
     )

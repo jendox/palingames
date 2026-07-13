@@ -1,0 +1,22 @@
+{% extends "admin/change_form.html" %}
+
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  {% if direct_s3_upload_enabled %}
+    <script src="{% static 'js/admin-custom-game-file-upload.js' %}" defer></script>
+  {% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+  {{ block.super }}
+  {% if direct_s3_upload_enabled %}
+    <div
+      id="custom-game-file-direct-upload-status"
+      class="help"
+      style="margin-top: 12px; max-width: 640px;"
+    ></div>
+    {{ direct_s3_upload_config|json_script:"custom-game-file-direct-upload-config" }}
+  {% endif %}
+{% endblock %}
