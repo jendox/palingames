@@ -483,8 +483,11 @@ class CatalogView(TemplateView):
         if not products_mode:
             context.update(
                 build_seo_context(
-                    title="Коллекция — PalinGames",
-                    description="Коллекция развивающих игр и материалов для занятий от PalinGames.",
+                    title="Коллекция развивающих игр на липучках — PalinGames",
+                    description=(
+                        "Коллекция игр на липучках и развивающих материалов для занятий. "
+                        "PDF к печати для детей, родителей и педагогов."
+                    ),
                     canonical_url=reverse("catalog"),
                     json_ld=build_breadcrumbs_json_ld(context["breadcrumbs"]),
                 ),
@@ -511,8 +514,11 @@ class CatalogView(TemplateView):
         )
 
         canonical_url = reverse("catalog")
-        title = "Коллекция — PalinGames"
-        description = "Коллекция развивающих игр и материалов для занятий от PalinGames."
+        title = "Коллекция развивающих игр на липучках — PalinGames"
+        description = (
+            "Коллекция игр на липучках и развивающих материалов для занятий. "
+            "PDF к печати для детей, родителей и педагогов."
+        )
         robots = "index,follow"
 
         if selected_category is not None:

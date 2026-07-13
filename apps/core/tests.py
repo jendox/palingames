@@ -717,13 +717,29 @@ class SeoTemplateTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<title>PalinGames — развивающие игры для детей</title>", html=True)
+        self.assertContains(response, "<title>PalinGames — развивающие игры и материалы на липучках</title>", html=True)
         self.assertContains(response, '<link rel="canonical" href="https://example.com/" />', html=True)
         self.assertContains(
             response,
-            'property="og:title" content="PalinGames — развивающие игры для детей"',
+            'property="og:title" content="PalinGames — развивающие игры и материалы на липучках"',
             html=False,
         )
+        self.assertContains(
+            response,
+            "Игры на липучках и развивающие материалы для детей: PDF к печати",
+            html=False,
+        )
+
+    def test_catalog_renders_lipuchki_seo_meta_tags(self):
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "<title>Коллекция развивающих игр на липучках — PalinGames</title>",
+            html=True,
+        )
+        self.assertContains(response, "Коллекция игр на липучках и развивающих материалов", html=False)
 
     def test_robots_txt_references_sitemap(self):
         response = self.client.get(reverse("robots-txt"))
