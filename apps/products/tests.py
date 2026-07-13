@@ -1,3 +1,4 @@
+import json
 import shutil
 import tempfile
 from decimal import Decimal
@@ -13,7 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.access.models import UserProductAccess
@@ -37,9 +38,14 @@ from apps.products.services.s3 import (
     ProductFileDownloadUrlError,
     ProductFileMetadataError,
     ProductFileUploadError,
+    ProductFileUploadUrlError,
+    _allowed_upload_extensions,
     generate_presigned_download_url,
+    generate_presigned_upload_url,
     head_product_file,
     upload_product_file,
+    validate_upload_filename,
+    verify_uploaded_object,
 )
 from apps.promocodes.models import PromoCode
 
@@ -489,6 +495,502 @@ class ProductS3ServiceTests(TestCase):
                 original_filename="game.zip",
             )
         record_storage_unavailable_incident_mock.assert_called_once()
+
+
+ADMIN_DIRECT_S3_SETTINGS = {
+    "ADMIN_DIRECT_S3_UPLOAD_ENABLED": True,
+    "ADMIN_DIRECT_S3_UPLOAD_MAX_BYTES": 1024 * 1024,
+    "ADMIN_DIRECT_S3_UPLOAD_PRESIGN_TTL_SECONDS": 900,
+    "ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS": ".zip,.pdf",
+    "S3_BUCKET_NAME": "products",
+    "S3_ENDPOINT_URL": "http://127.0.0.1:9000",
+    "S3_PRODUCT_IMAGES_PREFIX": "previews",
+}
+
+
+@override_settings(**ADMIN_DIRECT_S3_SETTINGS)
+class AdminDirectUploadTests(TestCase):
+    def setUp(self):
+        caches["default"].clear()
+        _allowed_upload_extensions.cache_clear()
+        self.product = Product.objects.create(title="Архив", slug="archive", price=Decimal("10.00"))
+        self.staff_user = get_user_model().objects.create_user(
+            email="staff@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.other_staff = get_user_model().objects.create_user(
+            email="other-staff@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.staff_user)
+
+    def _csrf_token(self) -> str:
+        response = self.client.get(reverse("admin:products_productfile_add"))
+        self.assertEqual(response.status_code, 200)
+        return self.client.cookies["csrftoken"].value
+
+    def _presign_payload(self, **overrides):
+        payload = {
+            "product_id": self.product.id,
+            "filename": "game.zip",
+            "content_type": "application/zip",
+            "size_bytes": 128,
+        }
+        payload.update(overrides)
+        return payload
+
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_presign_returns_upload_metadata(self, mock_generate_presigned_upload_url):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content.decode())
+        self.assertIn("intent_id", payload)
+        self.assertTrue(payload["file_key"].startswith("archive/"))
+        self.assertEqual(payload["upload_url"], "https://storage.example/upload")
+        self.assertEqual(payload["required_headers"], {"Content-Type": "application/zip"})
+        self.assertEqual(payload["expires_in"], 900)
+
+    def test_presign_requires_staff(self):
+        client = Client(enforce_csrf_checks=True)
+        client.get(reverse("home"))
+        token = client.cookies["csrftoken"].value
+
+        response = client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "staff_required"})
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False)
+    def test_presign_disabled_when_feature_flag_off(self):
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "feature_disabled"})
+
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_presign_rejects_oversized_file(self, mock_generate_presigned_upload_url):
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(
+                self._presign_payload(
+                    size_bytes=ADMIN_DIRECT_S3_SETTINGS["ADMIN_DIRECT_S3_UPLOAD_MAX_BYTES"] + 1,
+                ),
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        mock_generate_presigned_upload_url.assert_not_called()
+
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_presign_rejects_bad_extension(self, mock_generate_presigned_upload_url):
+        token = self._csrf_token()
+
+        response = self.client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(self._presign_payload(filename="game.exe")),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        mock_generate_presigned_upload_url.assert_not_called()
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object")
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_happy_path_creates_product_file(
+        self,
+        mock_generate_presigned_upload_url,
+        mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        mock_verify_uploaded_object.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+        token = self._csrf_token()
+
+        presign_response = self.client.post(
+            reverse("admin-product-file-presign"),
+            data=json.dumps(self._presign_payload()),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        presign_payload = json.loads(presign_response.content.decode())
+
+        finalize_response = self.client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "product_id": self.product.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(finalize_response.status_code, 200)
+        finalize_payload = json.loads(finalize_response.content.decode())
+        self.assertTrue(finalize_payload["ok"])
+        self.assertEqual(ProductFile.objects.count(), 1)
+
+        product_file = ProductFile.objects.get()
+        self.assertEqual(product_file.product_id, self.product.id)
+        self.assertEqual(product_file.file_key, presign_payload["file_key"])
+        self.assertEqual(product_file.original_filename, "game.zip")
+        self.assertEqual(product_file.size_bytes, 128)
+        self.assertTrue(product_file.is_active)
+        self.assertEqual(
+            finalize_payload["redirect_url"],
+            reverse("admin:products_productfile_change", args=[product_file.pk]),
+        )
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object")
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_rejects_consumed_intent(
+        self,
+        mock_generate_presigned_upload_url,
+        mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        mock_verify_uploaded_object.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+        token = self._csrf_token()
+        presign_payload = json.loads(
+            self.client.post(
+                reverse("admin-product-file-presign"),
+                data=json.dumps(self._presign_payload()),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=token,
+            ).content.decode(),
+        )
+        finalize_body = {
+            "intent_id": presign_payload["intent_id"],
+            "product_id": self.product.id,
+            "file_key": presign_payload["file_key"],
+            "original_filename": "game.zip",
+            "mime_type": "application/zip",
+            "size_bytes": 128,
+            "is_active": True,
+        }
+
+        first_response = self.client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(finalize_body),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(first_response.status_code, 200)
+
+        second_response = self.client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(finalize_body),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(second_response.status_code, 400)
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object")
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_rejects_foreign_intent_user(
+        self,
+        mock_generate_presigned_upload_url,
+        mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        mock_verify_uploaded_object.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+        token = self._csrf_token()
+        presign_payload = json.loads(
+            self.client.post(
+                reverse("admin-product-file-presign"),
+                data=json.dumps(self._presign_payload()),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=token,
+            ).content.decode(),
+        )
+
+        other_client = Client(enforce_csrf_checks=True)
+        other_client.force_login(self.other_staff)
+        other_client.get(reverse("admin:products_productfile_add"))
+        other_token = other_client.cookies["csrftoken"].value
+
+        response = other_client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "product_id": self.product.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=other_token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(ProductFile.objects.count(), 0)
+
+        staff_finalize = self.client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "product_id": self.product.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+        self.assertEqual(staff_finalize.status_code, 200)
+
+    @patch("apps.products.admin_upload_views.verify_uploaded_object", side_effect=ProductFileMetadataError("missing"))
+    @patch("apps.products.admin_upload_views.generate_presigned_upload_url")
+    def test_finalize_rejects_missing_s3_object(
+        self,
+        mock_generate_presigned_upload_url,
+        _mock_verify_uploaded_object,
+    ):
+        mock_generate_presigned_upload_url.return_value = {
+            "upload_url": "https://storage.example/upload",
+            "required_headers": {"Content-Type": "application/zip"},
+            "expires_in": 900,
+        }
+        token = self._csrf_token()
+        presign_payload = json.loads(
+            self.client.post(
+                reverse("admin-product-file-presign"),
+                data=json.dumps(self._presign_payload()),
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=token,
+            ).content.decode(),
+        )
+
+        response = self.client.post(
+            reverse("admin-product-file-finalize"),
+            data=json.dumps(
+                {
+                    "intent_id": presign_payload["intent_id"],
+                    "product_id": self.product.id,
+                    "file_key": presign_payload["file_key"],
+                    "original_filename": "game.zip",
+                    "mime_type": "application/zip",
+                    "size_bytes": 128,
+                    "is_active": True,
+                },
+            ),
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=token,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content.decode()), {"error": "uploaded_file_not_found"})
+        self.assertEqual(ProductFile.objects.count(), 0)
+
+    def test_product_file_admin_includes_direct_upload_assets_when_enabled(self):
+        response = self.client.get(reverse("admin:products_productfile_add"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "admin-product-file-upload.js")
+        self.assertContains(response, "product-file-direct-upload-config")
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False)
+    def test_product_file_admin_hides_direct_upload_assets_when_disabled(self):
+        response = self.client.get(reverse("admin:products_productfile_add"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "admin-product-file-upload.js")
+        self.assertNotContains(response, "product-file-direct-upload-config")
+
+    @patch("apps.products.forms.validate_storage_bucket_access")
+    @patch("apps.products.admin.upload_product_file")
+    def test_save_model_uses_server_side_upload_when_feature_flag_disabled(
+        self,
+        mock_upload_product_file,
+        _mock_validate_storage_bucket_access,
+    ):
+        mock_upload_product_file.return_value = {
+            "file_key": "archive/server.zip",
+            "original_filename": "game.zip",
+            "mime_type": "application/zip",
+            "size_bytes": 12,
+            "checksum_sha256": "a" * 64,
+        }
+        admin_user = self.staff_user
+        self.client.force_login(admin_user)
+
+        with override_settings(ADMIN_DIRECT_S3_UPLOAD_ENABLED=False):
+            add_response = self.client.get(reverse("admin:products_productfile_add"))
+            csrf_token = add_response.cookies["csrftoken"].value
+            response = self.client.post(
+                reverse("admin:products_productfile_add"),
+                {
+                    "csrfmiddlewaretoken": csrf_token,
+                    "product": str(self.product.id),
+                    "is_active": "on",
+                    "upload": SimpleUploadedFile("game.zip", b"zip-content", content_type="application/zip"),
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        mock_upload_product_file.assert_called_once()
+        product_file = ProductFile.objects.get()
+        self.assertEqual(product_file.file_key, "archive/server.zip")
+
+
+class ProductDirectS3ServiceTests(TestCase):
+    def setUp(self):
+        _allowed_upload_extensions.cache_clear()
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS=".zip,.pdf")
+    def test_validate_upload_filename_accepts_whitelisted_extension(self):
+        _allowed_upload_extensions.cache_clear()
+        self.assertEqual(validate_upload_filename("folder/game.ZIP"), "game.ZIP")
+
+    @override_settings(ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS=".zip,.pdf")
+    def test_validate_upload_filename_rejects_unknown_extension(self):
+        _allowed_upload_extensions.cache_clear()
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            validate_upload_filename("game.exe")
+
+    @patch("apps.products.services.s3.resolve_storage_unavailable_incident")
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_generate_presigned_upload_url_returns_required_headers(
+        self,
+        mock_get_s3_client,
+        resolve_storage_unavailable_incident_mock,
+    ):
+        mock_get_s3_client.return_value.generate_presigned_url.return_value = "https://example.com/upload"
+
+        result = generate_presigned_upload_url(
+            file_key="archive/test.zip",
+            content_type="application/zip",
+        )
+
+        self.assertEqual(result["upload_url"], "https://example.com/upload")
+        self.assertEqual(result["required_headers"], {"Content-Type": "application/zip"})
+        self.assertEqual(result["expires_in"], settings.ADMIN_DIRECT_S3_UPLOAD_PRESIGN_TTL_SECONDS)
+        resolve_storage_unavailable_incident_mock.assert_called_once_with(
+            operation="generate_presigned_upload_url",
+        )
+
+    @patch("apps.products.services.s3.get_s3_client")
+    def test_generate_presigned_upload_url_wraps_storage_errors(self, mock_get_s3_client):
+        mock_get_s3_client.return_value.generate_presigned_url.side_effect = ValueError("boom")
+
+        with self.assertRaises(ProductFileUploadUrlError):
+            generate_presigned_upload_url(
+                file_key="archive/test.zip",
+                content_type="application/zip",
+            )
+
+    @patch("apps.products.services.s3.head_product_file")
+    def test_verify_uploaded_object_checks_size_and_content_type(self, mock_head_product_file):
+        mock_head_product_file.return_value = {
+            "ContentLength": 128,
+            "ContentType": "application/zip",
+        }
+
+        metadata = verify_uploaded_object(
+            file_key="archive/test.zip",
+            expected_size=128,
+            content_type="application/zip",
+        )
+
+        self.assertEqual(metadata["ContentLength"], 128)
+
+    @patch("apps.products.services.s3.head_product_file")
+    def test_verify_uploaded_object_rejects_size_mismatch(self, mock_head_product_file):
+        from django.core.exceptions import ValidationError
+
+        mock_head_product_file.return_value = {
+            "ContentLength": 64,
+            "ContentType": "application/zip",
+        }
+
+        with self.assertRaises(ValidationError):
+            verify_uploaded_object(
+                file_key="archive/test.zip",
+                expected_size=128,
+                content_type="application/zip",
+            )
+
+    @override_settings(S3_PRODUCT_IMAGES_PREFIX="previews")
+    def test_verify_uploaded_object_rejects_preview_prefix(self):
+        from django.core.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            verify_uploaded_object(
+                file_key="previews/image.jpg",
+                expected_size=128,
+                content_type="image/jpeg",
+            )
 
 
 PRODUCT_IMAGE_S3_SETTINGS = {

@@ -1,0 +1,22 @@
+{% extends "admin/change_form.html" %}
+
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  {% if direct_s3_upload_enabled %}
+    <script src="{% static 'js/admin-product-file-upload.js' %}" defer></script>
+  {% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+  {{ block.super }}
+  {% if direct_s3_upload_enabled %}
+    <div
+      id="product-file-direct-upload-status"
+      class="help"
+      style="margin-top: 12px; max-width: 640px;"
+    ></div>
+    {{ direct_s3_upload_config|json_script:"product-file-direct-upload-config" }}
+  {% endif %}
+{% endblock %}

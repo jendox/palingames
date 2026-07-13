@@ -5,6 +5,7 @@ import logging
 import mimetypes
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 
 from apps.core.logging import log_event
@@ -39,6 +41,10 @@ class ProductFileMetadataError(ProductFileStorageError):
 
 
 class ProductFileDownloadUrlError(ProductFileStorageError):
+    pass
+
+
+class ProductFileUploadUrlError(ProductFileStorageError):
     pass
 
 
@@ -116,6 +122,27 @@ def build_product_file_key(*, product_slug: str, filename: str) -> str:
 def build_custom_game_file_key(*, payment_account_no: str, filename: str) -> str:
     extension = Path(filename).suffix.lower()
     return f"custom-games/{payment_account_no}/{uuid4().hex}{extension}"
+
+
+@lru_cache(maxsize=1)
+def _allowed_upload_extensions() -> frozenset[str]:
+    raw: str = settings.ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS
+    return frozenset(
+        extension.strip().lower()
+        for extension in raw.split(",") if extension.strip()
+    )
+
+
+def validate_upload_filename(filename: str) -> str:
+    safe_name = Path(filename).name
+    if not safe_name:
+        raise ValidationError("Не удалось определить имя файла.")
+
+    extension = Path(safe_name).suffix.lower()
+    if extension not in _allowed_upload_extensions():
+        raise ValidationError("Недопустимое расширение файла.")
+
+    return safe_name
 
 
 def _calculate_sha256(uploaded_file: UploadedFile) -> str:
@@ -324,6 +351,82 @@ def head_product_file(*, file_key: str) -> dict:
         content_length=metadata.get("ContentLength"),
         etag=metadata.get("ETag"),
     )
+    return metadata
+
+
+def generate_presigned_upload_url(
+    *,
+    file_key: str,
+    content_type: str,
+    expires_seconds: int | None = None,
+) -> dict[str, Any]:
+    ttl = expires_seconds or settings.ADMIN_DIRECT_S3_UPLOAD_PRESIGN_TTL_SECONDS
+    try:
+        url = get_s3_client().generate_presigned_url(
+            ClientMethod="put_object",
+            Params={
+                "Bucket": settings.S3_BUCKET_NAME,
+                "Key": file_key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=ttl,
+        )
+    except (ClientError, BotoCoreError, ValueError) as exc:
+        log_event(
+            logger,
+            logging.ERROR,
+            "product_file.upload_url.failed",
+            exc_info=exc,
+            bucket_name=settings.S3_BUCKET_NAME,
+            file_key=file_key,
+            expires_seconds=ttl,
+            error_type=type(exc).__name__,
+        )
+        record_storage_unavailable_incident(
+            operation="generate_presigned_upload_url",
+            threshold=settings.STORAGE_INCIDENT_THRESHOLD,
+            window_seconds=settings.STORAGE_INCIDENT_WINDOW_SECONDS,
+        )
+        raise ProductFileUploadUrlError("Failed to generate presigned product upload URL") from exc
+
+    log_event(
+        logger,
+        logging.INFO,
+        "product_file.upload_url.generated",
+        bucket_name=settings.S3_BUCKET_NAME,
+        file_key=file_key,
+        expires_seconds=ttl,
+    )
+    resolve_storage_unavailable_incident(operation="generate_presigned_upload_url")
+    return {
+        "upload_url": url,
+        "required_headers": {"Content-Type": content_type},
+        "expires_in": ttl,
+    }
+
+
+def verify_uploaded_object(
+    *,
+    file_key: str,
+    expected_size: int,
+    content_type: str,
+) -> dict[str, Any]:
+    if (
+        file_key.startswith(f"{settings.S3_PRODUCT_IMAGES_PREFIX}/")
+        or file_key == settings.S3_PRODUCT_IMAGES_PREFIX
+    ):
+        raise ValidationError("Недопустимый ключ файла.")
+
+    metadata = head_product_file(file_key=file_key)
+
+    actual_size = metadata.get("ContentLength", 0)
+    if actual_size != expected_size:
+        raise ValidationError("Размер загруженного файла не совпадает.")
+
+    actual_type = metadata.get("ContentType") or ""
+    if actual_type.strip().lower() != content_type.strip().lower():
+        raise ValidationError("Content-Type загруженного файла не совпадает.")
+
     return metadata
 
 

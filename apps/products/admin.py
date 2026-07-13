@@ -2,6 +2,7 @@ import logging
 
 import admin_thumbnails
 from django import forms
+from django.conf import settings
 from django.contrib import admin
 from django.db import transaction
 from django.db.models import Count, Q
@@ -237,6 +238,7 @@ class ProductImageAdmin(admin.ModelAdmin):
 @admin.register(ProductFile, site=admin_site)
 class ProductFileAdmin(admin.ModelAdmin):
     form = ProductFileAdminForm
+    change_form_template = "admin/products/productfile/change_form.html"
     list_display = ("original_filename", "product", "mime_type", "size_bytes", "is_active", "created_at")
     list_filter = ("is_active", "mime_type", "created_at")
     search_fields = ("file_key", "original_filename", "product__title", "product__slug")
@@ -285,6 +287,28 @@ class ProductFileAdmin(admin.ModelAdmin):
             initial["product"] = product_id
         return initial
 
+    def _direct_s3_upload_context(self, object_id: str | None) -> dict:
+        context = {
+            "direct_s3_upload_enabled": settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED,
+        }
+        if not settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+            return context
+
+        context["direct_s3_upload_config"] = {
+            "presignUrl": reverse("admin-product-file-presign"),
+            "finalizeUrl": reverse("admin-product-file-finalize"),
+            "productFileId": int(object_id) if object_id else None,
+            "maxBytes": settings.ADMIN_DIRECT_S3_UPLOAD_MAX_BYTES,
+        }
+        return context
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = {
+            **(extra_context or {}),
+            **self._direct_s3_upload_context(object_id),
+        }
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     @transaction.atomic
     def save_model(self, request, obj, form, change):
         uploaded_file = form.cleaned_data.get("upload")
@@ -292,6 +316,9 @@ class ProductFileAdmin(admin.ModelAdmin):
 
         if change:
             previous_file_key = type(obj).objects.only("file_key").get(pk=obj.pk).file_key
+
+        if uploaded_file and settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+            uploaded_file = None
 
         if uploaded_file:
             uploaded_metadata = upload_product_file(

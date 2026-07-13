@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from .models import ProductFile
@@ -38,6 +39,8 @@ class ProductFileAdminForm(forms.ModelForm):
         upload = cleaned_data.get("upload")
 
         if self.instance.pk is None and not upload:
+            if settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
+                raise ValidationError("Выберите файл — загрузка в S3 начнётся автоматически.")
             raise ValidationError("Загрузите файл.")
 
         if upload and not upload.name:
