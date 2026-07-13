@@ -22,17 +22,21 @@
   </form>
 
   <div class="col-start-3 overflow-hidden rounded-[8px] bg-[var(--color-white)]">
-    <img
-      src="{{ item.image_url }}"
-      alt="{{ item.title }}"
-      class="h-full w-full object-contain min-[1280px]:h-[200px]"
-      draggable="false"
-    >
+    <a href="{{ item.product_url }}" class="block" aria-label="{{ item.title }}">
+      <img
+        src="{{ item.image_url }}"
+        alt=""
+        class="h-full w-full object-contain min-[1280px]:h-[200px]"
+        draggable="false"
+      >
+    </a>
   </div>
 
   <div class="col-start-5 min-w-0 pt-[24px] pb-[24px] min-[1280px]:pt-[40px] min-[1280px]:pb-[40px]">
     <h2 class="max-w-[520px] text-[20px] font-semibold leading-[20px]">
-      {{ item.title }}
+      <a href="{{ item.product_url }}" class="text-inherit no-underline hover:underline">
+        {{ item.title }}
+      </a>
     </h2>
     <p class="mt-[15px] text-[16px] leading-[16px]">
       <span class="font-semibold">{% trans "Категория:" %}</span> {{ item.kind|lower }}

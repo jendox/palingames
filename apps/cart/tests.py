@@ -217,3 +217,14 @@ class CartViewsTests(TestCase):
         cart_product_ids = set(CartItem.objects.filter(cart__user=user).values_list("product_id", flat=True))
         self.assertEqual(cart_product_ids, {self.product_2.id})
         self.assertEqual(self.client.session.get(SESSION_CART_KEY), [])
+
+    def test_cart_page_links_items_to_product_detail(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product_1.id]
+        session.save()
+
+        response = self.client.get(reverse("cart"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{self.product_1.get_absolute_url()}"', html=False)
+        self.assertContains(response, self.product_1.title)

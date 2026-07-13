@@ -7,15 +7,19 @@
     <div class="mt-[20px] space-y-[20px]">
       {% for item in cart_items %}
         <div class="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-[20px]">
-          <img
-            src="{{ item.image_url }}"
-            alt="{{ item.title }}"
-            class="h-[73px] w-[60px] object-contain"
-            draggable="false"
-          >
+          <a href="{{ item.product_url }}" class="block" aria-label="{{ item.title }}">
+            <img
+              src="{{ item.image_url }}"
+              alt=""
+              class="h-[73px] w-[60px] object-contain"
+              draggable="false"
+            >
+          </a>
           <div class="flex min-h-[73px] flex-col justify-center">
             <p class="min-h-[30px] text-[12px] font-semibold leading-[15px] text-[var(--color-black)]">
-              {{ item.title }}
+              <a href="{{ item.product_url }}" class="text-inherit no-underline hover:underline">
+                {{ item.title }}
+              </a>
             </p>
             <p class="mt-[7px] text-[10px] leading-[12px] text-[var(--color-black-80)]">
               {{ item.kind }}

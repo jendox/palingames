@@ -199,6 +199,7 @@ def _build_checkout_item(product: Product, promo_discount: PromoCodeDiscount | N
         "discount_price_value": float(discount_price) if discount_price is not None else None,
         "has_discount": discount_price is not None,
         "image_url": first_image.image.url if first_image else static("images/example-product-image-1.png"),
+        "product_url": product.get_absolute_url(),
         "currency": product.currency,
         "quantity": 1,
     }

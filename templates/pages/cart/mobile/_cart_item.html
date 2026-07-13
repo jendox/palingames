@@ -23,17 +23,21 @@
     </form>
 
     <div class="col-start-3 w-[100px] shrink-0 overflow-hidden rounded-[3px]">
-      <img
-        src="{{ item.image_url }}"
-        alt="{{ item.title }}"
-        class="h-[100px] w-full object-contain"
-        draggable="false"
-      >
+      <a href="{{ item.product_url }}" class="block" aria-label="{{ item.title }}">
+        <img
+          src="{{ item.image_url }}"
+          alt=""
+          class="h-[100px] w-full object-contain"
+          draggable="false"
+        >
+      </a>
     </div>
 
     <div class="col-start-5 min-w-0 pt-[10px] pb-[10px]">
       <h2 class="min-h-[28px] text-[12px] leading-[14px] font-semibold">
-        {{ item.title }}
+        <a href="{{ item.product_url }}" class="text-inherit no-underline hover:underline">
+          {{ item.title }}
+        </a>
       </h2>
       <p class="mt-[7px] text-[10px]">
         {{ item.kind|lower }}

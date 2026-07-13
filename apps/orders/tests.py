@@ -89,6 +89,17 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertContains(response, 'name="checkout_idempotency_key"')
         self.assertTrue(response.context["checkout_idempotency_key"])
 
+    def test_checkout_summary_links_items_to_product_detail(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{self.product.get_absolute_url()}"', html=False)
+        self.assertContains(response, self.product.title)
+
     @patch("apps.orders.views.inc_checkout_started")
     def test_checkout_get_increments_started_metric(self, inc_checkout_started_mock):
         session = self.client.session

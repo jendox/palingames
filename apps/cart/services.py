@@ -168,6 +168,7 @@ def _build_cart_item(product: Product, selected_category_by_id: dict[int, str]) 
         "kind": category_label,
         "price": _format_price(product.price, product.currency),
         "image_url": first_image.image.url if first_image else static("images/example-product-image-1.png"),
+        "product_url": product.get_absolute_url(),
     }
 
 
