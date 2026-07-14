@@ -120,6 +120,7 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="checkout-analytics-payload"')
+        self.assertContains(response, '"currency": "BYN"')
 
     def test_authenticated_checkout_prefills_email_and_uses_second_step(self):
         self.client.force_login(self.user)

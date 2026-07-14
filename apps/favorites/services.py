@@ -9,7 +9,7 @@ from django.urls import reverse
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.products.models import Product, ProductImage
-from apps.products.pricing import format_price
+from apps.products.pricing import format_price, get_currency_code
 
 from .models import Favorite
 
@@ -155,6 +155,8 @@ def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]
         "title": product.title,
         "url": product.get_absolute_url(),
         "price": format_price(product.price, product.currency),
+        "price_value": float(product.price),
+        "currency": get_currency_code(product.currency),
         "kind": primary_kind.title if primary_kind else "",
         "category": category_label,
         "content": product.content,

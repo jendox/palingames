@@ -108,6 +108,7 @@ class CatalogViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-analytics-item")
         self.assertContains(response, 'data-analytics-item-id="')
+        self.assertContains(response, 'data-analytics-currency="BYN"')
 
     def test_catalog_global_search_shows_matching_products(self):
         response = self.client.get(reverse("catalog"), {"q": "Альф"})
@@ -1589,6 +1590,7 @@ class ProductDetailDownloadContextTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="product-analytics-item"')
         self.assertContains(response, 'data-analytics-item-id="')
+        self.assertContains(response, '"currency": "BYN"')
 
 
 class ProductReviewFlowTests(TestCase):

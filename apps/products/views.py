@@ -138,7 +138,7 @@ class CatalogView(TemplateView):
             "url": product.get_absolute_url(),
             "price": format_price(product.price, product.currency),
             "price_value": float(product.price),
-            "currency": product.currency,
+            "currency": get_currency_code(product.currency),
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(selected_category or product.categories.first()),
             "content": product.content,
@@ -875,7 +875,7 @@ class ProductDetailView(DetailView):
             "item_category": primary_category.title if primary_category else "",
             "item_variant": primary_kind.title if primary_kind else "",
             "price": float(product.price),
-            "currency": product.currency,
+            "currency": get_currency_code(product.currency),
         }
         breadcrumbs = [
             {"title": "Главная", "url": reverse("home")},

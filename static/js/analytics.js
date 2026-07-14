@@ -12,6 +12,7 @@
       home: "home",
       catalog: "catalog",
       product: "product",
+      "product-detail": "product",
       cart: "cart",
       checkout: "checkout",
       account: "account",
@@ -109,7 +110,12 @@
       ecommerce: {
         currency: item.currency,
         value: item.price,
-        items: [item],
+        items: [
+          {
+            ...item,
+            quantity: 1,
+          },
+        ],
       },
     });
   }

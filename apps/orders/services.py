@@ -17,7 +17,7 @@ from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
 from apps.products.models import Product
-from apps.products.pricing import format_price
+from apps.products.pricing import format_price, get_currency_code
 from apps.promocodes.models import PromoCodeRedemption
 from apps.promocodes.services import (
     PromoCodeDiscount,
@@ -267,7 +267,7 @@ def get_checkout_order_context(
         "cart_total_original": format_price(subtotal, currency) if promo_discount else "",
         "cart_discount": format_price(discount_amount, currency) if promo_discount else "",
         "cart_discount_value": float(discount_amount),
-        "cart_currency": currency,
+        "cart_currency": get_currency_code(currency),
         "cart_count": len(products),
         "cart_product_ids": [product.id for product in products],
         "checkout_promo_code": promo_code,
