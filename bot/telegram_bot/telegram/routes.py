@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from bot.telegram_bot.config import get_settings
+from bot.telegram_bot.config import Settings, get_settings
 from bot.telegram_bot.telegram.errors import TelegramConfigurationError
 
 
@@ -51,19 +51,21 @@ def get_telegram_route(destination: str) -> TelegramRoute:
     return TelegramRoute(chat_id=chat_id, message_thread_id=thread_id)
 
 
-def get_telegram_destination_skip_reason(destination: str) -> str | None:
-    try:
-        parsed_destination = TelegramDestination(destination)
-    except ValueError:
-        return "telegram_destination_unsupported"
-
-    settings = get_settings()
-
+def _get_settings_skip_reason(settings: Settings) -> str | None:
     if not settings.telegram_bot_token:
         return "telegram_bot_token_not_configured"
 
     if not settings.telegram_forum_chat_id:
         return "telegram_forum_chat_not_configured"
+
+    return None
+
+
+def _get_destination_skip_reason(destination: str, settings: Settings) -> str | None:
+    try:
+        parsed_destination = TelegramDestination(destination)
+    except ValueError:
+        return "telegram_destination_unsupported"
 
     if parsed_destination == TelegramDestination.NOTIFICATIONS and settings.telegram_notifications_thread_id <= 0:
         return "telegram_notifications_route_not_configured"
@@ -75,3 +77,12 @@ def get_telegram_destination_skip_reason(destination: str) -> str | None:
         return "telegram_incidents_route_not_configured"
 
     return None
+
+
+def get_telegram_destination_skip_reason(destination: str) -> str | None:
+    settings = get_settings()
+    skip_reason = _get_settings_skip_reason(settings)
+    if skip_reason is not None:
+        return skip_reason
+
+    return _get_destination_skip_reason(destination, settings)

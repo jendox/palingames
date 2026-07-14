@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from bot.telegram_bot.config import get_settings
-from bot.telegram_bot.logging_setup import setup_logging, log_event
+from bot.telegram_bot.logging_setup import log_event, setup_logging
 from bot.telegram_bot.support.app import run_webhook
 
 logger = logging.getLogger("telegram")

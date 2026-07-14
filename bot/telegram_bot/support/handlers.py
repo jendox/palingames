@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import logging
 
-from aiogram import Router, F, Bot
+from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from bot.telegram_bot.logging_setup import log_event
-from bot.telegram_bot.telegram.routes import get_telegram_destination_skip_reason, TelegramDestination, get_telegram_route
+from bot.telegram_bot.telegram.routes import (
+    TelegramDestination,
+    get_telegram_destination_skip_reason,
+    get_telegram_route,
+)
 
 logger = logging.getLogger("telegram.support")
 
