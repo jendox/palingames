@@ -94,7 +94,7 @@
                       </p>
                     </div>
                     {% if item.download_url %}
-                      <a href="{{ item.download_url }}" class="btn-purple mt-[12px] flex h-[40px] w-full items-center justify-center rounded-[10px] text-[14px] font-bold" data-product-download-link>
+                      <a href="{{ item.download_url }}" class="btn-purple mt-[12px] flex h-[40px] w-full items-center justify-center rounded-[10px] text-[14px] font-bold" data-product-download-link {% include "components/analytics/_download_attrs.html" with download_analytics=item.download_analytics only %}>
                         {% trans "Скачать" %}
                       </a>
                     {% endif %}

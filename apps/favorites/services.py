@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
+from apps.core.analytics_events import build_product_file_download_analytics_payload
 from apps.products.models import Product, ProductImage
 from apps.products.pricing import format_price, get_currency_code
 
@@ -144,12 +145,17 @@ def _format_category_label(category) -> str:
     return title
 
 
+def _get_active_product_file(product):
+    return next((item for item in product.files.all() if item.is_active), None)
+
+
 def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]) -> dict:
     primary_kind = product.subtypes.first() or product.categories.first()
     primary_category = product.categories.first()
     primary_image = next(iter(product.images.all()), None)
     is_purchased = product.id in purchased_ids
     category_label = _format_category_label(primary_category) if primary_category else ""
+    active_file = _get_active_product_file(product) if is_purchased else None
     return {
         "id": product.id,
         "title": product.title,
@@ -166,6 +172,16 @@ def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]
         "is_purchased": is_purchased,
         "download_url": (
             reverse("product-download", kwargs={"product_id": product.id}) if is_purchased else ""
+        ),
+        "download_analytics": (
+            build_product_file_download_analytics_payload(
+                product=product,
+                product_file=active_file,
+                primary_category=primary_category,
+                primary_kind=primary_kind,
+            )
+            if is_purchased
+            else None
         ),
         "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
     }
@@ -228,6 +244,7 @@ def get_favorites_page_context(request) -> dict:
         .prefetch_related(
             "categories",
             "subtypes",
+            "files",
             Prefetch("images", queryset=ProductImage.objects.order_by("order")),
         )
         .in_bulk(product_ids)
@@ -355,6 +372,7 @@ def get_account_favorites_context(request) -> dict:
         .prefetch_related(
             "product__categories",
             "product__subtypes",
+            "product__files",
             Prefetch("product__images", queryset=ProductImage.objects.order_by("order")),
         )
     )

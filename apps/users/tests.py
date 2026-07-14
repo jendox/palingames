@@ -18,6 +18,10 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase, override_settings
 
 from apps.access.models import UserProductAccess
+from apps.core.analytics_events import (
+    SESSION_KEY_ANALYTICS_SUPPRESS_LOGIN,
+    consume_pending_analytics_events,
+)
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order, OrderItem
@@ -808,3 +812,74 @@ class AccountAdapterMetricsTests(TestCase):
             extra_tags="",
             message=None,
         )
+
+
+class AuthAnalyticsSignalTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
+            email="auth-analytics@example.com",
+            password="test-pass-123",
+        )
+
+    def _request_with_session(self):
+        request = RequestFactory().get("/")
+        request.session = self.client.session
+        return request
+
+    def test_email_confirmed_queues_sign_up_and_suppresses_login(self):
+        request = self._request_with_session()
+        email_address = EmailAddress.objects.create(
+            user=self.user,
+            email=self.user.email,
+            verified=True,
+            primary=True,
+        )
+
+        email_confirmed.send(sender=EmailAddress, request=request, email_address=email_address)
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        self.assertEqual(
+            consume_pending_analytics_events(request),
+            [{"event": "sign_up", "method": "email"}],
+        )
+
+    def test_social_signup_queues_sign_up_and_suppresses_login(self):
+        request = self._request_with_session()
+        sociallogin = Mock()
+        sociallogin.account.provider = "google"
+
+        user_signed_up.send(
+            sender=self.user.__class__,
+            request=request,
+            user=self.user,
+            sociallogin=sociallogin,
+        )
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        self.assertEqual(
+            consume_pending_analytics_events(request),
+            [{"event": "sign_up", "method": "google"}],
+        )
+
+    def test_manual_login_queues_login_once(self):
+        request = self._request_with_session()
+        request.session["account_authentication_methods"] = [{"method": "password"}]
+
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        self.assertEqual(
+            consume_pending_analytics_events(request),
+            [{"event": "login", "method": "email"}],
+        )
+        self.assertEqual(consume_pending_analytics_events(request), [])
+
+    def test_password_reset_auto_login_does_not_queue_login(self):
+        request = self._request_with_session()
+        request.session["account_authentication_methods"] = [{"method": "password"}]
+
+        password_reset.send(sender=self.user.__class__, request=request, user=self.user)
+        user_logged_in.send(sender=self.user.__class__, request=request, user=self.user)
+
+        self.assertEqual(consume_pending_analytics_events(request), [])
+        self.assertFalse(request.session.get(SESSION_KEY_ANALYTICS_SUPPRESS_LOGIN))

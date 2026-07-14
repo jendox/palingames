@@ -42,6 +42,9 @@
       {{ cookie_consent_client_config|json_script:"cookie-consent-config" }}
       <script src="{% static 'js/cookie-consent.js' %}" defer></script>
     {% endif %}
+    {% if pending_analytics_events %}
+      {{ pending_analytics_events|json_script:"pending-analytics-events" }}
+    {% endif %}
 
     {% block head %}{% endblock %}
     {% if seo_json_ld %}

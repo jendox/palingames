@@ -147,6 +147,52 @@
     trackAddToCart(item);
   }
 
+  function trackFileDownloadFromElement(element) {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+
+    const itemId = element.dataset.analyticsItemId || "";
+    const itemName = element.dataset.analyticsItemName || "";
+    if (!itemId || !itemName) {
+      return;
+    }
+
+    if (element.dataset.analyticsFileDownloadTracked === "1") {
+      return;
+    }
+    element.dataset.analyticsFileDownloadTracked = "1";
+
+    const eventName = element.dataset.analyticsDownloadEvent || "file_download_account";
+    trackEvent(
+      eventName,
+      normalizePayload({
+        file_name: element.dataset.analyticsFileName || itemName,
+        file_extension: element.dataset.analyticsFileExtension || "",
+        item_id: itemId,
+        item_name: itemName,
+        item_category: element.dataset.analyticsItemCategory || "",
+        item_variant: element.dataset.analyticsItemVariant || "",
+        download_type: element.dataset.analyticsDownloadType || "account",
+      }),
+    );
+  }
+
+  function flushPendingAnalyticsEvents() {
+    const events = parseJsonScript("pending-analytics-events");
+    if (!Array.isArray(events) || !events.length) {
+      return;
+    }
+
+    for (const item of events) {
+      if (!item || typeof item.event !== "string") {
+        continue;
+      }
+      const { event, ...payload } = item;
+      trackEvent(event, payload);
+    }
+  }
+
   function trackBeginCheckout(payload) {
     if (!Array.isArray(payload?.items) || !payload.items.length) {
       return;
@@ -264,6 +310,7 @@
 
   function bootstrapPageAnalytics() {
     trackPageView();
+    flushPendingAnalyticsEvents();
     maybeTrackCatalogViewList();
     maybeTrackProductView();
     maybeTrackBeginCheckout();
@@ -274,6 +321,7 @@
     trackAddToCartFromElement,
     trackBeginCheckout,
     trackEvent,
+    trackFileDownloadFromElement,
     trackViewItem,
     trackViewItemList,
   };

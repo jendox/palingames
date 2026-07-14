@@ -1592,6 +1592,15 @@ class ProductDetailDownloadContextTests(TestCase):
         self.assertContains(response, 'data-analytics-item-id="')
         self.assertContains(response, '"currency": "BYN"')
 
+    def test_purchased_product_detail_renders_download_analytics_attrs(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-analytics-download-event="file_download_account"')
+        self.assertContains(response, f'data-analytics-item-id="{self.product.id}"')
+        self.assertContains(response, 'data-analytics-download-type="account"')
+
 
 class ProductReviewFlowTests(TestCase):
     @classmethod

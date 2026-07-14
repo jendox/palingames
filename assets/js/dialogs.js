@@ -215,6 +215,8 @@
     if (!downloadUrl) return;
     if (trigger instanceof HTMLElement && trigger.dataset.downloadPending === "true") return;
 
+    window.PaliAnalytics?.trackFileDownloadFromElement?.(trigger);
+
     if (trigger instanceof HTMLElement) {
       trigger.dataset.downloadPending = "true";
       trigger.setAttribute("aria-busy", "true");

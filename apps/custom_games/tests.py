@@ -376,6 +376,41 @@ class CustomGameDownloadTests(TestCase):
         self.assertIn(custom_game_request.payment_account_no, mail.outbox[0].subject)
         self.assertIn("https://example.com/custom-game/downloads/", mail.outbox[0].body)
 
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.custom_games.views.send_ga4_file_download_custom_game_event")
+    @patch("apps.custom_games.views.resolve_download_delivery_failure_incident")
+    @patch("apps.custom_games.views.generate_presigned_download_url", return_value="https://storage.example/file.zip")
+    def test_download_view_sends_ga4_custom_game_event(
+        self,
+        mock_generate_url,
+        resolve_download_delivery_failure_incident_mock,
+        send_ga4_file_download_custom_game_event_mock,
+    ):
+        custom_game_request = CustomGameRequest.objects.create(
+            **CUSTOM_GAME_MODEL_DATA,
+            status=CustomGameRequest.Status.DELIVERED,
+        )
+        custom_game_file = CustomGameFile.objects.create(
+            request=custom_game_request,
+            file_key="custom-games/request.zip",
+            original_filename="request.zip",
+            size_bytes=100,
+        )
+        download_token, raw_token = create_custom_game_download_token(custom_game_request)
+
+        response = self.client.get(reverse("custom-game-download", kwargs={"token": raw_token}))
+
+        self.assertEqual(response.status_code, 302)
+        send_ga4_file_download_custom_game_event_mock.assert_called_once_with(
+            custom_game_request=custom_game_request,
+            custom_game_file=custom_game_file,
+            source="custom_game_download_view",
+        )
+
     @patch("apps.custom_games.views.resolve_download_delivery_failure_incident")
     @patch("apps.custom_games.views.generate_presigned_download_url", return_value="https://storage.example/file.zip")
     def test_download_view_redirects_and_marks_token_used(

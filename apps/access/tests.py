@@ -214,6 +214,37 @@ class GuestProductDownloadViewTests(TestCase):
             is_active=True,
         )
 
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.access.views.send_ga4_file_download_guest_event")
+    @patch("apps.access.views.resolve_download_delivery_failure_incident")
+    def test_guest_download_sends_ga4_file_download_guest_event(
+        self,
+        resolve_download_delivery_failure_incident_mock,
+        send_ga4_file_download_guest_event_mock,
+    ):
+        self.order.analytics_storage_consent = True
+        self.order.save(update_fields=["analytics_storage_consent"])
+        guest_access, raw_token = create_guest_access(
+            order=self.order,
+            product=self.product,
+            expires_in=timedelta(hours=24),
+            max_downloads=3,
+        )
+
+        with patch("apps.access.views.generate_presigned_download_url", return_value="https://example.com/download"):
+            response = self.client.get(reverse("guest-product-download", kwargs={"token": raw_token}))
+
+        self.assertEqual(response.status_code, 302)
+        send_ga4_file_download_guest_event_mock.assert_called_once_with(
+            guest_access=guest_access,
+            product_file=self.product_file,
+            source="guest_product_download_view",
+        )
+
     @override_settings(SITE_BASE_URL="http://127.0.0.1:8000")
     @patch("apps.access.views.resolve_download_delivery_failure_incident")
     def test_guest_download_redirects_to_presigned_url_and_increments_counter(

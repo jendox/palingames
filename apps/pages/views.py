@@ -9,11 +9,13 @@ from django.urls import reverse
 from django.views.generic import TemplateView
 
 from apps.access.services import get_user_product_access_ids
+from apps.core.analytics_events import build_account_download_analytics_payload, extract_file_extension
 from apps.core.rate_limits import RateLimitScope, check_rate_limit
 from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context
 from apps.favorites.services import get_account_favorites_context
 from apps.orders.failure_reasons import format_order_failure_reason_label
 from apps.orders.models import Order
+from apps.products.models import ProductFile
 from apps.products.pricing import format_price
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
@@ -230,6 +232,16 @@ class AccountPageView(TemplateView):
             },
         }
         purchased_product_ids = get_user_product_access_ids(self.request.user, product_ids=product_ids)
+        file_extensions_by_product_id = {}
+        if purchased_product_ids:
+            for product_file in ProductFile.objects.filter(
+                product_id__in=purchased_product_ids,
+                is_active=True,
+            ).only("product_id", "original_filename"):
+                if product_file.product_id not in file_extensions_by_product_id:
+                    file_extensions_by_product_id[product_file.product_id] = extract_file_extension(
+                        product_file.original_filename,
+                    )
 
         result = []
         for order in orders:
@@ -254,6 +266,16 @@ class AccountPageView(TemplateView):
                         reverse("product-download", kwargs={"product_id": item.product_id})
                         if item.product_id in purchased_product_ids
                         else ""
+                    ),
+                    "download_analytics": (
+                        build_account_download_analytics_payload(
+                            item_id=str(item.product_id),
+                            item_name=item.title_snapshot,
+                            item_category=item.category_snapshot,
+                            file_extension=file_extensions_by_product_id.get(item.product_id, ""),
+                        )
+                        if item.product_id in purchased_product_ids
+                        else None
                     ),
                 }
                 for item in order.items.all()

@@ -79,6 +79,7 @@
           aria-label="{% trans 'Скачать' %}"
           title="{% trans 'Скачать' %}"
           data-product-download-link
+          {% include "components/analytics/_download_attrs.html" with download_analytics=product.download_analytics only %}
         >
           <img
             src="{% static 'images/icons/download.svg' %}"

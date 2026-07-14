@@ -1,6 +1,7 @@
 from django.templatetags.static import static
 from django.urls import reverse
 
+from apps.core.analytics_events import consume_pending_analytics_events
 from apps.core.seo import build_seo_context
 from apps.products.pricing import get_currency_code
 
@@ -33,6 +34,7 @@ def analytics(request):
         "cookie_consent_ui_enabled": analytics_on,
         "yandex_metrika_id": settings.YANDEX_METRIKA_ID,
         "cookie_consent_client_config": cookie_consent_client_config,
+        "pending_analytics_events": consume_pending_analytics_events(request) if analytics_on else [],
     }
 
 

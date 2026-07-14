@@ -15,6 +15,7 @@ from django.views.generic import DetailView, TemplateView
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
+from apps.core.analytics_events import build_product_file_download_analytics_payload
 from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_catalog_page_view,
@@ -65,6 +66,10 @@ def _metrics_user_type(user) -> str:
     return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
+def _get_active_product_file(product):
+    return next((item for item in product.files.all() if item.is_active), None)
+
+
 class CatalogView(TemplateView):
     template_name = "pages/catalog.html"
     htmx_results_template_name = "pages/catalog/desktop/results_panel.html"
@@ -96,6 +101,7 @@ class CatalogView(TemplateView):
             "age_groups",
             "development_areas",
             "themes",
+            "files",
             Prefetch("images", queryset=ProductImage.objects.order_by("order")),
         )
 
@@ -132,6 +138,8 @@ class CatalogView(TemplateView):
         purchased_ids = purchased_product_ids or set()
         favorite_ids = favorite_product_ids or set()
         is_purchased = product.id in purchased_ids
+        primary_category = selected_category or product.categories.first()
+        active_file = _get_active_product_file(product) if is_purchased else None
         return {
             "id": product.id,
             "title": product.title,
@@ -140,13 +148,23 @@ class CatalogView(TemplateView):
             "price_value": float(product.price),
             "currency": get_currency_code(product.currency),
             "kind": primary_kind.title if primary_kind else "",
-            "category": self._format_category_label(selected_category or product.categories.first()),
+            "category": self._format_category_label(primary_category),
             "content": product.content,
             "rating": f"{product.average_rating:.1f}".replace(".", ","),
             "is_favorited": product.id in favorite_ids,
             "is_in_cart": product.id in cart_ids and not is_purchased,
             "is_purchased": is_purchased,
             "download_url": reverse("product-download", kwargs={"product_id": product.id}) if is_purchased else "",
+            "download_analytics": (
+                build_product_file_download_analytics_payload(
+                    product=product,
+                    product_file=active_file,
+                    primary_category=primary_category,
+                    primary_kind=primary_kind,
+                )
+                if is_purchased
+                else None
+            ),
             "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
         }
 
@@ -861,14 +879,25 @@ class ProductDetailView(DetailView):
         context["product_is_in_cart"] = product.id in cart_product_ids and not product_is_purchased
         context["product_is_purchased"] = product_is_purchased
         context["product_is_favorited"] = product_is_favorited
+        primary_category = product.categories.first()
         context["product_download_url"] = (
             reverse("product-download", kwargs={"product_id": product.id}) if product_is_purchased else ""
+        )
+        active_file = _get_active_product_file(product) if product_is_purchased else None
+        context["product_download_analytics"] = (
+            build_product_file_download_analytics_payload(
+                product=product,
+                product_file=active_file,
+                primary_category=primary_category,
+                primary_kind=primary_kind,
+            )
+            if product_is_purchased
+            else None
         )
         context["product_reviews_count"] = len(reviews)
         context["product_average_rating"] = product.average_rating
         context["product_description_html"] = product.description_as_html()
         context["product_content_html"] = product.content_as_html()
-        primary_category = product.categories.first()
         context["product_analytics_item"] = {
             "item_id": str(product.id),
             "item_name": product.title,

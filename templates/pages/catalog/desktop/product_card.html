@@ -72,12 +72,13 @@
 
     <div class="absolute bottom-[18px] right-[20px] z-10">
       {% if product.is_purchased %}
-        <a
+          <a
           href="{{ product.download_url }}"
           class="inline-flex size-[60px] shrink-0 cursor-pointer items-center justify-center transition-transform duration-200 hover:scale-[1.04]"
           aria-label="{% trans 'Скачать' %}"
           title="{% trans 'Скачать' %}"
           data-product-download-link
+          {% include "components/analytics/_download_attrs.html" with download_analytics=product.download_analytics only %}
         >
           <img
             src="{% static 'images/icons/download.svg' %}"

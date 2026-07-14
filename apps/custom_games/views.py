@@ -9,6 +9,7 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic.edit import FormView
 
+from apps.core.analytics import send_ga4_file_download_custom_game_event
 from apps.core.logging import log_event
 from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.custom_games.forms import CustomGameRequestForm
@@ -141,6 +142,11 @@ class CustomGameDownloadView(View):
         resolve_download_delivery_failure_incident(
             delivery_type="custom_game",
             reason="download_unavailable",
+        )
+        send_ga4_file_download_custom_game_event(
+            custom_game_request=download_token.request,
+            custom_game_file=custom_game_file,
+            source="custom_game_download_view",
         )
         return HttpResponseRedirect(download_url)
 

@@ -132,6 +132,9 @@
           data-analytics-item-variant="{{ product_analytics_item.item_variant }}"
           data-analytics-price="{{ product_analytics_item.price }}"
           data-analytics-currency="{{ product_analytics_item.currency }}"
+          {% if product_is_purchased %}
+            {% include "components/analytics/_download_attrs.html" with download_analytics=product_download_analytics only %}
+          {% endif %}
           aria-label="{% if product_is_purchased %}{% trans 'Скачать' %}{% else %}{% trans 'Выбрать' %}{% endif %}"
         >
           <span data-product-cart-label>{% if product_is_purchased %}{% trans "Скачать" %}{% else %}{% trans "Выбрать" %}{% endif %}</span>

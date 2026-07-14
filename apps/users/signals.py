@@ -12,6 +12,13 @@ from allauth.account.signals import (
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.dispatch import receiver
 
+from apps.core.analytics_events import (
+    consume_login_analytics_suppression,
+    map_auth_method,
+    map_social_provider,
+    queue_client_analytics_event,
+    suppress_login_analytics_event,
+)
 from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_auth_login_failed,
@@ -100,6 +107,48 @@ def log_auth_login_failed(sender, credentials, request, **kwargs):
         reason="invalid_credentials",
         login_field=login_field,
         request_path=getattr(request, "path", None),
+    )
+
+
+@receiver(user_signed_up)
+def queue_sign_up_analytics_for_social_signup(request, user, **kwargs):
+    sociallogin = kwargs.get("sociallogin")
+    if sociallogin is None:
+        return
+
+    provider = getattr(getattr(sociallogin, "account", None), "provider", None)
+    queue_client_analytics_event(
+        request,
+        event="sign_up",
+        payload={"method": map_social_provider(provider)},
+    )
+    suppress_login_analytics_event(request)
+
+
+@receiver(email_confirmed)
+def queue_sign_up_analytics_after_email_confirmation(request, email_address, **kwargs):
+    queue_client_analytics_event(
+        request,
+        event="sign_up",
+        payload={"method": "email"},
+    )
+    suppress_login_analytics_event(request)
+
+
+@receiver(password_reset)
+def suppress_login_analytics_after_password_reset(request, user, **kwargs):
+    suppress_login_analytics_event(request)
+
+
+@receiver(user_logged_in)
+def queue_login_analytics_event(sender, request, user, **kwargs):
+    if consume_login_analytics_suppression(request):
+        return
+
+    queue_client_analytics_event(
+        request,
+        event="login",
+        payload={"method": map_auth_method(_get_latest_auth_method(request))},
     )
 
 

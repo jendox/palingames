@@ -1,0 +1,10 @@
+{% if download_analytics %}
+  data-analytics-download-event="{{ download_analytics.event }}"
+  data-analytics-file-name="{{ download_analytics.file_name }}"
+  data-analytics-file-extension="{{ download_analytics.file_extension }}"
+  data-analytics-item-id="{{ download_analytics.item_id }}"
+  data-analytics-item-name="{{ download_analytics.item_name }}"
+  data-analytics-item-category="{{ download_analytics.item_category }}"
+  data-analytics-item-variant="{{ download_analytics.item_variant }}"
+  data-analytics-download-type="{{ download_analytics.download_type }}"
+{% endif %}

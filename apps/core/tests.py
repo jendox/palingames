@@ -559,6 +559,7 @@ class AnalyticsTemplateTests(TestCase):
                     "gtmId": "GTM-TEST123",
                     "analyticsJsUrl": "/static/js/analytics.js",
                 },
+                "pending_analytics_events": [],
             },
         )
 
@@ -582,8 +583,22 @@ class AnalyticsTemplateTests(TestCase):
                 "cookie_consent_ui_enabled": False,
                 "yandex_metrika_id": "",
                 "cookie_consent_client_config": None,
+                "pending_analytics_events": [],
             },
         )
+
+    @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
+    def test_home_renders_pending_analytics_events_json_script(self):
+        session = self.client.session
+        session["pending_analytics_events"] = [{"event": "login", "method": "email"}]
+        session.save()
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="pending-analytics-events"')
+        self.assertContains(response, '"event": "login"')
+        self.assertNotIn("pending_analytics_events", self.client.session)
 
     @override_settings(ANALYTICS_ENABLED=True, GTM_ID="GTM-TEST123")
     def test_home_defers_gtm_and_defers_analytics_script_until_consent(self):
