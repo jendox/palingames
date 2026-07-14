@@ -33,7 +33,9 @@ web = [
     "whitenoise>=6.9.0",
 ]
 bot = [
-    "aiogram>=3.27.0",
+    "aiogram>=3.29.1",
+    "pydantic-settings>=2.14.2",
+    "redis>=7.3.0",
 ]
 dev = [
     "boto3-stubs~=1.42.74",
