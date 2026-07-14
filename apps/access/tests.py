@@ -219,15 +219,18 @@ class GuestProductDownloadViewTests(TestCase):
         GA4_MEASUREMENT_ID="G-TEST123",
         GA4_API_SECRET="ga4-secret",
     )
+    @patch("apps.access.views.send_yandex_file_download_guest_event")
     @patch("apps.access.views.send_ga4_file_download_guest_event")
     @patch("apps.access.views.resolve_download_delivery_failure_incident")
     def test_guest_download_sends_ga4_file_download_guest_event(
         self,
         resolve_download_delivery_failure_incident_mock,
         send_ga4_file_download_guest_event_mock,
+        send_yandex_file_download_guest_event_mock,
     ):
         self.order.analytics_storage_consent = True
-        self.order.save(update_fields=["analytics_storage_consent"])
+        self.order.yandex_client_id = "1234567890123456789"
+        self.order.save(update_fields=["analytics_storage_consent", "yandex_client_id"])
         guest_access, raw_token = create_guest_access(
             order=self.order,
             product=self.product,
@@ -240,6 +243,11 @@ class GuestProductDownloadViewTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         send_ga4_file_download_guest_event_mock.assert_called_once_with(
+            guest_access=guest_access,
+            product_file=self.product_file,
+            source="guest_product_download_view",
+        )
+        send_yandex_file_download_guest_event_mock.assert_called_once_with(
             guest_access=guest_access,
             product_file=self.product_file,
             source="guest_product_download_view",

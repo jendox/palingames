@@ -877,6 +877,116 @@ class PurchaseAnalyticsTests(TestCase):
         httpx_post_mock.assert_not_called()
 
 
+class YandexMetricaTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.product = Product.objects.create(
+            title="Yandex analytics product",
+            slug="yandex-analytics-product",
+            price=Decimal("25.00"),
+        )
+        cls.order = Order.objects.create(
+            email="ym@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("22.50"),
+            items_count=1,
+            currency=933,
+            analytics_storage_consent=True,
+            yandex_client_id="1234567890123456789",
+        )
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        YANDEX_METRIKA_SERVER_EVENTS_ENABLED=True,
+        YANDEX_METRIKA_ID="110744096",
+        YANDEX_METRIKA_MEASUREMENT_TOKEN="ym-secret",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+    )
+    @patch("apps.core.yandex_metrica.httpx.post")
+    def test_send_yandex_purchase_event_posts_expected_payload(self, httpx_post_mock):
+        from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
+
+        response_mock = httpx_post_mock.return_value
+        response_mock.raise_for_status.return_value = None
+
+        send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
+
+        httpx_post_mock.assert_called_once()
+        payload = httpx_post_mock.call_args.kwargs["data"]
+        self.assertEqual(payload["tid"], "110744096")
+        self.assertEqual(payload["cid"], "1234567890123456789")
+        self.assertEqual(payload["t"], "event")
+        self.assertEqual(payload["ea"], "purchase")
+        self.assertEqual(payload["ms"], "ym-secret")
+        self.assertEqual(payload["ev"], "22.5")
+        self.assertEqual(payload["cu"], "BYN")
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.yandex_purchase_sent_at)
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        YANDEX_METRIKA_SERVER_EVENTS_ENABLED=True,
+        YANDEX_METRIKA_ID="110744096",
+        YANDEX_METRIKA_MEASUREMENT_TOKEN="ym-secret",
+    )
+    @patch("apps.core.yandex_metrica.httpx.post")
+    def test_send_yandex_purchase_event_skips_duplicate(self, httpx_post_mock):
+        from django.utils import timezone
+
+        from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
+
+        self.order.yandex_purchase_sent_at = timezone.now()
+        self.order.save(update_fields=["yandex_purchase_sent_at"])
+
+        send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
+
+        httpx_post_mock.assert_not_called()
+
+    @override_settings(
+        ANALYTICS_ENABLED=False,
+        YANDEX_METRIKA_SERVER_EVENTS_ENABLED=False,
+        YANDEX_METRIKA_ID="",
+        YANDEX_METRIKA_MEASUREMENT_TOKEN="",
+    )
+    @patch("apps.core.yandex_metrica.httpx.post")
+    def test_send_yandex_purchase_event_skips_when_disabled(self, httpx_post_mock):
+        from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
+
+        send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
+
+        httpx_post_mock.assert_not_called()
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        YANDEX_METRIKA_SERVER_EVENTS_ENABLED=True,
+        YANDEX_METRIKA_ID="110744096",
+        YANDEX_METRIKA_MEASUREMENT_TOKEN="ym-secret",
+    )
+    @patch("apps.core.yandex_metrica.httpx.post")
+    def test_send_yandex_purchase_event_skips_without_client_id(self, httpx_post_mock):
+        from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
+
+        self.order.yandex_client_id = ""
+        self.order.save(update_fields=["yandex_client_id"])
+
+        send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
+
+        httpx_post_mock.assert_not_called()
+
+
+class YandexMetricaHelperTests(SimpleTestCase):
+    def test_normalize_yandex_client_id(self):
+        from apps.core.yandex_metrica import normalize_yandex_client_id
+
+        self.assertEqual(normalize_yandex_client_id("1234567890123456789"), "1234567890123456789")
+        self.assertEqual(normalize_yandex_client_id(" abc "), "")
+        self.assertEqual(normalize_yandex_client_id("not-a-number"), "")
+        self.assertEqual(normalize_yandex_client_id(""), "")
+
+
 class HealthViewsTests(TestCase):
     def test_health_live_returns_ok(self):
         response = self.client.get(reverse("health-live"))

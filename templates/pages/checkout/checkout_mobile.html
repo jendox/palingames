@@ -26,6 +26,7 @@
     <form method="post" novalidate>
       {% csrf_token %}
       <input type="hidden" name="{{ checkout_form.checkout_idempotency_key.html_name }}" value="{{ checkout_idempotency_key }}">
+      <input type="hidden" name="{{ checkout_form.yandex_client_id.html_name }}" value="" data-checkout-yandex-client-id>
     {% include "pages/checkout/_summary_mobile.html" %}
 
     {% if not checkout_is_authenticated %}

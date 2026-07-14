@@ -381,6 +381,7 @@ class CustomGameDownloadTests(TestCase):
         GA4_MEASUREMENT_ID="G-TEST123",
         GA4_API_SECRET="ga4-secret",
     )
+    @patch("apps.custom_games.views.send_yandex_file_download_custom_game_event")
     @patch("apps.custom_games.views.send_ga4_file_download_custom_game_event")
     @patch("apps.custom_games.views.resolve_download_delivery_failure_incident")
     @patch("apps.custom_games.views.generate_presigned_download_url", return_value="https://storage.example/file.zip")
@@ -389,6 +390,7 @@ class CustomGameDownloadTests(TestCase):
         mock_generate_url,
         resolve_download_delivery_failure_incident_mock,
         send_ga4_file_download_custom_game_event_mock,
+        send_yandex_file_download_custom_game_event_mock,
     ):
         custom_game_request = CustomGameRequest.objects.create(
             **CUSTOM_GAME_MODEL_DATA,
@@ -402,12 +404,21 @@ class CustomGameDownloadTests(TestCase):
         )
         download_token, raw_token = create_custom_game_download_token(custom_game_request)
 
-        response = self.client.get(reverse("custom-game-download", kwargs={"token": raw_token}))
+        response = self.client.get(
+            reverse("custom-game-download", kwargs={"token": raw_token}),
+            HTTP_COOKIE="_ym_uid=1234567890123456789",
+        )
 
         self.assertEqual(response.status_code, 302)
         send_ga4_file_download_custom_game_event_mock.assert_called_once_with(
             custom_game_request=custom_game_request,
             custom_game_file=custom_game_file,
+            source="custom_game_download_view",
+        )
+        send_yandex_file_download_custom_game_event_mock.assert_called_once_with(
+            custom_game_request=custom_game_request,
+            custom_game_file=custom_game_file,
+            yandex_client_id="1234567890123456789",
             source="custom_game_download_view",
         )
 

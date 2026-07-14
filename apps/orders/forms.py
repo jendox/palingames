@@ -50,6 +50,7 @@ class CheckoutSubmitForm(forms.Form):
         required=False,
         error_messages={"required": _("Необходимо согласие на обработку персональных данных.")},
     )
+    yandex_client_id = forms.CharField(required=False, widget=forms.HiddenInput)
 
     def __init__(self, *args, user: User | None = None, **kwargs) -> None:
         self._checkout_user = user

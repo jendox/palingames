@@ -207,6 +207,34 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         order = Order.objects.get()
         self.assertFalse(order.analytics_storage_consent)
 
+    def test_guest_checkout_stores_yandex_client_id_with_analytics_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+
+        response = self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data("guest@example.com", yandex_client_id="1234567890123456789"),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        self.assertEqual(order.yandex_client_id, "1234567890123456789")
+
+    def test_guest_checkout_ignores_yandex_client_id_without_analytics_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data("guest@example.com", yandex_client_id="1234567890123456789"),
+        )
+
+        order = Order.objects.get()
+        self.assertEqual(order.yandex_client_id, "")
+
     @override_settings(PERSONAL_DATA_POLICY_VERSION=42)
     def test_guest_checkout_without_personal_data_consent_returns_400(self):
         session = self.client.session

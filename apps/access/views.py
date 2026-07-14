@@ -10,6 +10,7 @@ from django.views import View
 from apps.core.analytics import send_ga4_file_download_guest_event
 from apps.core.logging import log_event
 from apps.core.metrics import inc_product_download_failed, inc_product_download_redirect
+from apps.core.yandex_metrica import send_yandex_file_download_guest_event
 from apps.products.alerts import (
     record_download_delivery_failure_incident,
     resolve_download_delivery_failure_incident,
@@ -116,6 +117,11 @@ class GuestProductDownloadView(View):
         )
         inc_product_download_redirect(access_type="guest")
         send_ga4_file_download_guest_event(
+            guest_access=guest_access,
+            product_file=product_file,
+            source="guest_product_download_view",
+        )
+        send_yandex_file_download_guest_event(
             guest_access=guest_access,
             product_file=product_file,
             source="guest_product_download_view",

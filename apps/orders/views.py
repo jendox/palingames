@@ -266,6 +266,7 @@ class CheckoutPageView(TemplateView):
                 promo_code=get_checkout_promo_code(request) or form.cleaned_data["promo_code"],
                 checkout_idempotency_key=checkout_idempotency_key,
                 personal_data_consent=bool(form.cleaned_data.get("personal_data_consent")),
+                yandex_client_id=form.cleaned_data.get("yandex_client_id", ""),
             )
         except PromoCodeError as exc:
             context = self.get_context_data(

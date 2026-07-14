@@ -15,6 +15,7 @@ from apps.core.metrics import (
     inc_order_paid_duplicate,
     observe_payment_webhook_processing_duration,
 )
+from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
 from apps.custom_games.models import CustomGameRequest
 from apps.custom_games.services import notify_custom_game_request_paid_admin
 from apps.notifications.services import enqueue_notification_outbox
@@ -116,6 +117,9 @@ def mark_order_paid(
         inc_order_paid(checkout_type=order.checkout_type, source=order.source)
         transaction.on_commit(
             lambda: send_ga4_purchase_event_for_order(order_id=order.id, source=source),
+        )
+        transaction.on_commit(
+            lambda: send_yandex_purchase_event_for_order(order_id=order.id, source=source),
         )
     else:
         log_event(

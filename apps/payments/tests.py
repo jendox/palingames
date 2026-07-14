@@ -123,10 +123,12 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertFalse(UserProductAccess.objects.exists())
         self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
 
+    @patch("apps.payments.services.send_yandex_purchase_event_for_order")
     @patch("apps.payments.services.send_ga4_purchase_event_for_order")
     def test_notification_triggers_purchase_analytics_once(
         self,
         send_ga4_purchase_event_for_order_mock,
+        send_yandex_purchase_event_for_order_mock,
     ):
         with self.captureOnCommitCallbacks(execute=True):
             first_response = self.client.post(self.notification_url, data=self._build_request_payload())
@@ -139,6 +141,10 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
         send_ga4_purchase_event_for_order_mock.assert_called_once_with(order_id=self.order.id, source="webhook")
+        send_yandex_purchase_event_for_order_mock.assert_called_once_with(
+            order_id=self.order.id,
+            source="webhook",
+        )
 
     @patch("apps.payments.services.observe_payment_webhook_processing_duration")
     def test_notification_observes_payment_webhook_processing_duration(

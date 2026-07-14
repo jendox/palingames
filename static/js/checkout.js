@@ -1,4 +1,33 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const CONSENT_COOKIE_NAME = "palin_consent";
+
+  function readCookieValue(name) {
+    const parts = (document.cookie || "").split(";").map((cookiePart) => cookiePart.trim());
+    for (const part of parts) {
+      if (part.startsWith(`${name}=`)) {
+        return decodeURIComponent(part.slice(`${name}=`.length));
+      }
+    }
+    return "";
+  }
+
+  function hasAnalyticsConsent() {
+    const raw = readCookieValue(CONSENT_COOKIE_NAME);
+    if (!raw) {
+      return false;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.a === true;
+    } catch {
+      return false;
+    }
+  }
+
+  function readYandexClientId() {
+    return readCookieValue("_ym_uid");
+  }
+
   const checkoutScopes = Array.from(document.querySelectorAll("[data-checkout-scope]"));
 
   checkoutScopes.forEach((scope) => {
@@ -8,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const consentError = scope.querySelector("[data-checkout-personal-data-consent-error]");
     const submitButton = scope.querySelector("[data-checkout-submit]");
     const checkoutForm = scope.querySelector("form");
+    const yandexClientIdInput = scope.querySelector("[data-checkout-yandex-client-id]");
     const stepOneIcon = scope.querySelector('[data-checkout-step-icon="1"]');
     const stepTwoIcon = scope.querySelector('[data-checkout-step-icon="2"]');
     const stepOneDigit = scope.querySelector('[data-checkout-step-digit="1"]');
@@ -94,6 +124,10 @@ document.addEventListener("DOMContentLoaded", () => {
         consentError?.classList.remove("hidden");
         consentInput.focus();
         return;
+      }
+
+      if (yandexClientIdInput) {
+        yandexClientIdInput.value = hasAnalyticsConsent() ? readYandexClientId() : "";
       }
 
       submitButton.disabled = true;
