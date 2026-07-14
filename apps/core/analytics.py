@@ -9,6 +9,7 @@ from django.conf import settings
 from apps.core.analytics_events import extract_file_extension
 from apps.core.logging import log_event
 from apps.orders.models import Order
+from apps.products.pricing import get_currency_code
 
 logger = logging.getLogger("apps.analytics")
 GA4_MEASUREMENT_PROTOCOL_URL = "https://www.google-analytics.com/mp/collect"
@@ -103,7 +104,7 @@ def _build_ga4_purchase_payload(order: Order) -> dict:
 
     event_params = {
         "transaction_id": str(order.public_id),
-        "currency": order.currency,
+        "currency": get_currency_code(order.currency),
         "value": float(order.total_amount),
         "coupon": order.promo_code_snapshot or None,
         "items": items,

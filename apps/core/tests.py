@@ -838,6 +838,7 @@ class PurchaseAnalyticsTests(TestCase):
         self.assertEqual(payload["events"][0]["name"], "purchase")
         self.assertEqual(payload["events"][0]["params"]["transaction_id"], str(self.order.public_id))
         self.assertEqual(payload["events"][0]["params"]["value"], 22.5)
+        self.assertEqual(payload["events"][0]["params"]["currency"], "BYN")
         self.assertEqual(payload["events"][0]["params"]["coupon"], "WELCOME10")
         self.assertEqual(payload["events"][0]["params"]["items"][0]["item_name"], self.product.title)
 
