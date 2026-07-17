@@ -173,8 +173,19 @@ class CatalogView(TemplateView):
             return ""
         return f"{value:.2f}".replace(".", ",")
 
+    def _selected_int_ids(self, key):
+        ids = []
+        for raw in self.request.GET.getlist(key):
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                ids.append(value)
+        return ids
+
     def _selected_values(self, key):
-        return self.request.GET.getlist(key)
+        return [str(value) for value in self._selected_int_ids(key)]
 
     def _mobile_pagination_page_item(self, page_number, current_page):
         return {
@@ -235,9 +246,9 @@ class CatalogView(TemplateView):
         )
 
         for param_name, lookup in many_to_many_filters:
-            selected_values = self._selected_values(param_name)
-            if selected_values:
-                queryset = queryset.filter(**{lookup: selected_values})
+            selected_ids = self._selected_int_ids(param_name)
+            if selected_ids:
+                queryset = queryset.filter(**{lookup: selected_ids})
 
         price_from = self.request.GET.get("price_from")
         price_to = self.request.GET.get("price_to")

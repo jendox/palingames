@@ -162,6 +162,20 @@ class CatalogViewTests(TestCase):
 
         self.assertEqual(titles, ["Гамма"])
 
+    def test_catalog_ignores_invalid_filter_ids(self):
+        response = self.client.get(
+            reverse("catalog"),
+            {
+                "category": self.category.slug,
+                "age": "1\\123",
+                "subtype": "not-an-id",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        titles = [product["title"] for product in response.context["catalog_products"]]
+        self.assertEqual(titles, ["Альфа", "Бета", "Гамма"])
+
     def test_mobile_htmx_request_returns_mobile_listing_partial(self):
         response = self.client.get(
             reverse("catalog"),
