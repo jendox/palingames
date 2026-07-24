@@ -8,6 +8,8 @@ and mock ``send_telegram_message``.
 
 from config.settings import *  # noqa: F403
 
+TEST_RUNNER = "config.test_runner.PalingamesDiscoverRunner"
+
 TELEGRAM_BOT_TOKEN = ""
 TELEGRAM_FORUM_CHAT_ID = ""
 TELEGRAM_NOTIFICATIONS_THREAD_ID = 0
