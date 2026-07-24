@@ -1,3 +1,8 @@
+# Telegram support bot image (webhook + aiogram). Build from repository root:
+#   docker build -f deploy/Dockerfile.bot -t yourdockerhub/palingames-bot:tag .
+#
+# syntax=docker/dockerfile:1
+
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 WORKDIR /app
@@ -6,7 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && apt-get install -y --no-install-recommends \
@@ -17,5 +23,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra bot --no-install-project
 
 COPY bot/ /app/bot/
+
+EXPOSE 8080
 
 CMD ["python", "-m", "bot.telegram_bot"]

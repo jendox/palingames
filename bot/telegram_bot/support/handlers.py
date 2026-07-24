@@ -4,9 +4,12 @@ import logging
 
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import ErrorEvent, Message
+from redis.asyncio import Redis
 
 from bot.telegram_bot.logging_setup import log_event
+from bot.telegram_bot.support.delivery import deliver_inbound_support_message, deliver_staff_reply_to_customer
+from bot.telegram_bot.support.filters import SupportStaffFilter
 from bot.telegram_bot.telegram.routes import (
     TelegramDestination,
     get_telegram_destination_skip_reason,
@@ -18,11 +21,27 @@ logger = logging.getLogger("telegram.support")
 router = Router(name="support")
 
 START_TEXT = (
-    "Здравствуйте! Это поддержка PaliGames.\n"
-    "Напишите ваш вопрос в этом чате — мы передадим его команде.\n"
+    "Здравствуйте! Это поддержка PaliGames.\n\n"
+    "Опишите ваш вопрос в этом чате — мы передадим его команде.\n"
+    "Чтобы мы быстрее нашли заказ, укажите email при покупке "
+    "или номер заказа.\n\n"
     "Срочные вопросы: support@palingames.by\n"
-    "Покупки — только на сайте palingames.by"
+    'Покупки — только на <a href="https://palingames.by">сайте</a>'
 )
+
+SUPPORT_UNAVAILABLE_TEXT = "Поддержка временно недоступна. Напишите на support@palingames.by"
+
+
+@router.errors()
+async def handle_router_error(event: ErrorEvent) -> None:
+    exc = event.exception
+    exc_info = (type(exc), exc, exc.__traceback__) if exc is not None else True
+    log_event(
+        logger,
+        logging.ERROR,
+        "telegram.support.handler_error",
+        exc_info=exc_info,
+    )
 
 
 @router.message(CommandStart())
@@ -41,7 +60,7 @@ async def start(message: Message) -> None:
 
 
 @router.message(F.chat.type == "private", ~F.text.startswith("/"))
-async def handle_private_message(message: Message, bot: Bot) -> None:
+async def handle_private_message(message: Message, bot: Bot, redis: Redis) -> None:
     if message.from_user is None:
         return
 
@@ -54,25 +73,13 @@ async def handle_private_message(message: Message, bot: Bot) -> None:
             reason=skip_reason,
             telegram_user_id=message.from_user.id,
         )
-        await message.answer(
-            "Поддержка временно недоступна. Напишите на support@palingames.by",
-        )
+        await message.answer(SUPPORT_UNAVAILABLE_TEXT)
         return
 
     route = get_telegram_route(TelegramDestination.SUPPORT.value)
+    await deliver_inbound_support_message(message=message, bot=bot, redis=redis, route=route)
 
-    await bot.forward_message(
-        chat_id=route.chat_id,
-        message_thread_id=route.message_thread_id,
-        from_chat_id=message.chat.id,
-        message_id=message.message_id,
-    )
 
-    log_event(
-        logger,
-        logging.INFO,
-        "telegram.support.forwarded",
-        telegram_user_id=message.from_user.id,
-        username=message.from_user.username,
-        message_id=message.message_id,
-    )
+@router.message(SupportStaffFilter())
+async def handle_staff_reply(message: Message, bot: Bot, redis: Redis, bot_id: int) -> None:
+    await deliver_staff_reply_to_customer(message=message, bot=bot, redis=redis, bot_id=bot_id)

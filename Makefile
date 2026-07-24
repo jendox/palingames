@@ -41,8 +41,11 @@ celery-worker: ## Запустить воркер celery
 celery-beat: ## Запустить celery beat
 	$(UV) run celery -A config beat -l info
 
-prod-compose-build: ## Собрать production-образ (контекст — корень репозитория)
+prod-compose-build: ## Собрать production-образ web (контекст — корень репозитория)
 	docker compose -f deploy/docker-compose.prod.yml build web
+
+prod-bot-build: ## Собрать образ Telegram support bot
+	docker build -f deploy/Dockerfile.bot -t palingames-bot:local .
 
 prod-compose-up: ## Поднять production stack (нужен deploy/.env)
 	cd deploy && docker compose -f docker-compose.prod.yml up -d

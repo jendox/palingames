@@ -11,6 +11,11 @@
 #
 # Optional Alertmanager (edit alertmanager/alertmanager.yml first):
 #   docker compose -f docker-compose.prod.yml --profile alerting up -d
+#
+# Bot image from registry (no local build):
+#   export PALINGAMES_BOT_REF=yourdockerhub/palingames-bot:sha-abc
+#   docker compose -f docker-compose.prod.yml pull telegram-bot
+#   docker compose -f docker-compose.prod.yml up -d telegram-bot caddy
 
 name: palingames-prod
 
@@ -90,6 +95,20 @@ services:
         condition: service_started
     command: ["celery", "-A", "config", "beat", "-l", "info"]
 
+  telegram-bot:
+    image: ${PALINGAMES_BOT_REF:-palingames-bot:local}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    expose:
+      - "8080"
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -105,6 +124,7 @@ services:
       - caddy_config:/config
     depends_on:
       - web
+      - telegram-bot
 
   prometheus:
     image: prom/prometheus:v3.5.0

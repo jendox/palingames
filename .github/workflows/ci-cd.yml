@@ -9,6 +9,7 @@ on:
 env:
   # Override in repository Variables: DOCKERHUB_IMAGE=yourdockerhub/palingames
   IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE || 'jendox/palingames' }}
+  BOT_IMAGE_NAME: ${{ vars.DOCKERHUB_BOT_IMAGE || 'jendox/palingames-bot' }}
 
 jobs:
   lint:
@@ -19,7 +20,9 @@ jobs:
         with:
           version: "latest"
       - name: Ruff
-        run: uv sync --frozen --extra web --extra dev && uv run ruff check .
+        run: uv sync --frozen --extra web --extra bot --extra dev && uv run ruff check .
+      - name: Telegram bot tests
+        run: uv run python -m unittest discover -s bot/telegram_bot/tests -v
 
   test:
     runs-on: ubuntu-latest
@@ -83,7 +86,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker metadata
+      - name: Docker metadata (web)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -92,7 +95,16 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      - name: Docker metadata (bot)
+        id: meta_bot
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BOT_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push web
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -102,3 +114,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             SENTRY_RELEASE=${{ github.sha }}
+
+      - name: Build and push telegram bot
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.bot
+          push: true
+          tags: ${{ steps.meta_bot.outputs.tags }}
+          labels: ${{ steps.meta_bot.outputs.labels }}

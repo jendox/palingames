@@ -7,5 +7,10 @@
 	@metrics path /metrics*
 	respond @metrics 404
 
+	@telegram_webhook path /telegram/webhook/*
+	handle @telegram_webhook {
+		reverse_proxy telegram-bot:8080
+	}
+
 	reverse_proxy web:8000
 }

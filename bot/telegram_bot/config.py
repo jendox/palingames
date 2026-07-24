@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     telegram_support_thread_id: int = 0
     telegram_incidents_thread_id: int = 0
 
-    # Redis
-    redis_url: str = "redis://localhost:6379/0"
+    # Redis (support reply mapping)
+    telegram_redis_url: str = "redis://localhost:6379/0"
+    support_reply_mapping_ttl_sec: int = 7776000
     telegram_outbound_stream: str = "telegram:outbound"
     telegram_consumer_group: str = "telegram-bot"
 
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     telegram_webhook_base_url: str = ""
     # optional: Telegram secret_token header validation
     telegram_webhook_secret_token: str = ""
+    telegram_webhook_delete_on_shutdown: bool = False
 
     # Delivery tuning
     telegram_send_timeout_sec: int = 10
