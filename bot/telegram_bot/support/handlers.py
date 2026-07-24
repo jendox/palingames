@@ -21,7 +21,7 @@ logger = logging.getLogger("telegram.support")
 router = Router(name="support")
 
 START_TEXT = (
-    "Здравствуйте! Это поддержка PaliGames.\n\n"
+    "Здравствуйте! Это поддержка PalinGames.\n\n"
     "Опишите ваш вопрос в этом чате — мы передадим его команде.\n"
     "Чтобы мы быстрее нашли заказ, укажите email при покупке "
     "или номер заказа.\n\n"
