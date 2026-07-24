@@ -51,3 +51,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bot/telegram_bot"]
+
+[tool.hatch.build.targets.wheel.force-exclude]
+"bot/telegram_bot/tests" = true

@@ -38,7 +38,7 @@ def extract_user_id_from_forward(message: Message) -> int | None:
     return None
 
 
-def _needs_forward(message: Message) -> bool:
+def needs_forward(message: Message) -> bool:
     if message.content_type != "text":
         return True
     return len((message.text or "").strip()) > MAX_TELEGRAM_MESSAGE_LENGTH
@@ -113,7 +113,7 @@ async def deliver_inbound_support_message(
         telegram_user_id=telegram_user_id,
     )
 
-    if _needs_forward(message):
+    if needs_forward(message):
         try:
             forwarded = await bot.forward_message(
                 chat_id=route.chat_id,

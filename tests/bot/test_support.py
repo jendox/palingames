@@ -10,10 +10,10 @@ from aiogram.types import Chat, Message, User
 from bot.telegram_bot.config import Settings, get_settings
 from bot.telegram_bot.support.app import build_webhook_path, build_webhook_url
 from bot.telegram_bot.support.delivery import (
-    _needs_forward,
     deliver_inbound_support_message,
     deliver_staff_reply_to_customer,
     extract_user_id_from_forward,
+    needs_forward,
 )
 from bot.telegram_bot.support.filters import SupportStaffFilter
 from bot.telegram_bot.support.formatters import (
@@ -154,14 +154,14 @@ class DeliveryHelpersTests(unittest.TestCase):
         message.content_type = "photo"
         message.text = None
 
-        self.assertTrue(_needs_forward(message))
+        self.assertTrue(needs_forward(message))
 
     def test_needs_forward_for_short_text(self) -> None:
         message = MagicMock()
         message.content_type = "text"
         message.text = "короткий текст"
 
-        self.assertFalse(_needs_forward(message))
+        self.assertFalse(needs_forward(message))
 
     def test_extract_user_id_from_forward_legacy_field(self) -> None:
         message = MagicMock()

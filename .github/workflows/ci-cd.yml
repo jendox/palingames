@@ -22,7 +22,7 @@ jobs:
       - name: Ruff
         run: uv sync --frozen --extra web --extra bot --extra dev && uv run ruff check .
       - name: Telegram bot tests
-        run: uv run python -m unittest discover -s bot/telegram_bot/tests -v
+        run: uv run python -m unittest discover -s tests/bot -v
 
   test:
     runs-on: ubuntu-latest
