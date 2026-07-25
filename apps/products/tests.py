@@ -1730,7 +1730,7 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -1767,7 +1767,7 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
@@ -1803,7 +1803,7 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -1834,7 +1834,7 @@ class ProductReviewFlowTests(TestCase):
 
         self.assertTrue(processed)
         outbox.refresh_from_db()
-        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.DELIVERING)
         send_telegram_message_mock.assert_called_once()
         self.assertEqual(
             send_telegram_message_mock.call_args.kwargs["destination"],
@@ -1845,7 +1845,7 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=[],
         SITE_BASE_URL="https://example.com",
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -1879,7 +1879,7 @@ class ProductReviewFlowTests(TestCase):
     @override_settings(
         REVIEW_ADMIN_EMAILS=["ops@example.com"],
         SITE_BASE_URL="https://example.com",
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from django.urls import reverse
@@ -12,9 +12,11 @@ from apps.payments.models import Invoice
 from apps.products.models import Review
 
 
-def _get_minsk_ts(dt: datetime | None) -> str:
+def _get_minsk_ts(dt: datetime | date | None) -> str:
     if dt is None:
         return ""
+    if isinstance(dt, date) and not isinstance(dt, datetime):
+        return dt.strftime("%d.%m.%Y")
     return dt.astimezone(ZoneInfo("Europe/Minsk")).strftime("%d.%m.%Y %H:%M")
 
 

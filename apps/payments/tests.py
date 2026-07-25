@@ -35,7 +35,7 @@ from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStat
 TELEGRAM_NOTIFICATION_TEST_SETTINGS = {
     "APP_DATA_ENCRYPTION_KEY": "5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
     "CELERY_TASK_ALWAYS_EAGER": True,
-    "TELEGRAM_BOT_TOKEN": "telegram-token",
+    "TELEGRAM_REDIS_URL": "redis://localhost:6379/1",
     "TELEGRAM_FORUM_CHAT_ID": "-1001234567890",
     "TELEGRAM_NOTIFICATIONS_THREAD_ID": 3,
 }
@@ -1345,7 +1345,7 @@ class InvoiceStatusSyncTaskTests(TestCase):
             decrypt_outbox_payload(paid_admin_outbox.payload_encrypted)["invoice_id"],
             invoice.id,
         )
-        self.assertEqual(paid_admin_outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(paid_admin_outbox.status, NotificationOutbox.Status.DELIVERING)
 
     def test_mark_custom_game_request_paid_duplicate_does_not_enqueue_paid_admin_telegram(self):
         custom_game_request = CustomGameRequest.objects.create(

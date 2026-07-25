@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
-import httpx
+import redis
 from django.conf import settings
 
 from apps.notifications.destinations import TelegramDestination
@@ -20,6 +21,11 @@ class TelegramDeliveryError(RuntimeError):
 class TelegramRoute:
     chat_id: str
     message_thread_id: int
+
+
+@lru_cache(maxsize=1)
+def get_telegram_redis_client() -> redis.Redis:
+    return redis.Redis.from_url(settings.TELEGRAM_REDIS_URL, decode_responses=True)
 
 
 def get_telegram_route(destination: TelegramDestination) -> TelegramRoute:
@@ -45,8 +51,8 @@ def get_telegram_route(destination: TelegramDestination) -> TelegramRoute:
 
 
 def get_telegram_destination_skip_reason(destination: TelegramDestination) -> str | None:
-    if not settings.TELEGRAM_BOT_TOKEN:
-        return "telegram_bot_token_not_configured"
+    if not settings.TELEGRAM_REDIS_URL:
+        return "telegram_redis_not_configured"
 
     if not settings.TELEGRAM_FORUM_CHAT_ID:
         return "telegram_forum_chat_not_configured"
@@ -63,23 +69,40 @@ def get_telegram_destination_skip_reason(destination: TelegramDestination) -> st
     return None
 
 
-def send_telegram_message(*, destination: TelegramDestination, text: str) -> None:
-    token = settings.TELEGRAM_BOT_TOKEN
-    if not token:
-        raise TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured")
-
-    route = get_telegram_route(destination)
-    response = httpx.post(
-        url=f"https://api.telegram.org/bot{token}/sendMessage",
-        json={
-            "chat_id": route.chat_id,
-            "message_thread_id": route.message_thread_id,
+def publish_telegram_outbound(
+    *,
+    destination: TelegramDestination,
+    text: str,
+    source: str,
+    correlation_id: str = "",
+    parse_mode: str = "HTML",
+) -> str:
+    client = get_telegram_redis_client()
+    stream_id = client.xadd(
+        settings.TELEGRAM_OUTBOUND_STREAM,
+        {
+            "source": source,
+            "destination": destination.value,
             "text": text,
+            "parse_mode": parse_mode,
+            "correlation_id": correlation_id,
         },
-        timeout=10,
     )
-    response.raise_for_status()
+    return stream_id
 
-    payload = response.json()
-    if not payload.get("ok"):
-        raise TelegramDeliveryError(f"Telegram API returned an error: {payload}")
+
+def send_telegram_message(
+    *,
+    destination: TelegramDestination,
+    text: str,
+    source: str = "incident",
+    correlation_id: str = "",
+    parse_mode: str = "HTML",
+) -> None:
+    publish_telegram_outbound(
+        destination=destination,
+        text=text,
+        source=source,
+        correlation_id=correlation_id,
+        parse_mode=parse_mode,
+    )

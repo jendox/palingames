@@ -1,6 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -18,6 +18,13 @@ from apps.notifications.telegram import (
     TelegramConfigurationError,
     get_telegram_destination_skip_reason,
     get_telegram_route,
+    publish_telegram_outbound,
+)
+from apps.notifications.telegram_delivery import (
+    confirm_telegram_outbox_delivery,
+    fail_telegram_outbox_delivery,
+    process_telegram_outbound_feedback,
+    reap_stuck_telegram_outbox_deliveries,
 )
 from apps.notifications.types import NotificationType
 from apps.payments.models import Invoice
@@ -176,17 +183,17 @@ class TelegramRouteTests(TestCase):
 
 class TelegramDestinationSkipReasonTests(TestCase):
     @override_settings(
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
-    def test_returns_reason_when_bot_token_is_missing(self):
+    def test_returns_reason_when_redis_is_missing(self):
         reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
 
-        self.assertEqual(reason, "telegram_bot_token_not_configured")
+        self.assertEqual(reason, "telegram_redis_not_configured")
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -196,7 +203,7 @@ class TelegramDestinationSkipReasonTests(TestCase):
         self.assertEqual(reason, "telegram_forum_chat_not_configured")
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
@@ -206,7 +213,7 @@ class TelegramDestinationSkipReasonTests(TestCase):
         self.assertEqual(reason, "telegram_notifications_route_not_configured")
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_SUPPORT_THREAD_ID=0,
     )
@@ -216,7 +223,7 @@ class TelegramDestinationSkipReasonTests(TestCase):
         self.assertEqual(reason, "telegram_support_route_not_configured")
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
         TELEGRAM_SUPPORT_THREAD_ID=7,
@@ -263,7 +270,7 @@ class CustomGameRequestPaidAdminTelegramTests(TestCase):
         self.assertIn("/admin/custom_games/customgamerequest/", text)
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -288,5 +295,159 @@ class CustomGameRequestPaidAdminTelegramTests(TestCase):
             send_telegram_message_mock.call_args.kwargs["destination"],
             TelegramDestination.NOTIFICATIONS,
         )
+        self.assertEqual(send_telegram_message_mock.call_args.kwargs["source"], "outbox")
+        self.assertEqual(send_telegram_message_mock.call_args.kwargs["correlation_id"], str(outbox.id))
         self.assertIn("Оплачена заявка на игру", send_telegram_message_mock.call_args.kwargs["text"])
         self.assertIn("80.00 BYN", send_telegram_message_mock.call_args.kwargs["text"])
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.DELIVERING)
+
+
+@override_settings(
+    TELEGRAM_REDIS_URL="redis://localhost:6379/1",
+    TELEGRAM_OUTBOUND_STREAM="telegram:outbound",
+)
+class PublishTelegramOutboundTests(TestCase):
+    @patch("apps.notifications.telegram.get_telegram_redis_client")
+    def test_publish_telegram_outbound_writes_to_stream(self, redis_client_mock):
+        redis_client = MagicMock()
+        redis_client.xadd.return_value = "1-0"
+        redis_client_mock.return_value = redis_client
+
+        stream_id = publish_telegram_outbound(
+            destination=TelegramDestination.NOTIFICATIONS,
+            text="<b>Hello</b>",
+            source="outbox",
+            correlation_id="42",
+        )
+
+        self.assertEqual(stream_id, "1-0")
+        redis_client.xadd.assert_called_once_with(
+            "telegram:outbound",
+            {
+                "source": "outbox",
+                "destination": "notifications",
+                "text": "<b>Hello</b>",
+                "parse_mode": "HTML",
+                "correlation_id": "42",
+            },
+        )
+
+
+class TelegramOutboxDeliveryFeedbackTests(TestCase):
+    def _create_delivering_outbox(self) -> NotificationOutbox:
+        return NotificationOutbox.objects.create(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient=TelegramDestination.NOTIFICATIONS.value,
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.DELIVERING,
+            attempts=1,
+            last_attempt_at=timezone.now(),
+        )
+
+    @patch("apps.notifications.telegram_delivery.resolve_notification_outbox_failure_incident")
+    def test_confirm_telegram_outbox_delivery_marks_sent(self, resolve_mock):
+        outbox = self._create_delivering_outbox()
+
+        confirmed = confirm_telegram_outbox_delivery(outbox_id=outbox.id)
+
+        outbox.refresh_from_db()
+        self.assertTrue(confirmed)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertIsNotNone(outbox.sent_at)
+        resolve_mock.assert_called_once()
+
+    @patch("apps.notifications.telegram_delivery.record_notification_outbox_failure_incident")
+    def test_fail_telegram_outbox_delivery_marks_failed(self, record_mock):
+        outbox = self._create_delivering_outbox()
+
+        failed = fail_telegram_outbox_delivery(outbox_id=outbox.id, error="telegram delivery failed")
+
+        outbox.refresh_from_db()
+        self.assertTrue(failed)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.FAILED)
+        self.assertEqual(outbox.last_error, "telegram delivery failed")
+        record_mock.assert_called_once()
+
+    @override_settings(TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES=30)
+    @patch("apps.notifications.telegram_delivery.record_notification_outbox_failure_incident")
+    def test_reap_stuck_telegram_outbox_deliveries_marks_timeout_failed(self, record_mock):
+        outbox = self._create_delivering_outbox()
+        NotificationOutbox.objects.filter(pk=outbox.pk).update(
+            last_attempt_at=timezone.now() - timedelta(minutes=31),
+        )
+
+        reaped = reap_stuck_telegram_outbox_deliveries()
+
+        outbox.refresh_from_db()
+        self.assertEqual(reaped, 1)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.FAILED)
+        self.assertEqual(outbox.last_error, "telegram delivery ack timeout")
+
+    @patch("apps.notifications.telegram_delivery._ack_feedback_entry")
+    @patch("apps.notifications.telegram_delivery._read_feedback_stream")
+    @patch("apps.notifications.telegram_delivery.ensure_telegram_feedback_consumer_groups")
+    def test_process_telegram_outbound_feedback_handles_ack_and_failed(
+        self,
+        ensure_groups_mock,
+        read_stream_mock,
+        ack_entry_mock,
+    ):
+        delivering_outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient=TelegramDestination.NOTIFICATIONS.value,
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.DELIVERING,
+            attempts=1,
+            last_attempt_at=timezone.now(),
+        )
+        failed_outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.CUSTOM_GAME_REQUEST_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient=TelegramDestination.NOTIFICATIONS.value,
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.DELIVERING,
+            attempts=1,
+            last_attempt_at=timezone.now(),
+        )
+        read_stream_mock.side_effect = [
+            [("1-0", {"source": "outbox", "correlation_id": str(delivering_outbox.id)})],
+            [("2-0", {"source": "outbox", "correlation_id": str(failed_outbox.id), "error": "boom"})],
+        ]
+
+        result = process_telegram_outbound_feedback()
+
+        delivering_outbox.refresh_from_db()
+        failed_outbox.refresh_from_db()
+        self.assertEqual(result, {"ack_processed": 1, "failed_processed": 1})
+        self.assertEqual(delivering_outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(failed_outbox.status, NotificationOutbox.Status.FAILED)
+        ensure_groups_mock.assert_called_once()
+        self.assertEqual(read_stream_mock.call_count, 2)
+        self.assertEqual(ack_entry_mock.call_count, 2)
+
+
+class TelegramOutboxProcessingTests(TestCase):
+    @override_settings(
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
+        TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+        TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+    )
+    @patch("apps.notifications.handlers.send_telegram_message")
+    def test_process_notification_outbox_skips_when_already_delivering(self, send_mock):
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient=TelegramDestination.NOTIFICATIONS.value,
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.DELIVERING,
+            attempts=1,
+            last_attempt_at=timezone.now(),
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertFalse(processed)
+        send_mock.assert_not_called()

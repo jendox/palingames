@@ -153,7 +153,12 @@ def _send_custom_game_request_admin_telegram_notification(
     custom_game_request = outbox.target or CustomGameRequest.objects.get(pk=payload["custom_game_request_id"])
     destination = TelegramDestination(payload["destination"])
     text = format_custom_game_request_admin_telegram(custom_game_request=custom_game_request)
-    send_telegram_message(destination=destination, text=text)
+    send_telegram_message(
+        destination=destination,
+        text=text,
+        source="outbox",
+        correlation_id=str(outbox.id),
+    )
 
 
 def _send_custom_game_request_paid_admin_telegram_notification(
@@ -165,7 +170,12 @@ def _send_custom_game_request_paid_admin_telegram_notification(
     destination = TelegramDestination(payload["destination"])
     invoice = Invoice.objects.get(pk=payload["invoice_id"])
     text = format_custom_game_request_paid_admin_telegram(custom_game_request=custom_game_request, invoice=invoice)
-    send_telegram_message(destination=destination, text=text)
+    send_telegram_message(
+        destination=destination,
+        text=text,
+        source="outbox",
+        correlation_id=str(outbox.id),
+    )
 
 
 def _send_review_submitted_admin_telegram_notification(
@@ -176,7 +186,12 @@ def _send_review_submitted_admin_telegram_notification(
     review = outbox.target or Review.objects.select_related("product", "user").get(pk=payload["review_id"])
     destination = TelegramDestination(payload["destination"])
     text = format_review_submitted_admin_telegram(review=review)
-    send_telegram_message(destination=destination, text=text)
+    send_telegram_message(
+        destination=destination,
+        text=text,
+        source="outbox",
+        correlation_id=str(outbox.id),
+    )
 
 
 def _send_invoice_created_user_notification(
