@@ -21,6 +21,7 @@ from apps.notifications.telegram import (
     publish_telegram_outbound,
 )
 from apps.notifications.telegram_delivery import (
+    _read_feedback_stream,
     confirm_telegram_outbox_delivery,
     fail_telegram_outbox_delivery,
     process_telegram_outbound_feedback,
@@ -334,7 +335,29 @@ class PublishTelegramOutboundTests(TestCase):
         )
 
 
+@override_settings(
+    TELEGRAM_REDIS_URL="redis://localhost:6379/1",
+    TELEGRAM_OUTBOUND_ACK_STREAM="telegram:outbound:ack",
+    TELEGRAM_OUTBOUND_FAILED_STREAM="telegram:outbound:failed",
+    TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP="django-telegram-feedback",
+)
 class TelegramOutboxDeliveryFeedbackTests(TestCase):
+    @patch("apps.notifications.telegram_delivery.get_telegram_redis_client")
+    def test_read_feedback_stream_uses_non_blocking_xreadgroup(self, redis_client_mock):
+        redis_client = MagicMock()
+        redis_client.xreadgroup.return_value = None
+        redis_client_mock.return_value = redis_client
+
+        result = _read_feedback_stream(stream="telegram:outbound:ack")
+
+        self.assertEqual(result, [])
+        redis_client.xreadgroup.assert_called_once_with(
+            groupname="django-telegram-feedback",
+            consumername="django-celery",
+            streams={"telegram:outbound:ack": ">"},
+            count=100,
+        )
+
     def _create_delivering_outbox(self) -> NotificationOutbox:
         return NotificationOutbox.objects.create(
             notification_type=NotificationType.REVIEW_SUBMITTED_ADMIN,

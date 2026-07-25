@@ -40,7 +40,6 @@ def _read_feedback_stream(*, stream: str, count: int = 100) -> list[tuple[str, d
         consumername="django-celery",
         streams={stream: ">"},
         count=count,
-        block=0,
     )
     if not results:
         return []

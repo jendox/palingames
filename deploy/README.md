@@ -58,7 +58,7 @@ Runbook: [Dev and Prod deployment §4.4](../.cursor/plans/Dev%20and%20Prod%20dep
    `docker compose -f docker-compose.prod.yml exec web python manage.py migrate --noinput`
 8. Periodic tasks (один раз после migrate и при каждом деплое — идемпотентно):  
    `docker compose -f docker-compose.prod.yml exec web python manage.py setup_periodic_tasks`  
-   Создаёт три задачи в `django-celery-beat`: очистка notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин). Расписание можно править в админке.
+   Создаёт задачи в `django-celery-beat`: очистка notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин), **Telegram outbound feedback** (каждую 1 мин), **reaper stuck Telegram outbox** (каждые 10 мин). Расписание можно править в админке.
 9. Суперпользователь (один раз):  
    `docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser`
 10. Справочник каталога — см. раздел [«Справочник каталога (tags_fixture.json)»](#справочник-каталога-tags_fixturejson) (staging и prod, один раз после migrate).
@@ -149,9 +149,22 @@ docker compose -f docker-compose.prod.yml exec web \
 
 Что заполнить в prod `.env` для алертинга:
 
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_FORUM_CHAT_ID`
-- `TELEGRAM_NOTIFICATIONS_THREAD_ID` — business/admin события (outbox)
-- `TELEGRAM_INCIDENTS_THREAD_ID` — production incidents и recovery
+Исходящие (admin notifications + incidents) идут через **Redis Streams** → сервис **`telegram-bot`** (не через прямой Bot API из `web`/`celery`). См. § «Образ Telegram bot».
+
+**Django / Celery** (publish + ack, **без** `TELEGRAM_BOT_TOKEN`):
+
+- `TELEGRAM_REDIS_URL`, `TELEGRAM_FORUM_CHAT_ID`
+- `TELEGRAM_NOTIFICATIONS_THREAD_ID` — business/admin (outbox → Notifications)
+- `TELEGRAM_INCIDENTS_THREAD_ID` — incidents и recovery
+- `TELEGRAM_OUTBOUND_STREAM`, `TELEGRAM_OUTBOUND_ACK_STREAM`, `TELEGRAM_OUTBOUND_FAILED_STREAM`
+- `TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP`, `TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES`
+
+**`telegram-bot`** (единственный сервис с `TELEGRAM_BOT_TOKEN`):
+
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OUTBOUND_ENABLED=true`
+- те же `TELEGRAM_FORUM_CHAT_ID` и `TELEGRAM_*_THREAD_ID` (routing в forum)
+
+Полный список — [`env.example`](env.example) § Telegram.
 
 Sentry (`SENTRY_DSN`) — для traceback и grouping, не дублировать все exceptions в Telegram.
 
@@ -181,9 +194,14 @@ docker push youruser/palingames:mytag
 
 Сборка выполняет `tailwind build`, `collectstatic` (Whitenoise manifest), CMD — **gunicorn**.
 
-## Образ Telegram support bot
+## Образ Telegram bot
 
-Отдельный slim-образ на [Dockerfile.bot](Dockerfile.bot) — только `bot/telegram_bot` (webhook, aiogram, Redis mapping):
+Отдельный slim-образ на [Dockerfile.bot](Dockerfile.bot) — `bot/telegram_bot` (aiogram):
+
+- **Outbound:** consumer Redis Streams (`telegram:outbound`) → sendMessage в forum topics; ack/failed → Django
+- **Support:** webhook, inbound → Support thread, staff reply → личка клиенту (Redis mapping)
+
+`web` / `celery-*` **не** вызывают Telegram Bot API; только `XADD` в outbound stream и чтение ack/failed (Celery beat).
 
 ```bash
 # из корня репозитория
@@ -195,21 +213,43 @@ docker push youruser/palingames-bot:mytag
 
 ### Prod compose
 
-В `deploy/.env`:
+В `deploy/.env` (общий файл; см. split env ниже):
 
 ```env
 PALINGAMES_BOT_REF=youruser/palingames-bot:mytag
+
+# --- telegram-bot service ---
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_OUTBOUND_ENABLED=true
 TELEGRAM_SUPPORT_ENABLED=true
 TELEGRAM_REDIS_URL=redis://redis:6379/1
-TELEGRAM_WEBHOOK_BASE_URL=https://palingames.by
+TELEGRAM_CONSUMER_GROUP=telegram-bot
+TELEGRAM_WEBHOOK_BASE_URL=https://palingames.by          # staging: https://dev.palingames.by
 TELEGRAM_WEBHOOK_SECRET_PATH=...      # длинный random path segment
 TELEGRAM_WEBHOOK_SECRET_TOKEN=...       # optional, рекомендуется
 TELEGRAM_WEBHOOK_DELETE_ON_SHUTDOWN=false
+
+# --- web / celery (publish + ack; TELEGRAM_BOT_TOKEN не нужен) ---
+TELEGRAM_FORUM_CHAT_ID=...
+TELEGRAM_NOTIFICATIONS_THREAD_ID=...
+TELEGRAM_INCIDENTS_THREAD_ID=...
+TELEGRAM_SUPPORT_THREAD_ID=...
+TELEGRAM_OUTBOUND_STREAM=telegram:outbound
+TELEGRAM_OUTBOUND_ACK_STREAM=telegram:outbound:ack
+TELEGRAM_OUTBOUND_FAILED_STREAM=telegram:outbound:failed
+TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP=django-telegram-feedback
+TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES=30
 ```
+
+**Deploy:** pull **оба** образа (`PALINGAMES_WEB_REF` + `PALINGAMES_BOT_REF`), затем `migrate`, `setup_periodic_tasks`, `up -d` web + celery + telegram-bot.
 
 Caddy проксирует `https://{domain}/telegram/webhook/*` → `telegram-bot:8080` (standalone: compose-`caddy`; VPS: `/opt/proxy/sites/palingames-prod.caddy` → alias `palingames-prod-telegram-bot:8080`).
 
 Перед первым запуском: BotFather `/setprivacy` → **Disable**; бот — admin forum-группы.
+
+Health check бота: `GET http://telegram-bot:8080/health` (внутри compose-сети).
+
+Логи outbound: `telegram.outbound.delivered` / `telegram.outbound.failed`. Outbox Telegram: статус `DELIVERING` → `SENT` после ack.
 
 **Standalone** (встроенный Caddy в compose):
 
@@ -457,7 +497,7 @@ docker compose -f docker-compose.prod.yml start web celery-worker celery-beat
 
 ### Redis
 
-Volume `redis_data` (AOF). Для MVP достаточно пересоздания при потере (очереди Celery, кэш rate-limit). Критичные данные — в Postgres.
+Volume `redis_data` (AOF). Для MVP достаточно пересоздания при потере (очереди Celery, кэш rate-limit, **Telegram outbound streams** — при flush сообщения в очереди теряются; support reply mapping тоже в Redis). Критичные данные — в Postgres.
 
 ### S3 (файлы продуктов и custom games)
 
@@ -465,10 +505,10 @@ Volume `redis_data` (AOF). Для MVP достаточно пересоздан�
 
 ### Чеклист перед prod
 
-- [ ] `setup_periodic_tasks` выполнен после первого `migrate`
+- [ ] `setup_periodic_tasks` выполнен после первого `migrate` (в т.ч. Telegram feedback + reaper)
 - [ ] SMTP: `EMAIL_HOST`, credentials, `DEFAULT_FROM_EMAIL`, `EMAIL_TIMEOUT=30`, `SERVER_EMAIL`
 - [ ] DNS SPF/DKIM/DMARC для From-домена (см. `.cursor/plans/Email to Production.md`, фаза 1)
-- [ ] `TELEGRAM_*` для notifications + incidents threads (см. раздел «Алертинг»)
+- [ ] `TELEGRAM_*`: forum + thread ids на web/celery; `TELEGRAM_BOT_TOKEN` + `TELEGRAM_OUTBOUND_ENABLED=true` на `telegram-bot` (см. «Алертинг», «Образ Telegram bot»)
 - [ ] cron или внешний job для `pg_dump`
 - [ ] off-site копии дампов (retention ≥ 7–30 дней)
 - [ ] S3 versioning или второй bucket
