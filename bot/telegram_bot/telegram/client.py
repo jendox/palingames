@@ -2,24 +2,60 @@ from __future__ import annotations
 
 import logging
 
-import httpx
+from aiogram import Bot
+from aiogram.enums import ParseMode
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+    TelegramServerError,
+)
 
-from bot.telegram_bot.config import get_settings
-from bot.telegram_bot.telegram.errors import TelegramConfigurationError
+from bot.telegram_bot.telegram.errors import (
+    PermanentTelegramDeliveryError,
+    TelegramConfigurationError,
+    TransientTelegramDeliveryError,
+)
 from bot.telegram_bot.telegram.routes import TelegramRoute
 
 logger = logging.getLogger("telegram_bot.client")
 
-TELEGRAM_API_BASE_URL = "https://api.telegram.org"
+
+def _resolve_parse_mode(parse_mode: str) -> ParseMode:
+    normalized = parse_mode.strip().upper()
+    if normalized in {"", "HTML"}:
+        return ParseMode.HTML
+    if normalized == "MARKDOWNV2":
+        return ParseMode.MARKDOWN_V2
+    if normalized == "MARKDOWN":
+        return ParseMode.MARKDOWN
+    raise TelegramConfigurationError(f"Unsupported parse_mode: {parse_mode}")
 
 
 async def send_message(
     *,
+    bot: Bot,
     route: TelegramRoute,
     text: str,
-    client: httpx.AsyncClient | None = None,
+    parse_mode: str = "HTML",
 ) -> int:
-    settings = get_settings()
-    token = settings.telegram_bot_token
-    if not token:
-        raise TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured")
+    try:
+        message = await bot.send_message(
+            chat_id=route.chat_id,
+            message_thread_id=route.message_thread_id,
+            text=text,
+            parse_mode=_resolve_parse_mode(parse_mode),
+        )
+    except TelegramRetryAfter as exc:
+        raise TransientTelegramDeliveryError(
+            f"Telegram rate limit, retry after {exc.retry_after}s",
+        ) from exc
+    except (TelegramNetworkError, TelegramServerError) as exc:
+        raise TransientTelegramDeliveryError(str(exc)) from exc
+    except TelegramForbiddenError as exc:
+        raise PermanentTelegramDeliveryError(str(exc)) from exc
+    except TelegramBadRequest as exc:
+        raise PermanentTelegramDeliveryError(str(exc)) from exc
+
+    return message.message_id

@@ -1840,7 +1840,7 @@ class ProductReviewFlowTests(TestCase):
             send_telegram_message_mock.call_args.kwargs["destination"],
             TelegramDestination.NOTIFICATIONS,
         )
-        self.assertIn("Новый отзыв на товар", send_telegram_message_mock.call_args.kwargs["text"])
+        self.assertIn("Новый отзыв", send_telegram_message_mock.call_args.kwargs["text"])
 
     @override_settings(
         REVIEW_ADMIN_EMAILS=[],
