@@ -103,10 +103,17 @@ class DeliverOutboundMessageTests(unittest.IsolatedAsyncioTestCase):
         return Settings(
             telegram_forum_chat_id="-1001",
             telegram_notifications_thread_id=3,
+            telegram_incidents_thread_id=9,
             telegram_outbound_ack_stream="telegram:outbound:ack",
             telegram_outbound_failed_stream="telegram:outbound:failed",
             telegram_max_retries=2,
             telegram_retry_base_sec=0.01,
+        )
+
+    def _route_patch(self, *, message_thread_id: int = 3):
+        return patch(
+            "bot.telegram_bot.outbound.consumer.get_telegram_route",
+            return_value=TelegramRoute(chat_id="-1001", message_thread_id=message_thread_id),
         )
 
     async def test_deliver_publishes_ack_on_success(self) -> None:
@@ -120,10 +127,13 @@ class DeliverOutboundMessageTests(unittest.IsolatedAsyncioTestCase):
             correlation_id="42",
         )
 
-        with patch(
-            "bot.telegram_bot.outbound.consumer.send_message",
-            new=AsyncMock(return_value=1001),
-        ) as send_message_mock:
+        with (
+            self._route_patch(),
+            patch(
+                "bot.telegram_bot.outbound.consumer.send_message",
+                new=AsyncMock(return_value=1001),
+            ) as send_message_mock,
+        ):
             await deliver_outbound_message(
                 bot=bot,
                 redis=redis,
@@ -149,9 +159,12 @@ class DeliverOutboundMessageTests(unittest.IsolatedAsyncioTestCase):
             correlation_id="ep-webhook",
         )
 
-        with patch(
-            "bot.telegram_bot.outbound.consumer.send_message",
-            new=AsyncMock(side_effect=TransientTelegramDeliveryError("timeout")),
+        with (
+            self._route_patch(message_thread_id=9),
+            patch(
+                "bot.telegram_bot.outbound.consumer.send_message",
+                new=AsyncMock(side_effect=TransientTelegramDeliveryError("timeout")),
+            ),
         ):
             await deliver_outbound_message(
                 bot=bot,
@@ -177,9 +190,12 @@ class DeliverOutboundMessageTests(unittest.IsolatedAsyncioTestCase):
             correlation_id="7",
         )
 
-        with patch(
-            "bot.telegram_bot.outbound.consumer.send_message",
-            new=AsyncMock(side_effect=PermanentTelegramDeliveryError("forbidden")),
+        with (
+            self._route_patch(),
+            patch(
+                "bot.telegram_bot.outbound.consumer.send_message",
+                new=AsyncMock(side_effect=PermanentTelegramDeliveryError("forbidden")),
+            ),
         ):
             await deliver_outbound_message(
                 bot=bot,
