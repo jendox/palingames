@@ -34,6 +34,20 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         hour="3",
     ),
     PeriodicTaskSpec(
+        name="Process Telegram outbound feedback",
+        task="apps.notifications.tasks.process_telegram_outbound_feedback_task",
+        schedule_kind="interval",
+        every=1,
+        period=IntervalSchedule.MINUTES,
+    ),
+    PeriodicTaskSpec(
+        name="Reap stuck Telegram outbox deliveries",
+        task="apps.notifications.tasks.reap_stuck_telegram_outbox_deliveries_task",
+        schedule_kind="interval",
+        every=10,
+        period=IntervalSchedule.MINUTES,
+    ),
+    PeriodicTaskSpec(
         name="Clear expired Django sessions",
         task="apps.core.tasks.clear_expired_sessions_task",
         schedule_kind="crontab",

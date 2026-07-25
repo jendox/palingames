@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import logging
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -49,12 +50,16 @@ def _build_incident_message(
     details: dict[str, Any] | None = None,
 ) -> str:
     lines = [
-        f"[{severity.upper()}] {title}",
-        f"key: {key}",
+        f"<b>[{severity.upper()}]</b> {html.escape(title)}",
+        "",
+        "<b>Детали</b>",
+        f"key: <code>{html.escape(key)}</code>",
     ]
     if details:
         for details_key, details_value in details.items():
-            lines.append(f"{details_key}: {_normalize_incident_value(details_value)}")
+            lines.append(
+                f"{html.escape(details_key)}: <code>{html.escape(_normalize_incident_value(details_value))}</code>",
+            )
 
     return "\n".join(lines)
 
@@ -187,7 +192,12 @@ def send_incident_alert(
         return False
 
     text = _build_incident_message(key=key, title=title, severity=severity, details=details)
-    send_telegram_message(destination=TelegramDestination.INCIDENTS, text=text)
+    send_telegram_message(
+        destination=TelegramDestination.INCIDENTS,
+        text=text,
+        source="incident",
+        correlation_id=resolved_fingerprint,
+    )
     logger.error(
         "incident alert sent",
         extra={
@@ -226,8 +236,13 @@ def send_incident_recovery(
         title=title,
         severity="warning",
         details=details,
-    ).replace("[WARNING]", "[RESOLVED]", 1)
-    send_telegram_message(destination=TelegramDestination.INCIDENTS, text=text)
+    ).replace("<b>[WARNING]</b>", "<b>[RESOLVED]</b>", 1)
+    send_telegram_message(
+        destination=TelegramDestination.INCIDENTS,
+        text=text,
+        source="incident",
+        correlation_id=resolved_fingerprint,
+    )
     logger.info(
         "incident recovery sent",
         extra={

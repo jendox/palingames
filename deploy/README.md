@@ -1,10 +1,48 @@
 # Production deploy (Docker + VPS)
 
-Содержимое каталога: **образ приложения**, **prod docker-compose**, **Caddy**, **Prometheus/Grafana для сервера**, скрипты и пример переменных окружения.
+Содержимое каталога: **образ приложения**, **prod docker-compose**, **Caddy (standalone)**, **Prometheus/Grafana для сервера**, скрипты и пример переменных окружения.
 
 Локальный dev-стек по-прежнему в корне: `docker-compose.develop.yml` и `monitoring/`.
 
-## Быстрый старт на VPS
+## VPS с общим reverse proxy (`/opt/proxy`)
+
+На production VPS PalinGames **не** публикует порты 80/443 и **не** запускает сервис `caddy` из [`docker-compose.prod.yml`](docker-compose.prod.yml). Edge TLS — отдельный проект **`/opt/proxy`** (контейнер `proxy-caddy-1`, Docker-сеть **`proxy`**).
+
+Подробный runbook: локальный [`.cursor/plans/Dev and Prod deployment.md`](../.cursor/plans/Dev%20and%20Prod%20deployment.md) §4.0–§4.4, [Path B](../.cursor/plans/Staging%20and%20Prod%20parallel%20-%20Path%20B.md).
+
+```bash
+# один раз на VPS
+docker network create proxy
+cd /opt/proxy && docker compose up -d
+
+# PalinGames prod (пример)
+cd /opt/palingames-prod/deploy
+export COMPOSE_PROJECT_NAME=palingames-prod
+COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.override.yml"
+$COMPOSE up -d postgres redis web celery-worker celery-beat telegram-bot
+# override на VPS: web + telegram-bot в external network proxy
+```
+
+Site configs: `/opt/proxy/sites/palingames-prod.caddy`, `/opt/proxy/sites/palingames-staging.caddy`. После правок:
+
+```bash
+docker exec proxy-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec proxy-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+Сервис `caddy` в базовом compose — для **standalone** VPS (единственный сайт). См. § «Быстрый старт» ниже.
+
+### Origin firewall (Cloudflare only)
+
+На production VPS HTTP/HTTPS к origin — **только** с официальных IP Cloudflare:
+
+- **UFW** — SSH (`22/tcp LIMIT`); не открывать 80/443 в UFW
+- **DOCKER-USER + ipset** — published ports `proxy-caddy-1` (80/tcp, 443/tcp, 443/udp DROP для не-CF)
+- `/usr/local/sbin/cloudflare-origin-firewall` + systemd timer (ежедневное обновление диапазонов)
+
+Runbook: [Dev and Prod deployment §4.4](../.cursor/plans/Dev%20and%20Prod%20deployment.md). После деплоя — §4.4.11; reboot-тест — §4.4.12 (вручную, не автоматически на prod).
+
+## Быстрый старт на VPS (standalone — PalinGames единственный сайт)
 
 1. Установите Docker и Docker Compose plugin.
 2. Склонируйте репозиторий (или скопируйте только каталог `deploy/` и при необходимости `docker-compose.prod.yml` + конфиги).
@@ -91,9 +129,9 @@ docker compose -f docker-compose.prod.yml exec web \
 
 ## Метрики и доступ
 
-- Приложение **не публикует порт 8000** наружу: с интернета идёт только трафик через **Caddy** (80/443).
+- Приложение **не публикует порт 8000** наружу: с интернета идёт только трафик через **Caddy** (80/443). На VPS с `/opt/proxy` — через `proxy-caddy-1`.
 - **Prometheus** скрапит `http://web:8000/metrics/` во внутренней сети compose.
-- В **Caddyfile** путь `/metrics` отвечает **404** (дополнительная защита).
+- В конфиге Caddy путь `/metrics` отвечает **404** (standalone: [`Caddyfile`](Caddyfile); VPS: `/opt/proxy/sites/palingames-*.caddy`).
 - UI **Prometheus** проброшен только на localhost VPS: `127.0.0.1:9090`; **Grafana** — `127.0.0.1:3000` (доступ по SSH-туннелю или с хоста).
 
 Подробный operational contract: [docs/observability.md](../docs/observability.md).
@@ -169,14 +207,25 @@ TELEGRAM_WEBHOOK_SECRET_TOKEN=...       # optional, рекомендуется
 TELEGRAM_WEBHOOK_DELETE_ON_SHUTDOWN=false
 ```
 
-Caddy проксирует `https://{domain}/telegram/webhook/*` → `telegram-bot:8080`.
+Caddy проксирует `https://{domain}/telegram/webhook/*` → `telegram-bot:8080` (standalone: compose-`caddy`; VPS: `/opt/proxy/sites/palingames-prod.caddy` → alias `palingames-prod-telegram-bot:8080`).
 
 Перед первым запуском: BotFather `/setprivacy` → **Disable**; бот — admin forum-группы.
+
+**Standalone** (встроенный Caddy в compose):
 
 ```bash
 cd deploy
 docker compose -f docker-compose.prod.yml pull telegram-bot
 docker compose -f docker-compose.prod.yml up -d telegram-bot caddy
+```
+
+**VPS с `/opt/proxy`** — только `telegram-bot` + override на сеть `proxy` (без `caddy`):
+
+```bash
+cd /opt/palingames-prod/deploy
+COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.override.yml"
+$COMPOSE pull telegram-bot
+$COMPOSE up -d telegram-bot
 ```
 
 Логи: `docker compose -f docker-compose.prod.yml logs -f telegram-bot`

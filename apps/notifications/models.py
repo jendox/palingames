@@ -14,6 +14,7 @@ class NotificationOutbox(TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "PENDING", _("Ожидает отправки")
         PROCESSING = "PROCESSING", _("Отправка")
+        DELIVERING = "DELIVERING", _("Передано в Telegram")
         SENT = "SENT", _("Отправлено")
         FAILED = "FAILED", _("Ошибка")
 

@@ -487,7 +487,7 @@ class CustomGamePageTests(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -578,7 +578,7 @@ class CustomGamePageTests(TestCase):
     @override_settings(
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
     )
@@ -595,7 +595,7 @@ class CustomGamePageTests(TestCase):
         self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
 
         outbox.refresh_from_db()
-        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.DELIVERING)
         send_telegram_message_mock.assert_called_once()
         self.assertEqual(
             send_telegram_message_mock.call_args.kwargs["destination"],
@@ -626,7 +626,7 @@ class CustomGamePageTests(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=[],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
@@ -659,7 +659,7 @@ class CustomGamePageTests(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
         APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )
@@ -691,7 +691,7 @@ class CustomGamePageTests(TestCase):
 
     @override_settings(
         CUSTOM_GAME_ADMIN_EMAILS=["admin@example.com"],
-        TELEGRAM_BOT_TOKEN="",
+        TELEGRAM_REDIS_URL="",
         TELEGRAM_FORUM_CHAT_ID="",
         TELEGRAM_NOTIFICATIONS_THREAD_ID=0,
     )

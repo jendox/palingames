@@ -186,6 +186,17 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
             )
             return False
 
+        if outbox.status == NotificationOutbox.Status.DELIVERING:
+            log_event(
+                logger,
+                logging.INFO,
+                "notification.outbox.skipped",
+                outbox_id=outbox.id,
+                notification_type=outbox.notification_type,
+                reason="awaiting_telegram_delivery",
+            )
+            return False
+
         outbox.status = NotificationOutbox.Status.PROCESSING
         outbox.attempts += 1
         outbox.last_attempt_at = timezone.now()
@@ -230,6 +241,24 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
             channel=outbox.channel,
         )
         raise
+
+    if outbox.channel == NotificationOutbox.Channel.TELEGRAM:
+        with transaction.atomic():
+            outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
+            outbox.status = NotificationOutbox.Status.DELIVERING
+            outbox.last_error = ""
+            outbox.save(update_fields=["status", "last_error", "updated_at"])
+        log_event(
+            logger,
+            logging.INFO,
+            "notification.outbox.delivering",
+            outbox_id=outbox_id,
+            notification_type=outbox.notification_type,
+            channel=outbox.channel,
+            recipient=outbox.recipient,
+            attempts=outbox.attempts,
+        )
+        return True
 
     with transaction.atomic():
         outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)

@@ -170,6 +170,7 @@ class TestSettingsIsolationTests(SimpleTestCase):
         self.assertEqual(settings.TELEGRAM_FORUM_CHAT_ID, "")
         self.assertEqual(settings.TELEGRAM_NOTIFICATIONS_THREAD_ID, 0)
         self.assertEqual(settings.TELEGRAM_INCIDENTS_THREAD_ID, 0)
+        self.assertEqual(settings.TELEGRAM_REDIS_URL, "")
 
 
 class SetupPeriodicTasksTests(TestCase):
@@ -207,7 +208,7 @@ class IncidentAlertTests(TestCase):
         caches["default"].clear()
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=0,
     )
@@ -224,7 +225,7 @@ class IncidentAlertTests(TestCase):
         send_mock.assert_not_called()
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
@@ -241,12 +242,13 @@ class IncidentAlertTests(TestCase):
         send_mock.assert_called_once()
         self.assertEqual(send_mock.call_args.kwargs["destination"].value, "incidents")
         text = send_mock.call_args.kwargs["text"]
-        self.assertIn("[CRITICAL] Repeated payment webhook failures", text)
-        self.assertIn("key: payments.webhook.failures", text)
-        self.assertIn("failures: 5", text)
+        self.assertIn("<b>[CRITICAL]</b> Repeated payment webhook failures", text)
+        self.assertIn("payments.webhook.failures", text)
+        self.assertIn("failures", text)
+        self.assertEqual(send_mock.call_args.kwargs["source"], "incident")
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
@@ -270,7 +272,7 @@ class IncidentAlertTests(TestCase):
         send_mock.assert_called_once()
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
@@ -296,7 +298,7 @@ class IncidentAlertTests(TestCase):
         self.assertEqual(send_mock.call_count, 2)
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
@@ -311,10 +313,10 @@ class IncidentAlertTests(TestCase):
 
         self.assertTrue(sent)
         text = send_mock.call_args.kwargs["text"]
-        self.assertIn("[WARNING] Storage is unavailable", text)
+        self.assertIn("<b>[WARNING]</b> Storage is unavailable", text)
 
     @override_settings(
-        TELEGRAM_BOT_TOKEN="telegram-token",
+        TELEGRAM_REDIS_URL="redis://localhost:6379/1",
         TELEGRAM_FORUM_CHAT_ID="-1001234567890",
         TELEGRAM_INCIDENTS_THREAD_ID=9,
     )
@@ -329,9 +331,9 @@ class IncidentAlertTests(TestCase):
 
         self.assertTrue(sent)
         text = send_mock.call_args.kwargs["text"]
-        self.assertIn("[RESOLVED] Storage recovered", text)
-        self.assertIn("key: storage.s3.unavailable", text)
-        self.assertIn("operation: generate_presigned_download_url", text)
+        self.assertIn("<b>[RESOLVED]</b> Storage recovered", text)
+        self.assertIn("storage.s3.unavailable", text)
+        self.assertIn("generate_presigned_download_url", text)
 
     @patch("apps.core.alerts.send_incident_alert")
     def test_record_threshold_incident_below_threshold_does_not_send_alert(self, send_incident_alert_mock):

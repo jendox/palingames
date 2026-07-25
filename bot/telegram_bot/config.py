@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     telegram_redis_url: str = "redis://localhost:6379/0"
     support_reply_mapping_ttl_sec: int = 7776000
     telegram_outbound_stream: str = "telegram:outbound"
+    telegram_outbound_ack_stream: str = "telegram:outbound:ack"
+    telegram_outbound_failed_stream: str = "telegram:outbound:failed"
     telegram_consumer_group: str = "telegram-bot"
 
     telegram_outbound_enabled: bool = False
