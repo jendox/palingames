@@ -3,9 +3,10 @@ import logging
 import admin_thumbnails
 from django import forms
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
@@ -29,6 +30,7 @@ from .models import (
     SubType,
     Theme,
 )
+from .services.product_admin_lock import release_product_admin_save_lock, try_acquire_product_admin_save_lock
 from .services.review_rewards import issue_review_reward_after_publish
 from .services.s3 import delete_product_file, upload_product_file
 
@@ -100,6 +102,8 @@ class ProductImageInline(admin.TabularInline):
 
 @admin.register(Product, site=admin_site)
 class ProductAdmin(admin.ModelAdmin):
+    change_form_template = "admin/products/product/change_form.html"
+    add_form_template = "admin/products/product/change_form.html"
     list_display = (
         "title",
         "price",
@@ -222,6 +226,24 @@ class ProductAdmin(admin.ModelAdmin):
             rows,
             add_url,
         )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        lock_product_id: int | None = None
+        if request.method == "POST" and object_id:
+            lock_product_id = int(object_id)
+            if not try_acquire_product_admin_save_lock(lock_product_id):
+                messages.error(
+                    request,
+                    _("Этот товар уже сохраняется. Дождитесь завершения предыдущей операции и обновите страницу."),
+                )
+                return HttpResponseRedirect(
+                    reverse("admin:products_product_change", args=[lock_product_id]),
+                )
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        finally:
+            if lock_product_id is not None:
+                release_product_admin_save_lock(lock_product_id)
 
 
 @admin_thumbnails.thumbnail("image", _("Превью"))

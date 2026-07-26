@@ -93,7 +93,7 @@ def get_s3_client():
             read_timeout=settings.S3_READ_TIMEOUT_SECONDS,
             max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
             retries={
-                "mode": "standard",
+                "mode": settings.S3_RETRY_MODE,
                 "max_attempts": settings.S3_RETRY_MAX_ATTEMPTS,
             },
             s3={
@@ -101,6 +101,7 @@ def get_s3_client():
             },
         ),
     )
+    _register_s3_retry_logging(client)
     log_event(
         logger,
         logging.INFO,
@@ -110,8 +111,28 @@ def get_s3_client():
         region_name=settings.S3_REGION_NAME,
         use_ssl=settings.S3_USE_SSL,
         addressing_style=settings.S3_ADDRESSING_STYLE,
+        connect_timeout_seconds=settings.S3_CONNECT_TIMEOUT_SECONDS,
+        read_timeout_seconds=settings.S3_READ_TIMEOUT_SECONDS,
+        retry_mode=settings.S3_RETRY_MODE,
+        retry_max_attempts=settings.S3_RETRY_MAX_ATTEMPTS,
     )
     return client
+
+
+def _register_s3_retry_logging(client) -> None:
+    def _log_retry_attempt(**kwargs) -> None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "product_storage.operation.retry",
+            service_name=kwargs.get("service_name"),
+            operation_name=kwargs.get("operation_name"),
+            attempt_number=kwargs.get("attempt_number"),
+            response_status_code=getattr(kwargs.get("response"), "status_code", None),
+            endpoint_url=settings.S3_ENDPOINT_URL,
+        )
+
+    client.meta.events.register("needs-retry", _log_retry_attempt)
 
 
 def build_product_file_key(*, product_slug: str, filename: str) -> str:

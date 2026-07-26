@@ -13,7 +13,7 @@ from django.core.cache import caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -42,6 +42,7 @@ from apps.products.services.s3 import (
     _allowed_upload_extensions,
     generate_presigned_download_url,
     generate_presigned_upload_url,
+    get_s3_client,
     head_product_file,
     upload_product_file,
     validate_upload_filename,
@@ -1118,44 +1119,381 @@ class ProductImageStorageTests(TestCase):
         self.assertIsInstance(get_product_image_storage(), ProductImageS3Storage)
 
 
-@override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS, CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class ProductImageSignalTests(TestCase):
+    def setUp(self):
+        get_s3_client.cache_clear()
+
+    def _mock_both_s3_clients(self, mock_storage_get_s3_client, mock_cleanup_get_s3_client):
+        client = mock_product_image_s3_client()
+        mock_storage_get_s3_client.return_value = client
+        mock_cleanup_get_s3_client.return_value = client
+        return client
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.tasks.delete_product_image_task.delay")
     @patch("apps.products.storage.get_s3_client")
-    def test_replace_deletes_previous_object_key(self, mock_get_s3_client):
-        mock_get_s3_client.return_value = mock_product_image_s3_client()
+    def test_replace_schedules_old_key_delete_only_after_commit(
+        self,
+        mock_get_s3_client,
+        mock_delete_task_delay,
+        mock_cleanup_get_s3_client,
+    ):
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
         product = Product.objects.create(title="Signal", slug="signal", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
-        image.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
         old_key = image.image.name
 
         image.image = SimpleUploadedFile("second.png", b"second", content_type="image/png")
-        image.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
 
-        deleted_keys = [
-            call.kwargs["Key"]
-            for call in mock_get_s3_client.return_value.delete_object.call_args_list
-        ]
-        self.assertIn(old_key, deleted_keys)
+        mock_delete_task_delay.assert_called_once()
+        self.assertEqual(mock_delete_task_delay.call_args.kwargs["object_key"], old_key)
         self.assertNotEqual(image.image.name, old_key)
 
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
     @patch("apps.products.storage.get_s3_client")
-    def test_row_delete_removes_object_from_storage(self, mock_get_s3_client):
-        mock_get_s3_client.return_value = mock_product_image_s3_client()
+    def test_replace_uploads_before_old_delete_is_scheduled(
+        self,
+        mock_get_s3_client,
+        mock_cleanup_get_s3_client,
+    ):
+        mock_client = self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
+        call_order: list[str] = []
+
+        def track_upload(**kwargs):
+            call_order.append("upload")
+
+        def track_delete(**kwargs):
+            call_order.append("delete")
+            return {"ResponseMetadata": {"HTTPStatusCode": 204}}
+
+        mock_client.upload_fileobj.side_effect = track_upload
+        mock_client.delete_object.side_effect = track_delete
+
+        product = Product.objects.create(title="Order", slug="order", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+
+        image.image = SimpleUploadedFile("second.png", b"second", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+
+        self.assertEqual(call_order.count("upload"), 2)
+        upload_index = call_order.index("upload", 1)
+        delete_index = call_order.index("delete")
+        self.assertLess(upload_index, delete_index)
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.tasks.delete_product_image_task.delay")
+    @patch("apps.products.storage.get_s3_client")
+    def test_upload_failure_keeps_old_image_reference(
+        self,
+        mock_get_s3_client,
+        mock_delete_task_delay,
+        mock_cleanup_get_s3_client,
+    ):
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
+        product = Product.objects.create(title="Fail", slug="fail-upload", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+        old_key = image.image.name
+
+        mock_get_s3_client.return_value.upload_fileobj.side_effect = ValueError("upload failed")
+        image.image = SimpleUploadedFile("second.png", b"second", content_type="image/png")
+        with self.assertRaises(ValueError):
+            with transaction.atomic():
+                image.save()
+
+        image = ProductImage.objects.get(pk=image.pk)
+        self.assertEqual(image.image.name, old_key)
+        mock_delete_task_delay.assert_not_called()
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.tasks.delete_product_image_task.delay")
+    @patch("apps.products.storage.get_s3_client")
+    def test_rollback_does_not_schedule_old_image_delete(
+        self,
+        mock_get_s3_client,
+        mock_delete_task_delay,
+        mock_cleanup_get_s3_client,
+    ):
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
+        product = Product.objects.create(title="Rollback", slug="rollback", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+        old_key = image.image.name
+
+        image.image = SimpleUploadedFile("second.png", b"second", content_type="image/png")
+        with self.assertRaises(ValueError):
+            with transaction.atomic():
+                image.save()
+                raise ValueError("force rollback")
+
+        image.refresh_from_db()
+        self.assertEqual(image.image.name, old_key)
+        mock_delete_task_delay.assert_not_called()
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.storage.get_s3_client")
+    def test_unchanged_image_does_not_upload_or_delete(
+        self,
+        mock_get_s3_client,
+        mock_cleanup_get_s3_client,
+    ):
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
+        product = Product.objects.create(title="Same", slug="same-image", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+        mock_get_s3_client.return_value.upload_fileobj.reset_mock()
+        mock_get_s3_client.return_value.delete_object.reset_mock()
+
+        image.order = 1
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save(update_fields=["order", "updated_at"])
+
+        mock_get_s3_client.return_value.upload_fileobj.assert_not_called()
+        mock_get_s3_client.return_value.delete_object.assert_not_called()
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.storage.get_s3_client")
+    def test_row_delete_schedules_storage_delete_after_commit(
+        self,
+        mock_get_s3_client,
+        mock_cleanup_get_s3_client,
+    ):
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
         product = Product.objects.create(title="Delete", slug="delete-me", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("remove.png", b"remove", content_type="image/png")
-        image.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
         object_key = image.image.name
+        mock_get_s3_client.return_value.delete_object.reset_mock()
 
-        image.delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            image.delete()
 
-        deleted_keys = [
-            call.kwargs["Key"]
-            for call in mock_get_s3_client.return_value.delete_object.call_args_list
-        ]
-        self.assertIn(object_key, deleted_keys)
+        mock_get_s3_client.return_value.delete_object.assert_called_once_with(
+            Bucket="products",
+            Key=object_key,
+        )
         self.assertFalse(ProductImage.objects.filter(pk=image.pk).exists())
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    def test_delete_task_treats_missing_object_as_success(self, mock_cleanup_get_s3_client):
+        from botocore.exceptions import ClientError
+
+        from apps.products.services.product_image_cleanup import delete_product_image_object
+
+        mock_cleanup_get_s3_client.return_value.delete_object.side_effect = ClientError(
+            {"Error": {"Code": "404"}},
+            "DeleteObject",
+        )
+        result = delete_product_image_object(object_key="previews/missing/file.png")
+        self.assertEqual(result, "not_found")
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    def test_delete_task_is_idempotent_when_object_already_removed(self, mock_cleanup_get_s3_client):
+        from botocore.exceptions import ClientError
+
+        from apps.products.services.product_image_cleanup import delete_product_image_object
+
+        mock_cleanup_get_s3_client.return_value.delete_object.side_effect = ClientError(
+            {"Error": {"Code": "404"}},
+            "DeleteObject",
+        )
+        first = delete_product_image_object(object_key="previews/gone/file.png")
+        second = delete_product_image_object(object_key="previews/gone/file.png")
+        self.assertEqual(first, "not_found")
+        self.assertEqual(second, "not_found")
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    def test_delete_task_skips_key_still_referenced_in_database(self, mock_cleanup_get_s3_client):
+        from apps.products.services.product_image_cleanup import delete_product_image_object
+
+        mock_cleanup_get_s3_client.return_value = Mock()
+        product = Product.objects.create(title="Shared", slug="shared-key", price=Decimal("10.00"))
+        shared_key = "previews/shared-key/shared.png"
+        ProductImage.objects.create(product=product, order=0, image=shared_key)
+
+        result = delete_product_image_object(object_key=shared_key, product_id=product.id)
+
+        self.assertEqual(result, "skipped_in_use")
+        mock_cleanup_get_s3_client.return_value.delete_object.assert_not_called()
+
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.storage.get_s3_client")
+    def test_delete_failure_does_not_revert_saved_image(
+        self,
+        mock_get_s3_client,
+        mock_cleanup_get_s3_client,
+    ):
+        from apps.products.services.product_image_cleanup import (
+            ProductImageDeleteError,
+            delete_product_image_object,
+        )
+
+        self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
+        mock_cleanup_get_s3_client.return_value.delete_object.side_effect = ValueError("delete failed")
+        product = Product.objects.create(title="Saved", slug="saved-image", price=Decimal("10.00"))
+        image = ProductImage(product=product, order=0)
+        image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image.save()
+        new_key = image.image.name
+
+        with self.assertRaises(ProductImageDeleteError):
+            delete_product_image_object(object_key="previews/old/unused.png")
+
+        image.refresh_from_db()
+        self.assertEqual(image.image.name, new_key)
+
+
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS)
+class ProductImageS3ClientConfigTests(TestCase):
+    def tearDown(self):
+        get_s3_client.cache_clear()
+
+    @override_settings(
+        S3_CONNECT_TIMEOUT_SECONDS=7,
+        S3_READ_TIMEOUT_SECONDS=11,
+        S3_RETRY_MAX_ATTEMPTS=4,
+        S3_RETRY_MODE="adaptive",
+    )
+    @patch("apps.products.services.s3.boto3.client")
+    def test_get_s3_client_applies_timeout_and_retry_settings(self, mock_boto_client):
+        from apps.products.services.s3 import get_s3_client
+
+        get_s3_client.cache_clear()
+        get_s3_client()
+
+        config = mock_boto_client.call_args.kwargs["config"]
+        self.assertEqual(config.connect_timeout, 7)
+        self.assertEqual(config.read_timeout, 11)
+        self.assertEqual(config.retries["max_attempts"], 4)
+        self.assertEqual(config.retries["mode"], "adaptive")
+
+
+@override_settings(
+    **PRODUCT_IMAGE_S3_SETTINGS,
+    CELERY_TASK_ALWAYS_EAGER=True,
+    CELERY_TASK_EAGER_PROPAGATES=True,
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "products-admin-lock-test",
+        },
+        "rate_limit": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "products-admin-lock-test-rate",
+        },
+    },
+)
+class ProductAdminSaveProtectionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff_user = get_user_model().objects.create_user(
+            email="product-admin@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        cls.product = Product.objects.create(title="Admin Product", slug="admin-product", price=Decimal("10.00"))
+
+    def setUp(self):
+        caches["default"].clear()
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.staff_user)
+
+    def test_product_change_form_includes_double_submit_assets(self):
+        response = self.client.get(reverse("admin:products_product_change", args=[self.product.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "admin-product-save.js")
+        self.assertContains(response, "product-admin-save-status")
+        self.assertContains(response, "Сохраняем товар и загружаем изображения")
+
+    @patch("apps.products.admin.try_acquire_product_admin_save_lock", return_value=False)
+    def test_concurrent_product_save_is_rejected_when_lock_is_held(self, _mock_try_acquire):
+        response = self.client.get(reverse("admin:products_product_change", args=[self.product.pk]))
+        csrf_token = response.cookies["csrftoken"].value
+
+        post_response = self.client.post(
+            reverse("admin:products_product_change", args=[self.product.pk]),
+            {
+                "csrfmiddlewaretoken": csrf_token,
+                "title": self.product.title,
+                "slug": self.product.slug,
+                "price": str(self.product.price),
+                "currency": self.product.currency,
+                "description": "",
+                "content": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(post_response.status_code, 302)
+        self.assertEqual(post_response["Location"], reverse("admin:products_product_change", args=[self.product.pk]))
+
+    @patch("apps.products.tasks.delete_product_image_task.delay")
+    def test_enqueue_delete_swallows_broker_unavailable_after_scheduling(self, mock_delay):
+        from kombu.exceptions import OperationalError
+
+        from apps.products.services.product_image_cleanup import enqueue_product_image_delete
+
+        mock_delay.side_effect = OperationalError("broker down")
+
+        enqueue_product_image_delete(
+            object_key="previews/test/orphan.png",
+            product_id=self.product.id,
+            reason="replace",
+        )
+
+        mock_delay.assert_called_once()
+
+
+@override_settings(**PRODUCT_IMAGE_S3_SETTINGS, CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
+class ProductImageCascadeDeleteTests(TestCase):
+    @patch("apps.products.services.product_image_cleanup.get_s3_client")
+    @patch("apps.products.storage.get_s3_client")
+    def test_product_delete_schedules_all_image_keys_after_commit(
+        self,
+        mock_storage_get_s3_client,
+        mock_cleanup_get_s3_client,
+    ):
+        client = mock_product_image_s3_client()
+        mock_storage_get_s3_client.return_value = client
+        mock_cleanup_get_s3_client.return_value = client
+        product = Product.objects.create(title="Cascade", slug="cascade-images", price=Decimal("10.00"))
+        image_a = ProductImage(product=product, order=0)
+        image_a.image = SimpleUploadedFile("a.png", b"a", content_type="image/png")
+        image_b = ProductImage(product=product, order=1)
+        image_b.image = SimpleUploadedFile("b.png", b"b", content_type="image/png")
+        with self.captureOnCommitCallbacks(execute=True):
+            image_a.save()
+            image_b.save()
+        key_a = image_a.image.name
+        key_b = image_b.image.name
+        client.delete_object.reset_mock()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            product.delete()
+
+        deleted_keys = sorted(call.kwargs["Key"] for call in client.delete_object.call_args_list)
+        self.assertEqual(deleted_keys, sorted([key_a, key_b]))
 
 
 class ProductFileSignalTests(TestCase):
