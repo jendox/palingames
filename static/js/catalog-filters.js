@@ -116,6 +116,42 @@ function initCatalogDropdowns(root = document) {
       }
     });
   });
+
+  initCatalogDropdownOutsideClick();
+}
+
+let catalogDropdownOutsideClickBound = false;
+
+function closeCatalogDropdown(dropdown) {
+  dropdown.removeAttribute("open");
+
+  const summary = dropdown.querySelector("summary");
+  if (summary instanceof HTMLElement) {
+    summary.blur();
+  }
+}
+
+function initCatalogDropdownOutsideClick() {
+  if (catalogDropdownOutsideClickBound) {
+    return;
+  }
+
+  catalogDropdownOutsideClickBound = true;
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    document.querySelectorAll("[data-catalog-dropdown][open]").forEach((dropdown) => {
+      if (dropdown.contains(target)) {
+        return;
+      }
+
+      closeCatalogDropdown(dropdown);
+    });
+  });
 }
 
 function updateCatalogSortState(selectedValue) {
