@@ -51,7 +51,7 @@
 
     {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=alphabet_filters.ages show_counts=False %}
     {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=alphabet_filters.subtypes show_counts=False %}
-    {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options="" show_counts=False always_render=True %}
+    {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options=alphabet_filters.themes show_counts=False %}
     {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True %}
 
     <div class="mt-[14px] flex justify-center pb-[20px]">
