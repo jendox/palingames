@@ -144,16 +144,16 @@
       label.textContent = direction === "prev" ? "предыдущая" : "следующая";
 
       const icon = document.createElement("img");
-      icon.src = direction === "prev" ? ICONS.next : ICONS.prev;
+      icon.src = direction === "prev" ? ICONS.prev : ICONS.next;
       icon.alt = "";
       icon.className = "account-pagination-nav-icon";
       icon.setAttribute("aria-hidden", "true");
       icon.setAttribute("draggable", "false");
 
       if (direction === "prev") {
-        btn.append(label, icon);
-      } else {
         btn.append(icon, label);
+      } else {
+        btn.append(label, icon);
       }
 
       if (!disabled) btn.addEventListener("click", () => onChange(targetPage));

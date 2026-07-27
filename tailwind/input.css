@@ -727,7 +727,7 @@
 
   .account-pagination-dots {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
   }
 
@@ -752,7 +752,7 @@
 
   .account-pagination--mobile .account-pagination-dots {
     width: 19px;
-    height: 3px;
+    height: 20px;
   }
 
   .account-pagination--mobile .account-pagination-dots img {
