@@ -248,7 +248,7 @@
         {% include "pages/catalog/desktop/filter_group.html" with title="Возраст" field_name="age" options=alphabet_filters.ages show_counts=False disable_default_open=True %}
         {% include "pages/catalog/desktop/filter_group.html" with title="Тип игры" field_name="subtype" options=alphabet_filters.subtypes show_counts=False disable_default_open=True %}
         {% include "pages/catalog/desktop/filter_group.html" with title="Тематика" field_name="theme" options=alphabet_filters.themes show_counts=False disable_default_open=True %}
-        {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options="" show_counts=False always_render=True disable_default_open=True %}
+        {% include "pages/catalog/desktop/filter_group.html" with title="Для педагогов" field_name="area" options=alphabet_filters.areas show_counts=False disable_default_open=True %}
 
         <div class="mt-[14px] flex justify-center pb-[12px]">
           <button type="button" class="btn-reset-control" data-filter-reset>
