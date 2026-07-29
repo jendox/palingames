@@ -37,6 +37,8 @@
 
 ## Архитектура
 
+Карта системы, payment/fulfillment flow и failure modes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ### Приложения
 
 - `apps/users` — пользователи и интеграция с allauth.

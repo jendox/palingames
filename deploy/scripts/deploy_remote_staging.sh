@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-
+# Staging deploy: web + celery only (no telegram-bot — один TELEGRAM_BOT_TOKEN на prod).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 COMPOSE=(docker compose -f docker-compose.prod.yml -f docker-compose.override.yml)
+DEPLOY_SERVICES=(postgres redis web celery-worker celery-beat)
 STATE_FILE=".deploy-state"
 HEALTH_URL="http://127.0.0.1:8000/health/ready/"
 MAX_RETRIES=12
@@ -16,12 +17,10 @@ prompt_image_ref() {
   local prompt_text="$2"
   local default_value="${3:-}"
 
-  # Уже задано в окружении
   if [[ -n "${!var_name:-}" ]]; then
     return 0
   fi
 
-  # Не интерактивный запуск — не висим на read
   if [[ ! -t 0 ]]; then
     echo "ERROR: $var_name is not set and stdin is not a TTY." >&2
     echo "Set it explicitly, e.g.:" >&2
@@ -46,14 +45,11 @@ prompt_image_ref() {
 }
 
 prompt_image_ref PALINGAMES_WEB_REF "Web image (PALINGAMES_WEB_REF)"
-prompt_image_ref PALINGAMES_BOT_REF "Bot image (PALINGAMES_BOT_REF)"
 
 NEW_WEB="$PALINGAMES_WEB_REF"
-NEW_BOT="$PALINGAMES_BOT_REF"
 
 # --- 2 ---
 PREV_WEB=$(grep '^CURRENT_WEB_REF=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)
-PREV_BOT=$(grep '^CURRENT_BOT_REF=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)
 
 # --- 3 ---
 wait_for_ready() {
@@ -73,35 +69,33 @@ urllib.request.urlopen('${HEALTH_URL}')
 }
 
 rollback() {
-  if [[ -z "$PREV_WEB" || -z "$PREV_BOT" ]]; then
-    echo "No previous refs in $STATE_FILE — rollback impossible." >&2
+  if [[ -z "$PREV_WEB" ]]; then
+    echo "No previous web ref in $STATE_FILE — rollback impossible." >&2
     return 1
   fi
-  echo "Rolling back to web=$PREV_WEB bot=$PREV_BOT"
+  echo "Rolling back to web=$PREV_WEB"
   export PALINGAMES_WEB_REF="$PREV_WEB"
-  export PALINGAMES_BOT_REF="$PREV_BOT"
-  "${COMPOSE[@]}" pull web celery-worker celery-beat telegram-bot
-  "${COMPOSE[@]}" up -d
+  "${COMPOSE[@]}" pull web celery-worker celery-beat
+  "${COMPOSE[@]}" up -d "${DEPLOY_SERVICES[@]}"
 }
 
 # --- 4 ---
-echo "Deploy plan:"
+echo "Deploy plan (staging, no telegram-bot):"
 echo "  web: $NEW_WEB (prev: ${PREV_WEB:-none})"
-echo "  bot: $NEW_BOT (prev: ${PREV_BOT:-none})"
 if [[ -t 0 ]]; then
   read -r -p "Continue? [y/N]: " confirm
   [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
 fi
 
-"${COMPOSE[@]}" pull web celery-worker celery-beat telegram-bot
+"${COMPOSE[@]}" pull web celery-worker celery-beat
 "${COMPOSE[@]}" run --rm web python manage.py migrate --noinput
-"${COMPOSE[@]}" up -d
+"${COMPOSE[@]}" up -d "${DEPLOY_SERVICES[@]}"
 
 # --- 5 ---
 if ! wait_for_ready; then
   echo "ERROR: health check failed for $NEW_WEB" >&2
 
-  if [[ -t 0 ]] && [[ -n "$PREV_WEB" && -n "$PREV_BOT" ]]; then
+  if [[ -t 0 ]] && [[ -n "$PREV_WEB" ]]; then
     read -r -p "Health check failed. Rollback to $PREV_WEB? [y/N]: " ans
     if [[ "$ans" =~ ^[Yy]$ ]]; then
       if rollback; then
@@ -115,7 +109,7 @@ if ! wait_for_ready; then
       fi
     fi
   else
-    [[ -z "$PREV_WEB" || -z "$PREV_BOT" ]] && echo "No previous refs — rollback skipped." >&2
+    [[ -z "$PREV_WEB" ]] && echo "No previous ref — rollback skipped." >&2
     [[ ! -t 0 ]] && echo "Non-interactive — rollback skipped." >&2
   fi
 
@@ -128,9 +122,7 @@ fi
 cat > "$STATE_FILE" <<EOF
 PREVIOUS_WEB_REF=$PREV_WEB
 CURRENT_WEB_REF=$NEW_WEB
-PREVIOUS_BOT_REF=$PREV_BOT
-CURRENT_BOT_REF=$NEW_BOT
 DEPLOYED_AT=$(date -Iseconds)
 EOF
 
-echo "Deploy OK: web=$NEW_WEB bot=$NEW_BOT"
+echo "Deploy OK (staging): web=$NEW_WEB"

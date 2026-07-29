@@ -47,21 +47,23 @@ Runbook: [Dev and Prod deployment §4.4](../.cursor/plans/Dev%20and%20Prod%20dep
 1. Установите Docker и Docker Compose plugin.
 2. Склонируйте репозиторий (или скопируйте только каталог `deploy/` и при необходимости `docker-compose.prod.yml` + конфиги).
 3. `cd deploy`
-4. `cp env.example .env` и заполните секреты (в т.ч. `DJANGO_SECRET_KEY`, `APP_DATA_ENCRYPTION_KEY`, OAuth, `DATABASE_URL` с паролем).
+4. `cp env.example .env` и заполните секреты (в т.ч. `DJANGO_SECRET_KEY`, `APP_DATA_ENCRYPTION_KEY`, OAuth, `DATABASE_URL` с паролем).  
+   `PALINGAMES_WEB_REF` / `PALINGAMES_BOT_REF` в `.env` **не обязательны** — задаются при запуске [`deploy_remote.sh`](#деплой-обновлений-scriptsdeploy_remote-sh).
 5. Выставьте боевой домен: `CADDY_DOMAIN=shop.example.com` (для Let’s Encrypt не указывайте схему `https://`).
 6. Поднимите стек:
    - **Сборка на сервере:**  
      `docker compose -f docker-compose.prod.yml up -d --build`
-   - **Только образ с Docker Hub:** задайте `PALINGAMES_WEB_REF=youruser/palingames:tag` и `PALINGAMES_BOT_REF=youruser/palingames-bot:tag` в `.env` или в окружении, затем  
-     `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`
-7. Миграции:  
-   `docker compose -f docker-compose.prod.yml exec web python manage.py migrate --noinput`
-8. Periodic tasks (один раз после migrate и при каждом деплое — идемпотентно):  
-   `docker compose -f docker-compose.prod.yml exec web python manage.py setup_periodic_tasks`  
-   Создаёт задачи в `django-celery-beat`: очистка notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин), **Telegram outbound feedback** (каждую 1 мин), **reaper stuck Telegram outbox** (каждые 10 мин). Расписание можно править в админке.
-9. Суперпользователь (один раз):  
-   `docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser`
-10. Справочник каталога — см. раздел [«Справочник каталога (tags_fixture.json)»](#справочник-каталога-tags_fixturejson) (staging и prod, один раз после migrate).
+   - **Только образ с Docker Hub:** после первичного bootstrap используйте [`scripts/deploy_remote_staging.sh`](#деплой-обновлений-staging-scriptsdeploy_remote_staging-sh) (staging) или [`scripts/deploy_remote.sh`](#деплой-обновлений-prod-scriptsdeploy_remote-sh) (prod).
+   - **Сборка на сервере (редко):**  
+     `docker compose -f docker-compose.prod.yml up -d --build`
+7. **Первичный bootstrap** (один раз): migrate, `setup_periodic_tasks`, `createsuperuser` — см. команды ниже или § «Деплой обновлений» для последующих релизов.
+   ```bash
+   docker compose -f docker-compose.prod.yml exec web python manage.py migrate --noinput
+   docker compose -f docker-compose.prod.yml exec web python manage.py setup_periodic_tasks
+   docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
+   ```
+8. Periodic tasks: при каждом деплое через `deploy_remote.sh` выполняются автоматически; вручную — `setup_periodic_tasks` (идемпотентно).
+9. Справочник каталога — см. раздел [«Справочник каталога (tags_fixture.json)»](#справочник-каталога-tags_fixturejson) (staging и prod, один раз после migrate).
 
 ## Справочник каталога (`tags_fixture.json`)
 
@@ -180,8 +182,130 @@ Sentry (`SENTRY_DSN`) — для traceback и grouping, не дублирова�
 
 1. Создайте репозиторий образа на Docker Hub и access token.
 2. В GitHub: секреты `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
-3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `main` выполняет `ruff`, Django tests (PostgreSQL + Redis) и собирает/push образ (см. переменные в workflow).
-4. На сервере задайте тот же тег, выполните `scripts/deploy_remote.sh` или команды из него вручную.
+3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `main` выполняет `ruff`, Django tests (PostgreSQL + Redis) и собирает/push образы `jendox/palingames:<sha>` и `jendox/palingames-bot:<sha>` (см. переменные в workflow).
+4. На сервере задеployте тот же SHA:
+   - **prod:** [`scripts/deploy_remote.sh`](#деплой-обновлений-prod-scriptsdeploy_remote-sh)
+   - **staging:** [`scripts/deploy_remote_staging.sh`](#деплой-обновлений-staging-scriptsdeploy_remote_staging-sh) (без telegram-bot)
+
+## Деплой обновлений (prod: `scripts/deploy_remote.sh`)
+
+Скрипт для **обновления уже поднятого prod stack** после push образов в Docker Hub. Не заменяет первичный bootstrap (§ «Быстрый старт», createsuperuser, loaddata).
+
+**Расположение:** `deploy/scripts/deploy_remote.sh` (рабочая директория после запуска — `deploy/`).
+
+**Compose:** `docker-compose.prod.yml` + **`docker-compose.override.yml`** (обязателен на VPS с `/opt/proxy`; сервис `caddy` из базового compose не поднимается).
+
+### Что делает скрипт (prod)
+
+```text
+1. PALINGAMES_WEB_REF / PALINGAMES_BOT_REF — из env или интерактивный prompt
+2. Deploy plan + подтверждение Continue? [y/N] (только при TTY)
+3. pull web, celery-worker, celery-beat, telegram-bot
+4. migrate --noinput  (docker compose run --rm web — до переключения контейнеров)
+5. up -d
+6. /health/ready/ — retry до 60 с
+7. setup_periodic_tasks (идемпотентно)
+8. .deploy-state — CURRENT/PREVIOUS refs для следующего rollback
+```
+
+При failed health check (интерактивно): предложение rollback на предыдущие refs из `.deploy-state` → `exit 1` (даже если rollback восстановил сервис).
+
+**Важно:** rollback откатывает **только Docker-образ**, не миграции БД. Держите миграции backward-compatible.
+
+### Запуск (prod)
+
+**Интерактивно (рекомендуется):**
+
+```bash
+ssh -t root@YOUR_VPS 'cd /opt/palingames-prod/deploy && export COMPOSE_PROJECT_NAME=palingames-prod && ./scripts/deploy_remote.sh'
+```
+
+Скрипт запросит web/bot image tags (git SHA из CI) и подтверждение деплоя.
+
+**Non-interactive:**
+
+```bash
+cd /opt/palingames-prod/deploy
+export COMPOSE_PROJECT_NAME=palingames-prod
+export PALINGAMES_WEB_REF=jendox/palingames:<git-sha>
+export PALINGAMES_BOT_REF=jendox/palingames-bot:<git-sha>
+./scripts/deploy_remote.sh
+```
+
+Refs **не обязаны** лежать в `deploy/.env` — достаточно export перед запуском. На prod предпочитайте **git SHA**, не `latest`.
+
+## Деплой обновлений (staging: `scripts/deploy_remote_staging.sh`)
+
+Тот же flow, что prod, но **без telegram-bot** (на staging бот не запускается — один `TELEGRAM_BOT_TOKEN` только на prod).
+
+```text
+1. PALINGAMES_WEB_REF — из env или prompt (bot ref не нужен)
+2. pull web, celery-worker, celery-beat
+3. migrate → up -d postgres redis web celery-worker celery-beat  (явный список, без telegram-bot)
+4. health → setup_periodic_tasks → .deploy-state (только web refs)
+```
+
+**Интерактивно:**
+
+```bash
+ssh -t root@YOUR_VPS 'cd /opt/palingames-staging/deploy && export COMPOSE_PROJECT_NAME=palingames-staging && ./scripts/deploy_remote_staging.sh'
+```
+
+**Non-interactive:**
+
+```bash
+cd /opt/palingames-staging/deploy
+export COMPOSE_PROJECT_NAME=palingames-staging
+export PALINGAMES_WEB_REF=jendox/palingames:<git-sha>
+./scripts/deploy_remote_staging.sh
+```
+
+### Exit codes (оба скрипта)
+
+| Код | Значение |
+|-----|----------|
+| `0` | Deploy OK, или отмена на «Continue?» |
+| `1` | Ошибка pull/migrate/up/health; deploy новой версии не принят (rollback мог восстановить старую) |
+
+### Файл состояния
+
+`deploy/.deploy-state` (не в git; на staging и prod — **отдельные** файлы в разных каталогах):
+
+**Prod:**
+
+```env
+PREVIOUS_WEB_REF=...
+CURRENT_WEB_REF=...
+PREVIOUS_BOT_REF=...
+CURRENT_BOT_REF=...
+DEPLOYED_AT=...
+```
+
+**Staging** (только web):
+
+```env
+PREVIOUS_WEB_REF=...
+CURRENT_WEB_REF=...
+DEPLOYED_AT=...
+```
+
+При первом успешном деплое `PREVIOUS_*` пустые — rollback недоступен до второго деплоя.
+
+### Staging vs prod
+
+| | Staging | Prod |
+|---|---------|------|
+| Скрипт | `deploy_remote_staging.sh` | `deploy_remote.sh` |
+| Каталог | `/opt/palingames-staging/deploy` | `/opt/palingames-prod/deploy` |
+| `COMPOSE_PROJECT_NAME` | `palingames-staging` | `palingames-prod` |
+| `telegram-bot` | **не деплоится** | да |
+| Override | `docker-compose.override.yml` → сеть `proxy` | + alias для `telegram-bot` |
+
+Подробный VPS runbook: [`.cursor/plans/Dev and Prod deployment.md`](../.cursor/plans/Dev%20and%20Prod%20deployment.md) §13.
+
+### Standalone VPS (без `/opt/proxy`)
+
+Скрипты рассчитаны на override. Для standalone (единственный сайт, встроенный `caddy` из compose) используйте ручной flow из § «Быстрый старт» или добавьте локальный override без сети `proxy`.
 
 ## Образ приложения
 
@@ -241,11 +365,11 @@ TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP=django-telegram-feedback
 TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES=30
 ```
 
-**Deploy:** pull **оба** образа (`PALINGAMES_WEB_REF` + `PALINGAMES_BOT_REF`), затем `migrate`, `setup_periodic_tasks`, `up -d` web + celery + telegram-bot.
+**Deploy (обновления):** [`scripts/deploy_remote.sh`](#деплой-обновлений-scriptsdeploy_remote-sh) — pull **оба** образа, `migrate` (до `up -d`), health check на `/health/ready/`, `setup_periodic_tasks`, `.deploy-state` для rollback.
 
 Caddy проксирует `https://{domain}/telegram/webhook/*` → `telegram-bot:8080` (standalone: compose-`caddy`; VPS: `/opt/proxy/sites/palingames-prod.caddy` → alias `palingames-prod-telegram-bot:8080`).
 
-Перед первым запуском: BotFather `/setprivacy` → **Disable**; бот — admin forum-группы.
+Перед первым запуском bot: BotFather `/setprivacy` → **Disable**; бот — admin forum-группы.
 
 Health check бота: `GET http://telegram-bot:8080/health` (внутри compose-сети).
 
@@ -347,7 +471,7 @@ docker compose -f docker-compose.prod.yml exec web \
 
 - [ ] Bucket policy: public read только на `{S3_PRODUCT_IMAGES_PREFIX}/*` (обычно `previews/*`)
 - [ ] `deploy/.env`: `S3_PRODUCT_IMAGES_ENABLED=true`, S3 credentials, optional `S3_PRODUCT_IMAGES_PUBLIC_BASE_URL`
-- [ ] Deploy image + `python manage.py migrate --noinput`
+- [ ] Deploy через `scripts/deploy_remote.sh` (или migrate вручную после pull/up на bootstrap)
 - [ ] `python manage.py migrate_product_images_to_s3 --dry-run`, затем без `--dry-run`
 - [ ] Smoke: admin upload → URL `https://.../previews/...` открывается в браузере; catalog/product page показывает картинку
 
