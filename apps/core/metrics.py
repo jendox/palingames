@@ -181,6 +181,11 @@ CATALOG_PAGE_VIEWS_TOTAL = Counter(
     "Total catalog page views.",
     ["user_type"],
 )
+COLLECTION_PAGE_VIEWS_TOTAL = Counter(
+    "collection_page_views_total",
+    "Total thematic collection page views.",
+    ["page_type", "user_type"],
+)
 PRODUCT_PAGE_VIEWS_TOTAL = Counter(
     "product_page_views_total",
     "Total product detail page views.",
@@ -388,6 +393,10 @@ def observe_custom_game_request_creation_duration(
 
 def inc_catalog_page_view(*, user_type: str) -> None:
     CATALOG_PAGE_VIEWS_TOTAL.labels(user_type=user_type).inc()
+
+
+def inc_collection_page_view(*, page_type: str, user_type: str) -> None:
+    COLLECTION_PAGE_VIEWS_TOTAL.labels(page_type=page_type, user_type=user_type).inc()
 
 
 def inc_product_page_view(*, user_type: str) -> None:

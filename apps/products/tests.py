@@ -1,6 +1,7 @@
 import json
 import shutil
 import tempfile
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,12 +11,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import caches
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.access.models import UserProductAccess
 from apps.notifications.destinations import TelegramDestination
@@ -27,7 +30,9 @@ from apps.products.models import (
     AgeGroup,
     AgeGroupTag,
     Category,
+    CollectionProduct,
     Product,
+    ProductCollection,
     ProductFile,
     ProductImage,
     Review,
@@ -2640,3 +2645,406 @@ class ProductReviewFlowTests(TestCase):
         delay_mock.assert_not_called()
         self.assertFalse(NotificationOutbox.objects.filter(notification_type=NotificationType.REVIEW_REWARD_USER).exists())
         self.assertEqual(len(mail.outbox), 0)
+
+
+class ProductCollectionModelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(title="Категория", slug="shared-slug")
+        cls.product_without_file = Product.objects.create(
+            title="Товар без файла",
+            slug="product-no-file",
+            price=Decimal("10.00"),
+        )
+        cls.product_with_file = Product.objects.create(
+            title="Товар с файлом",
+            slug="product-with-file",
+            price=Decimal("12.00"),
+        )
+        ProductFile.objects.create(
+            product=cls.product_with_file,
+            file_key="products/product-with-file/game.zip",
+            is_active=True,
+        )
+
+    def _make_collection(self, **kwargs) -> ProductCollection:
+        defaults = {
+            "title": "Маркировка",
+            "slug": "markirovka",
+            "min_products_to_publish": 2,
+        }
+        defaults.update(kwargs)
+        return ProductCollection.objects.create(**defaults)
+
+    def _add_product(self, collection: ProductCollection, product: Product, *, sort_order: int = 0):
+        return CollectionProduct.objects.create(
+            collection=collection,
+            product=product,
+            sort_order=sort_order,
+        )
+
+    def test_default_min_products_to_publish_is_five(self):
+        collection = ProductCollection(title="Новая", slug="novaya")
+        self.assertEqual(collection.min_products_to_publish, 5)
+
+    def test_save_generates_slug_from_title(self):
+        collection = ProductCollection.objects.create(title="My Collection")
+        self.assertEqual(collection.slug, "my-collection")
+
+    def test_slug_must_not_collide_with_category(self):
+        collection = self._make_collection(slug="shared-slug")
+        with self.assertRaises(ValidationError) as ctx:
+            collection.full_clean()
+        self.assertIn("slug", ctx.exception.error_dict)
+
+    def test_slug_must_not_collide_with_product(self):
+        collection = self._make_collection(slug="product-with-file")
+        with self.assertRaises(ValidationError) as ctx:
+            collection.full_clean()
+        self.assertIn("slug", ctx.exception.error_dict)
+
+    def test_visible_products_count_ignores_products_without_active_file(self):
+        collection = self._make_collection(min_products_to_publish=1)
+        self._add_product(collection, self.product_without_file, sort_order=1)
+        self._add_product(collection, self.product_with_file, sort_order=0)
+
+        self.assertEqual(collection.visible_products_count(), 1)
+
+    def test_visible_products_queryset_respects_sort_order(self):
+        other = Product.objects.create(title="Товар 3", slug="product-three", price=Decimal("8.00"))
+        ProductFile.objects.create(product=other, file_key="products/product-three/game.zip", is_active=True)
+
+        collection = self._make_collection()
+        self._add_product(collection, other, sort_order=2)
+        self._add_product(collection, self.product_with_file, sort_order=1)
+
+        slugs = list(collection.visible_products_queryset().values_list("slug", flat=True))
+        self.assertEqual(slugs, ["product-with-file", "product-three"])
+
+    def test_cannot_publish_without_min_visible_products(self):
+        collection = self._make_collection(min_products_to_publish=2, is_published=True)
+        self._add_product(collection, self.product_with_file)
+
+        with self.assertRaises(ValidationError) as ctx:
+            collection.full_clean()
+        self.assertIn("is_published", ctx.exception.error_dict)
+
+    def test_can_publish_with_enough_visible_products(self):
+        other = Product.objects.create(title="Товар 4", slug="product-four", price=Decimal("8.00"))
+        ProductFile.objects.create(product=other, file_key="products/product-four/game.zip", is_active=True)
+
+        collection = self._make_collection(min_products_to_publish=2, is_published=True)
+        self._add_product(collection, self.product_with_file, sort_order=0)
+        self._add_product(collection, other, sort_order=1)
+
+        collection.full_clean()
+
+    def test_cannot_publish_outside_publish_window(self):
+        other = Product.objects.create(title="Товар 5", slug="product-five", price=Decimal("8.00"))
+        ProductFile.objects.create(product=other, file_key="products/product-five/game.zip", is_active=True)
+
+        collection = self._make_collection(
+            min_products_to_publish=2,
+            is_published=True,
+            publish_starts_at=timezone.make_aware(datetime(2026, 9, 1, 0, 0)),
+        )
+        self._add_product(collection, self.product_with_file)
+        self._add_product(collection, other)
+
+        with self.assertRaises(ValidationError) as ctx:
+            collection.full_clean()
+        self.assertIn("is_published", ctx.exception.error_dict)
+
+    def test_publish_end_must_be_after_start(self):
+        collection = self._make_collection(
+            publish_starts_at=timezone.make_aware(datetime(2026, 9, 10, 0, 0)),
+            publish_ends_at=timezone.make_aware(datetime(2026, 9, 1, 0, 0)),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            collection.full_clean()
+        self.assertIn("publish_ends_at", ctx.exception.error_dict)
+
+    def test_is_within_publish_window(self):
+        collection = self._make_collection(
+            publish_starts_at=timezone.make_aware(datetime(2026, 9, 1, 0, 0)),
+            publish_ends_at=timezone.make_aware(datetime(2026, 10, 1, 0, 0)),
+        )
+        before = timezone.make_aware(datetime(2026, 8, 31, 23, 59))
+        inside = timezone.make_aware(datetime(2026, 9, 15, 12, 0))
+        after = timezone.make_aware(datetime(2026, 10, 2, 0, 0))
+
+        self.assertFalse(collection.is_within_publish_window(at=before))
+        self.assertTrue(collection.is_within_publish_window(at=inside))
+        self.assertFalse(collection.is_within_publish_window(at=after))
+
+    def test_collection_product_unique_together(self):
+        collection = self._make_collection()
+        self._add_product(collection, self.product_with_file)
+        with self.assertRaises(IntegrityError):
+            CollectionProduct.objects.create(collection=collection, product=self.product_with_file)
+
+
+class ProductCollectionAdminTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff_user = get_user_model().objects.create_user(
+            email="collection-admin@example.com",
+            password="pass-123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        cls.product_with_file = Product.objects.create(
+            title="Admin visible product",
+            slug="admin-visible-product",
+            price=Decimal("10.00"),
+        )
+        ProductFile.objects.create(
+            product=cls.product_with_file,
+            file_key="products/admin-visible-product/game.zip",
+            is_active=True,
+        )
+
+    def setUp(self):
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(self.staff_user)
+
+    def test_changelist_is_available_for_staff(self):
+        response = self.client.get(reverse("admin:products_productcollection_changelist"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_add_form_renders_collection_fields(self):
+        response = self.client.get(reverse("admin:products_productcollection_add"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Тематическая подборка")
+        self.assertContains(response, "Минимум товаров для публикации")
+
+    def test_create_collection_via_admin(self):
+        add_response = self.client.get(reverse("admin:products_productcollection_add"))
+        csrf_token = add_response.cookies["csrftoken"].value
+
+        response = self.client.post(
+            reverse("admin:products_productcollection_add"),
+            {
+                "csrfmiddlewaretoken": csrf_token,
+                "title": "Маркировка для ДС",
+                "slug": "markirovka-ds",
+                "short_description": "Готовые наборы PDF",
+                "description": "",
+                "seo_title": "",
+                "seo_description": "",
+                "robots": "index,follow",
+                "is_published": "",
+                "min_products_to_publish": "5",
+                "sort_order": "0",
+                "badge": "",
+                "campaign_code": "",
+                "show_on_homepage": "",
+                "show_in_catalog": "",
+                "show_in_navigation": "",
+                "show_in_footer": "",
+                "collection_products-TOTAL_FORMS": "0",
+                "collection_products-INITIAL_FORMS": "0",
+                "collection_products-MIN_NUM_FORMS": "0",
+                "collection_products-MAX_NUM_FORMS": "1000",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        collection = ProductCollection.objects.get(slug="markirovka-ds")
+        self.assertEqual(collection.title, "Маркировка для ДС")
+        self.assertFalse(collection.is_published)
+
+    def test_publish_succeeds_with_enough_visible_products(self):
+        collection = ProductCollection.objects.create(
+            title="Draft collection",
+            slug="draft-collection",
+            min_products_to_publish=1,
+        )
+        change_response = self.client.get(reverse("admin:products_productcollection_change", args=[collection.pk]))
+        csrf_token = change_response.cookies["csrftoken"].value
+
+        response = self.client.post(
+            reverse("admin:products_productcollection_change", args=[collection.pk]),
+            {
+                "csrfmiddlewaretoken": csrf_token,
+                "title": collection.title,
+                "slug": collection.slug,
+                "short_description": "",
+                "description": "",
+                "seo_title": "",
+                "seo_description": "",
+                "robots": "index,follow",
+                "is_published": "on",
+                "min_products_to_publish": "1",
+                "sort_order": "0",
+                "badge": "",
+                "campaign_code": "",
+                "show_on_homepage": "",
+                "show_in_catalog": "",
+                "show_in_navigation": "",
+                "show_in_footer": "",
+                "collection_products-TOTAL_FORMS": "1",
+                "collection_products-INITIAL_FORMS": "0",
+                "collection_products-MIN_NUM_FORMS": "0",
+                "collection_products-MAX_NUM_FORMS": "1000",
+                "collection_products-0-product": str(self.product_with_file.pk),
+                "collection_products-0-sort_order": "0",
+                "collection_products-0-is_featured": "",
+                "collection_products-0-label": "",
+                "collection_products-0-id": "",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        collection.refresh_from_db()
+        self.assertTrue(collection.is_published)
+        self.assertEqual(collection.visible_products_count(), 1)
+
+    def test_publish_is_reverted_when_not_enough_visible_products(self):
+        collection = ProductCollection.objects.create(
+            title="Too small collection",
+            slug="too-small-collection",
+            min_products_to_publish=2,
+        )
+        change_response = self.client.get(reverse("admin:products_productcollection_change", args=[collection.pk]))
+        csrf_token = change_response.cookies["csrftoken"].value
+
+        response = self.client.post(
+            reverse("admin:products_productcollection_change", args=[collection.pk]),
+            {
+                "csrfmiddlewaretoken": csrf_token,
+                "title": collection.title,
+                "slug": collection.slug,
+                "short_description": "",
+                "description": "",
+                "seo_title": "",
+                "seo_description": "",
+                "robots": "index,follow",
+                "is_published": "on",
+                "min_products_to_publish": "2",
+                "sort_order": "0",
+                "badge": "",
+                "campaign_code": "",
+                "show_on_homepage": "",
+                "show_in_catalog": "",
+                "show_in_navigation": "",
+                "show_in_footer": "",
+                "collection_products-TOTAL_FORMS": "1",
+                "collection_products-INITIAL_FORMS": "0",
+                "collection_products-MIN_NUM_FORMS": "0",
+                "collection_products-MAX_NUM_FORMS": "1000",
+                "collection_products-0-product": str(self.product_with_file.pk),
+                "collection_products-0-sort_order": "0",
+                "collection_products-0-is_featured": "",
+                "collection_products-0-label": "",
+                "collection_products-0-id": "",
+                "_save": "Save",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        collection.refresh_from_db()
+        self.assertFalse(collection.is_published)
+
+
+@override_settings(COLLECTIONS_ENABLED=True, SITE_BASE_URL="https://example.com")
+class CollectionViewTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.products = []
+        for index in range(5):
+            product = Product.objects.create(
+                title=f"Collection product {index}",
+                slug=f"collection-product-{index}",
+                price=Decimal("10.00"),
+            )
+            ProductFile.objects.create(
+                product=product,
+                file_key=f"products/collection-product-{index}/game.zip",
+                is_active=True,
+            )
+            cls.products.append(product)
+
+        cls.draft_collection = ProductCollection.objects.create(
+            title="Draft",
+            slug="draft-collection-view",
+            min_products_to_publish=5,
+        )
+        for index, product in enumerate(cls.products):
+            CollectionProduct.objects.create(
+                collection=cls.draft_collection,
+                product=product,
+                sort_order=index,
+            )
+
+        cls.published_collection = ProductCollection.objects.create(
+            title="Маркировка для ДС",
+            slug="markirovka-ds",
+            short_description="Готовые наборы PDF",
+            seo_title="Маркировка для детского сада — PalinGames",
+            seo_description="Готовые наборы маркировки для детского сада.",
+            is_published=True,
+            min_products_to_publish=5,
+        )
+        for index, product in enumerate(cls.products):
+            CollectionProduct.objects.create(
+                collection=cls.published_collection,
+                product=product,
+                sort_order=index,
+            )
+
+    def test_collections_disabled_returns_404(self):
+        with self.settings(COLLECTIONS_ENABLED=False):
+            response = self.client.get(reverse("collections"))
+        self.assertEqual(response.status_code, 404)
+
+    def test_collections_index_renders_published_collection(self):
+        response = self.client.get(reverse("collections"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Тематические подборки")
+        self.assertContains(response, "Маркировка для ДС")
+        self.assertNotContains(response, "Draft")
+
+    def test_collection_detail_returns_404_for_draft(self):
+        response = self.client.get(reverse("collection-detail", kwargs={"slug": self.draft_collection.slug}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_collection_detail_renders_products(self):
+        response = self.client.get(reverse("collection-detail", kwargs={"slug": self.published_collection.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Маркировка для ДС")
+        self.assertContains(response, "Collection product 0")
+        self.assertContains(response, "Готовые наборы PDF")
+
+    def test_collection_detail_seo_meta(self):
+        response = self.client.get(reverse("collection-detail", kwargs={"slug": self.published_collection.slug}))
+
+        self.assertContains(response, "<title>Маркировка для детского сада — PalinGames</title>", html=True)
+        self.assertContains(
+            response,
+            '<link rel="canonical" href="https://example.com/collections/markirovka-ds/" />',
+            html=True,
+        )
+        self.assertContains(response, 'content="index,follow"', html=False)
+
+    def test_collection_detail_sort_page_uses_noindex(self):
+        response = self.client.get(
+            reverse("collection-detail", kwargs={"slug": self.published_collection.slug}),
+            {"sort": "title"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="noindex,follow"', html=False)
+
+    def test_sitemap_includes_collections_when_enabled(self):
+        response = self.client.get(reverse("sitemap-xml"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<loc>https://example.com/collections/</loc>", html=False)
+        self.assertContains(response, "<loc>https://example.com/collections/markirovka-ds/</loc>", html=False)

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -5,6 +6,7 @@ from django.views import View
 
 from apps.core.seo import build_absolute_url
 from apps.products.models import Product
+from apps.products.services.collections import get_public_collections_queryset
 
 from .health import build_readiness_report
 from .metrics import inc_health_readiness_check, metrics_response
@@ -68,6 +70,8 @@ class SitemapXmlView(View):
             {"location": build_absolute_url(reverse("cookie-policy"))},
             {"location": build_absolute_url(reverse("custom-game"))},
         ]
+        if settings.COLLECTIONS_ENABLED:
+            static_urls.append({"location": build_absolute_url(reverse("collections"))})
         product_urls = [
             {
                 "location": build_absolute_url(product.get_absolute_url()),
@@ -75,10 +79,19 @@ class SitemapXmlView(View):
             }
             for product in Product.objects.order_by("id")
         ]
+        collection_urls = []
+        if settings.COLLECTIONS_ENABLED:
+            collection_urls = [
+                {
+                    "location": build_absolute_url(collection.get_absolute_url()),
+                    "lastmod": collection.updated_at.date().isoformat(),
+                }
+                for collection in get_public_collections_queryset()
+            ]
         payload = render_to_string(
             "seo/sitemap.xml",
             {
-                "urls": [*static_urls, *product_urls],
+                "urls": [*static_urls, *product_urls, *collection_urls],
             },
         )
         return HttpResponse(payload, content_type="application/xml; charset=utf-8")

@@ -4,6 +4,7 @@ import admin_thumbnails
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
@@ -21,8 +22,10 @@ from .forms import ProductFileAdminForm
 from .models import (
     AgeGroupTag,
     Category,
+    CollectionProduct,
     DevelopmentAreaTag,
     Product,
+    ProductCollection,
     ProductFile,
     ProductImage,
     Review,
@@ -357,6 +360,193 @@ class ProductFileAdmin(admin.ModelAdmin):
 
         if uploaded_file and previous_file_key and previous_file_key != obj.file_key:
             delete_product_file(file_key=previous_file_key)
+
+
+class ProductCollectionAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProductCollection
+        fields = "__all__"
+        widgets = {
+            "short_description": forms.TextInput(attrs={"size": 80}),
+            "description": forms.Textarea(attrs={"rows": 6}),
+            "seo_description": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def _post_clean(self):
+        exclude = self._get_validation_exclusions()
+        self.instance = forms.models.construct_instance(self, self.instance, exclude=exclude)
+        self.instance._validate_publish = False
+        try:
+            self.instance.full_clean()
+        except ValidationError as exc:
+            self._update_errors(exc)
+        finally:
+            if hasattr(self.instance, "_validate_publish"):
+                delattr(self.instance, "_validate_publish")
+
+
+class CollectionProductInline(admin.TabularInline):
+    model = CollectionProduct
+    extra = 1
+    autocomplete_fields = ("product",)
+    fields = ("product", "sort_order", "is_featured", "label", "created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("sort_order", "id")
+
+
+@admin_thumbnails.thumbnail("cover_image", _("Обложка"))
+@admin.register(ProductCollection, site=admin_site)
+class ProductCollectionAdmin(admin.ModelAdmin):
+    form = ProductCollectionAdminForm
+    inlines = (CollectionProductInline,)
+    list_display = (
+        "title",
+        "slug",
+        "is_published",
+        "visible_products_count_display",
+        "products_total_display",
+        "sort_order",
+        "show_on_homepage",
+        "show_in_catalog",
+        "show_in_footer",
+        "updated_at",
+    )
+    list_filter = (
+        "is_published",
+        "robots",
+        "show_on_homepage",
+        "show_in_catalog",
+        "show_in_navigation",
+        "show_in_footer",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = ("title", "slug", "short_description", "seo_title", "campaign_code")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = (
+        "cover_image_thumbnail",
+        "public_url_display",
+        "visible_products_count_display",
+        "products_total_display",
+        "publish_readiness_display",
+        "created_at",
+        "updated_at",
+    )
+    save_on_top = True
+    ordering = ("sort_order", "title")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "title",
+                    "slug",
+                    "short_description",
+                    "description",
+                ),
+            },
+        ),
+        (
+            _("SEO"),
+            {
+                "fields": (
+                    "seo_title",
+                    "seo_description",
+                    "robots",
+                    "campaign_code",
+                ),
+            },
+        ),
+        (
+            _("Обложка"),
+            {
+                "fields": (
+                    "cover_image_thumbnail",
+                    "cover_image",
+                ),
+            },
+        ),
+        (
+            _("Публикация"),
+            {
+                "fields": (
+                    "is_published",
+                    "min_products_to_publish",
+                    "publish_starts_at",
+                    "publish_ends_at",
+                    "publish_readiness_display",
+                    "public_url_display",
+                ),
+            },
+        ),
+        (
+            _("Навигация"),
+            {
+                "fields": (
+                    "sort_order",
+                    "badge",
+                    "show_on_homepage",
+                    "show_in_catalog",
+                    "show_in_navigation",
+                    "show_in_footer",
+                ),
+            },
+        ),
+        (
+            _("Даты"),
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_products_total=Count("collection_products", distinct=True))
+
+    @admin.display(description=_("Видимых товаров"))
+    def visible_products_count_display(self, obj):
+        return obj.visible_products_count()
+
+    @admin.display(description=_("Товаров в подборке"), ordering="_products_total")
+    def products_total_display(self, obj):
+        return getattr(obj, "_products_total", obj.collection_products.count())
+
+    @admin.display(description=_("Публичный URL"))
+    def public_url_display(self, obj):
+        if not obj.pk or not obj.slug:
+            return "—"
+        return format_html("<code>/collections/{}/</code>", obj.slug)
+
+    @admin.display(description=_("Готовность к публикации"))
+    def publish_readiness_display(self, obj):
+        if not obj.pk:
+            return _("Сохраните подборку, затем добавьте товары.")
+        visible = obj.visible_products_count()
+        minimum = obj.min_products_to_publish
+        if visible >= minimum and obj.is_within_publish_window():
+            return format_html('<span style="color:#15803d;">{}</span>', _("Можно публиковать"))
+        return format_html(
+            '<span style="color:#b45309;">{}</span>',
+            _("Видимых товаров: %(visible)s из %(minimum)s") % {"visible": visible, "minimum": minimum},
+        )
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        obj = form.instance
+        obj.refresh_from_db()
+        obj._validate_publish = True
+        try:
+            obj.full_clean()
+        except ValidationError as exc:
+            if obj.is_published and "is_published" in exc.error_dict:
+                obj.is_published = False
+                obj.save(update_fields=["is_published"])
+            for field, errors in exc.error_dict.items():
+                for error in errors:
+                    messages.error(request, "%s: %s" % (field, error))
+        finally:
+            if hasattr(obj, "_validate_publish"):
+                delattr(obj, "_validate_publish")
 
 
 class ReviewAdminForm(forms.ModelForm):

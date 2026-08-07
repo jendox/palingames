@@ -83,6 +83,7 @@ class PaliAdminSite(AdminSite):
         },
         "products": {
             "Product": 10,
+            "ProductCollection": 15,
             "Review": 20,
             "ProductFile": 30,
             "ProductImage": 40,

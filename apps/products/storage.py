@@ -26,6 +26,13 @@ def build_product_image_object_key(*, product_slug, filename: str) -> str:
     return f"{prefix}/{slug}/{uuid4().hex}{extension}"
 
 
+def build_collection_cover_object_key(*, collection_slug, filename: str) -> str:
+    extension = Path(filename).suffix.lower() or ".jpg"
+    prefix = settings.S3_COLLECTION_COVER_PREFIX.strip("/")
+    slug = collection_slug or "cover"
+    return f"{prefix}/{slug}/{uuid4().hex}{extension}"
+
+
 def build_product_image_public_url(object_key: str) -> str:
     base_url = (settings.S3_PRODUCT_IMAGES_PUBLIC_BASE_URL or "").strip()
     if base_url:
