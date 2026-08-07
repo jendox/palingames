@@ -1,0 +1,44 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto w-full max-w-[1200px] px-4 py-[70px]">
+    <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Тематические подборки" %}
+    </h1>
+
+    {% if collection_cards %}
+      <div class="mx-auto mt-[70px] grid w-fit grid-cols-3 gap-x-[30px] gap-y-[50px] xl:gap-x-[100px] xl:gap-y-[100px]">
+        {% for card in collection_cards %}
+          <a
+            href="{{ card.url }}"
+            class="relative flex h-[247px] w-[300px] flex-col items-center justify-center rounded-[30px] px-[24px] {{ card.background_class }}"
+          >
+            {% if card.badge %}
+              <span class="absolute right-[16px] top-[16px] rounded-[8px] bg-[var(--color-purple)] px-[10px] py-[4px] text-[11px] font-bold uppercase text-[var(--color-white)]">
+                {{ card.badge }}
+              </span>
+            {% endif %}
+            <img
+              src="{{ card.cover_url }}"
+              alt=""
+              class="h-[94px] w-[100px] object-contain"
+              draggable="false"
+            >
+            <div class="mt-[10px] max-w-[230px] text-balance text-center text-[24px] leading-[36px] font-bold {{ card.text_class }}">
+              {{ card.title }}
+            </div>
+            {% if card.short_description %}
+              <p class="mt-[6px] max-w-[230px] text-balance text-center text-[14px] leading-[18px] {{ card.text_class }} opacity-90">
+                {{ card.short_description }}
+              </p>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mx-auto mt-[70px] max-w-[640px] text-center text-[18px] leading-[24px] text-[var(--color-black-80)]">
+        {% trans "Подборки скоро появятся." %}
+      </p>
+    {% endif %}
+  </div>
+</section>

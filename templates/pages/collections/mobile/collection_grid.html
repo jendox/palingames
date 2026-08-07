@@ -1,0 +1,46 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto w-full px-4 py-[50px]">
+    <h1 class="text-center text-[24px] font-bold uppercase text-[var(--color-black)]">
+      {% trans "Тематические подборки" %}
+    </h1>
+
+    {% if collection_cards %}
+      <div class="mx-auto mt-[40px] max-w-[360px] space-y-[15px]">
+        {% for card in collection_cards %}
+          <a
+            href="{{ card.url }}"
+            class="relative flex items-center gap-x-[25px] rounded-[10px] px-[25px] py-[18px] {{ card.background_class }}"
+          >
+            {% if card.badge %}
+              <span class="absolute right-[12px] top-[10px] rounded-[6px] bg-[var(--color-purple)] px-[8px] py-[2px] text-[10px] font-bold uppercase text-[var(--color-white)]">
+                {{ card.badge }}
+              </span>
+            {% endif %}
+            <img
+              src="{{ card.cover_url }}"
+              alt=""
+              class="h-[34px] w-[41px] flex-none object-contain"
+              draggable="false"
+            >
+            <div class="min-w-0">
+              <div class="text-[18px] font-bold {{ card.text_class }}">
+                {{ card.title }}
+              </div>
+              {% if card.short_description %}
+                <p class="mt-[4px] text-[13px] leading-[16px] {{ card.text_class }} opacity-90">
+                  {{ card.short_description }}
+                </p>
+              {% endif %}
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mx-auto mt-[40px] max-w-[320px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "Подборки скоро появятся." %}
+      </p>
+    {% endif %}
+  </div>
+</section>

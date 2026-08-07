@@ -242,6 +242,7 @@ Django/Celery → Redis Stream (TELEGRAM_OUTBOUND_STREAM)
 
 - **Download archives:** private, key `{product_slug}/{uuid}.{ext}`, presigned URL при скачивании.
 - **Previews:** public prefix `previews/...` (CDN/object storage URL).
+- **Collection covers:** public prefix `collections/...` (same bucket; see [product-collections.md](product-collections.md)).
 - Admin upload: напрямую в S3, метаданные в `ProductFile`.
 
 Readiness (`/health/ready/`) проверяет PostgreSQL, Redis и доступность S3.

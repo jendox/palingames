@@ -3042,6 +3042,26 @@ class CollectionViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'content="noindex,follow"', html=False)
 
+    def test_collection_detail_renders_analytics_context(self):
+        response = self.client.get(reverse("collection-detail", kwargs={"slug": self.published_collection.slug}))
+
+        self.assertContains(response, 'id="collection-analytics-context"')
+        self.assertContains(response, '"collection_slug": "markirovka-ds"')
+        self.assertContains(response, "collection_title")
+        self.assertContains(response, "data-analytics-item")
+
+    def test_collection_detail_htmx_returns_desktop_results_fragment(self):
+        response = self.client.get(
+            reverse("collection-detail", kwargs={"slug": self.published_collection.slug}),
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="collection-desktop-results",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "pages/collection/desktop/results_panel.html")
+        self.assertContains(response, 'id="collection-desktop-results"')
+        self.assertNotContains(response, "<title>")
+
     def test_sitemap_includes_collections_when_enabled(self):
         response = self.client.get(reverse("sitemap-xml"))
 

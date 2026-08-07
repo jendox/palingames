@@ -127,6 +127,8 @@ Product files хранятся в приватном S3-compatible object storag
 - в БД сохраняются `file_key`, имя файла, MIME type, размер и checksum;
 - на продукт допускается только один активный архив.
 
+**Тематические подборки:** обложки в prefix `collections/` (public read, как `previews/`). Руководство по наполнению в admin: [docs/product-collections.md](docs/product-collections.md).
+
 ## Стек
 
 - Python `3.13`
@@ -458,7 +460,7 @@ http://127.0.0.1:3000
 
 `make up-develop` поднимает MinIO и one-shot контейнер `minio-init`, который:
 - создаёт bucket `products` (если ещё нет);
-- включает anonymous read только для `previews/*` (превью товаров).
+- включает anonymous read только для `previews/*` (превью товаров) и `collections/*` (обложки подборок).
 
 В `.env` можно использовать, например:
 

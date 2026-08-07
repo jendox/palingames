@@ -1,0 +1,63 @@
+{% load static i18n %}
+
+<section id="collection-mobile-listing-root" class="relative overflow-hidden bg-[var(--color-white)] px-4 pb-[48px] pt-[50px]">
+  <div class="mx-auto max-w-[356px]">
+    <h1 class="text-center text-[20px] font-bold uppercase leading-[20px] text-[var(--color-black)]">
+      {{ collection.title }}
+    </h1>
+    {% if collection.short_description %}
+      <p class="mt-[8px] text-center text-[13px] font-semibold leading-[18px] text-[var(--color-black-80)]">
+        {{ collection.short_description }}
+      </p>
+    {% endif %}
+
+    {% if catalog_mobile_products_count %}
+      <div id="collection-mobile-controls" class="mt-[18px] flex justify-end" style="scroll-margin-top: 24px;">
+        <details class="group relative" data-catalog-dropdown data-sort-dropdown>
+          <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
+            <div class="grid h-[28px] w-[110px] cursor-pointer select-none grid-cols-[1fr_8px] items-center gap-[8px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[12px] py-[6px] text-[12px] font-bold leading-none text-[var(--color-black)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
+              <span class="text-center">{% trans "сортировка" %}</span>
+              <span class="flex w-[8px] items-center justify-center">
+                <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[6px] w-[8px] group-open:hidden" aria-hidden="true">
+                <img src="{% static 'images/icons/arrow-down-white.svg' %}" alt="" class="hidden h-[8px] w-[8px] group-open:block" aria-hidden="true">
+              </span>
+            </div>
+          </summary>
+
+          <div class="absolute right-0 top-[36px] z-20 w-[240px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
+            <div class="flex flex-col gap-[12px] px-[16px] py-[16px]">
+              {% for option in catalog_sort_options %}
+                <a
+                  href="{% querystring sort=option.value page=None %}"
+                  data-sort-option
+                  data-sort-value="{{ option.value }}"
+                  class="flex min-h-[24px] items-center hover:bg-[var(--color-lilac)]/40"
+                >
+                  <span class="checkbox-option">
+                    <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
+                    <span class="text-[13px] font-normal leading-[18px]">{{ option.label }}</span>
+                  </span>
+                </a>
+              {% endfor %}
+              <a href="{% querystring sort=None page=None %}" data-sort-reset class="btn-reset-control mx-auto mt-[4px]">
+                {% trans "сбросить" %}
+              </a>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {% include "pages/collection/mobile/results_panel.html" %}
+    {% else %}
+      <p class="mt-[24px] text-center text-[14px] leading-[18px] text-[var(--color-black-80)]">
+        {% trans "В этой подборке пока нет доступных товаров." %}
+      </p>
+    {% endif %}
+
+    {% if collection.description %}
+      <div class="mt-[32px] text-center text-[14px] leading-[20px] text-[var(--color-black-80)]">
+        {{ collection.description|linebreaks }}
+      </div>
+    {% endif %}
+  </div>
+</section>

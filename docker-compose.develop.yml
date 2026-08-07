@@ -101,6 +101,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin123
       S3_BUCKET_NAME: products
       S3_PRODUCT_IMAGES_PREFIX: previews
+      S3_COLLECTION_COVER_PREFIX: collections
     volumes:
       - ./deploy/minio/init-buckets.sh:/init-buckets.sh:ro
     entrypoint: ["/bin/sh", "/init-buckets.sh"]

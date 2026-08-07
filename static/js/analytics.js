@@ -21,6 +21,8 @@
       favorites: "favorites",
       payment: "payment",
       "alphabet-navigator": "alphabet_navigator",
+      collections: "collections_index",
+      "collection-detail": "collection",
     };
 
     return mapping[pageName] || pageName || "unknown";
@@ -94,10 +96,11 @@
     }
 
     trackEvent("view_item_list", {
-      ecommerce: {
+      ecommerce: normalizePayload({
+        item_list_id: payload.item_list_id,
         item_list_name: payload.item_list_name,
         items: payload.items,
-      },
+      }),
     });
   }
 
@@ -224,25 +227,42 @@
     return Array.from(itemsById.values());
   }
 
-  function currentCatalogListName() {
+  function currentCatalogListContext() {
+    const pageType = getPageType();
+    if (pageType === "collection") {
+      const collectionContext = parseJsonScript("collection-analytics-context");
+      if (collectionContext?.collection_slug) {
+        return {
+          item_list_id: collectionContext.collection_slug,
+          item_list_name: collectionContext.collection_title || collectionContext.collection_slug,
+        };
+      }
+    }
+
     const searchQuery = new URLSearchParams(window.location.search).get("q");
     if (searchQuery) {
-      return "search_results";
+      return {
+        item_list_name: "search_results",
+      };
     }
 
     const category = new URLSearchParams(window.location.search).get("category");
     if (category) {
-      return category;
+      return {
+        item_list_name: category,
+      };
     }
 
-    return getPageType();
+    return {
+      item_list_name: pageType,
+    };
   }
 
   let lastTrackedListSignature = "";
 
   function maybeTrackCatalogViewList() {
     const pageType = getPageType();
-    if (!["catalog", "alphabet_navigator", "favorites"].includes(pageType)) {
+    if (!["catalog", "alphabet_navigator", "favorites", "collection"].includes(pageType)) {
       return;
     }
 
@@ -261,8 +281,9 @@
     }
     lastTrackedListSignature = signature;
 
+    const listContext = currentCatalogListContext();
     trackViewItemList({
-      item_list_name: currentCatalogListName(),
+      ...listContext,
       items,
     });
   }

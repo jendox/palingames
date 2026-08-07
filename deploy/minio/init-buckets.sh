@@ -6,6 +6,7 @@ MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-minioadmin123}"
 BUCKET_NAME="${S3_BUCKET_NAME:-products}"
 PREVIEWS_PREFIX="${S3_PRODUCT_IMAGES_PREFIX:-previews}"
+COLLECTIONS_PREFIX="${S3_COLLECTION_COVER_PREFIX:-collections}"
 
 echo "Configuring MinIO bucket '${BUCKET_NAME}' at ${MINIO_ENDPOINT}..."
 
@@ -16,5 +17,6 @@ done
 
 mc mb "local/${BUCKET_NAME}" --ignore-existing
 mc anonymous set download "local/${BUCKET_NAME}/${PREVIEWS_PREFIX}"
+mc anonymous set download "local/${BUCKET_NAME}/${COLLECTIONS_PREFIX}"
 
-echo "MinIO ready: bucket=${BUCKET_NAME}, anonymous read=${PREVIEWS_PREFIX}/*"
+echo "MinIO ready: bucket=${BUCKET_NAME}, anonymous read=${PREVIEWS_PREFIX}/*, ${COLLECTIONS_PREFIX}/*"

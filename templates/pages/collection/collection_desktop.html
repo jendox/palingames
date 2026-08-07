@@ -1,0 +1,84 @@
+{% load static i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="relative z-10 mx-auto max-w-[1500px] px-6 pb-[90px] pt-[56px] min-[1280px]:px-[42px] min-[1600px]:px-[72px]">
+    <div class="mx-auto max-w-[900px] text-center">
+      <h1 class="text-[32px] font-bold uppercase leading-[32px] text-[var(--color-black)] min-[1280px]:text-[40px] min-[1280px]:leading-[40px]">
+        {{ collection.title }}
+      </h1>
+      {% if collection.short_description %}
+        <p class="mt-[12px] text-[18px] leading-[26px] text-[var(--color-black-80)] min-[1280px]:mt-[16px]">
+          {{ collection.short_description }}
+        </p>
+      {% endif %}
+    </div>
+
+    {% if catalog_products_count %}
+      <div class="mt-[48px] min-[1200px]:mt-[70px]" data-collection-listing>
+        <div id="collection-controls" class="flex flex-wrap items-center justify-end gap-[16px]" style="scroll-margin-top: 24px;">
+          <details class="group relative" data-catalog-dropdown data-sort-dropdown>
+            <summary class="list-none outline-none [&::-webkit-details-marker]:hidden">
+              <div class="grid h-[50px] w-[130px] cursor-pointer select-none grid-cols-[1fr_10px] items-center gap-[10px] rounded-[10px] border border-[var(--color-purple)] bg-[var(--color-white)] px-[20px] py-[15px] text-[14px] font-bold leading-none text-[var(--color-black)] group-open:bg-[var(--color-purple)] group-open:text-[var(--color-white)]">
+                <span class="text-center">{% trans "сортировка" %}</span>
+                <span class="flex w-[10px] items-center justify-center">
+                  <img src="{% static 'images/icons/arrow-right.svg' %}" alt="" class="h-[7px] w-[10px] group-open:hidden" aria-hidden="true">
+                  <img src="{% static 'images/icons/arrow-down-white.svg' %}" alt="" class="hidden h-[10px] w-[10px] group-open:block" aria-hidden="true">
+                </span>
+              </div>
+            </summary>
+
+            <div class="absolute right-0 top-[62px] z-20 h-[310px] w-[289px] rounded-[10px] border border-[var(--color-grey)] bg-[var(--color-white)] shadow-[0_20px_40px_rgba(0,0,0,0.08)]">
+              <div class="flex h-full flex-col">
+                <div class="flex flex-1 flex-col gap-[15px] overflow-hidden px-[20px] pt-[20px]">
+                  {% for option in catalog_sort_options %}
+                    <a
+                      href="{% querystring sort=option.value page=None %}"
+                      hx-get="{% querystring sort=option.value page=None %}"
+                      hx-target="#collection-desktop-results"
+                      hx-swap="outerHTML"
+                      hx-push-url="true"
+                      data-sort-option
+                      data-sort-value="{{ option.value }}"
+                      class="flex h-[24px] items-center hover:bg-[var(--color-lilac)]/40"
+                    >
+                      <span class="checkbox-option">
+                        <span class="checkbox-purple {% if option.selected %}checked{% endif %}" aria-hidden="true"></span>
+                        <span class="font-normal">{{ option.label }}</span>
+                      </span>
+                    </a>
+                  {% endfor %}
+                </div>
+
+                <div class="flex justify-center px-[20px] pb-[20px] pt-[30px]">
+                  <a
+                    href="{% querystring sort=None page=None %}"
+                    hx-get="{% querystring sort=None page=None %}"
+                    hx-target="#collection-desktop-results"
+                    hx-swap="outerHTML"
+                    hx-push-url="true"
+                    data-sort-reset
+                    class="btn-reset-control"
+                  >
+                    {% trans "сбросить" %}
+                  </a>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        {% include "pages/collection/desktop/results_panel.html" %}
+      </div>
+    {% else %}
+      <p class="mx-auto mt-[48px] max-w-[640px] text-center text-[18px] leading-[24px] text-[var(--color-black-80)] min-[1200px]:mt-[70px]">
+        {% trans "В этой подборке пока нет доступных товаров." %}
+      </p>
+    {% endif %}
+
+    {% if collection.description %}
+      <div class="mx-auto mt-[56px] max-w-[900px] text-center text-[16px] leading-[26px] text-[var(--color-black-80)]">
+        {{ collection.description|linebreaks }}
+      </div>
+    {% endif %}
+  </div>
+</section>

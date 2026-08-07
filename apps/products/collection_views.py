@@ -32,6 +32,16 @@ class CollectionFeatureRequireMixin:
 
 
 class CollectionListingMixin(CatalogListingMixin):
+    card_styles = (
+        {
+            "background_class": "bg-[var(--color-mint)]",
+            "text_class": "text-[var(--color-turquoise)]",
+        },
+        {
+            "background_class": "bg-[var(--color-lilac)]",
+            "text_class": "text-[var(--color-purple)]",
+        },
+    )
     sort_options = (
         ("title", "имя"),
         ("price_desc", "цена по убыванию"),
@@ -101,10 +111,11 @@ class CollectionListingMixin(CatalogListingMixin):
             ],
         }
 
-    def _build_collection_card(self, collection: ProductCollection) -> dict:
+    def _build_collection_card(self, collection: ProductCollection, *, style_index: int = 0) -> dict:
         cover_url = static("images/logo.svg")
         if collection.cover_image:
             cover_url = collection.cover_image.url
+        style = self.card_styles[style_index % len(self.card_styles)]
         return {
             "title": collection.title,
             "slug": collection.slug,
@@ -112,6 +123,7 @@ class CollectionListingMixin(CatalogListingMixin):
             "short_description": collection.short_description,
             "badge": collection.badge,
             "cover_url": cover_url,
+            **style,
         }
 
 
@@ -128,7 +140,8 @@ class CollectionIndexView(CollectionFeatureRequireMixin, CollectionListingMixin,
         ]
         context["breadcrumbs"] = breadcrumbs
         context["collection_cards"] = [
-            self._build_collection_card(collection) for collection in get_public_collections_queryset()
+            self._build_collection_card(collection, style_index=index)
+            for index, collection in enumerate(get_public_collections_queryset())
         ]
         context.update(
             build_seo_context(
@@ -146,7 +159,15 @@ class CollectionIndexView(CollectionFeatureRequireMixin, CollectionListingMixin,
 
 
 class CollectionDetailView(CollectionFeatureRequireMixin, CollectionListingMixin, TemplateView):
-    template_name = "pages/collection/detail.html"
+    template_name = "pages/collection.html"
+    htmx_desktop_results_template_name = "pages/collection/desktop/results_panel.html"
+
+    def get_template_names(self):
+        if self.request.headers.get("HX-Request") == "true":
+            hx_target = self.request.headers.get("HX-Target", "").strip().lstrip("#")
+            if hx_target == "collection-desktop-results":
+                return [self.htmx_desktop_results_template_name]
+        return [self.template_name]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -163,6 +184,10 @@ class CollectionDetailView(CollectionFeatureRequireMixin, CollectionListingMixin
         context.update(
             self._build_collection_products_context(get_collection_products_queryset(collection)),
         )
+        context["collection_analytics_context"] = {
+            "collection_slug": collection.slug,
+            "collection_title": collection.title,
+        }
 
         has_extra_params = any(self.request.GET.get(param) for param in ("sort", "page"))
         seo_title = collection.seo_title or f"{collection.title} — PalinGames"

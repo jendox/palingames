@@ -423,7 +423,7 @@ https://eu2.contabostorage.com/palingames.products/previews/{product-slug}/{uuid
 
 ### Bucket policy (Contabo / S3-compatible)
 
-Public read **только** для `previews/*`. Остальные объекты bucket — private.
+Public read **только** для `previews/*` и `collections/*` (обложки тематических подборок). Остальные объекты bucket — private.
 
 Пример policy для bucket `palingames.products`:
 
@@ -435,13 +435,16 @@ Public read **только** для `previews/*`. Остальные объек�
       "Effect": "Allow",
       "Principal": {"AWS": ["*"]},
       "Action": ["s3:GetObject"],
-      "Resource": ["arn:aws:s3:::palingames.products/previews/*"]
+      "Resource": [
+        "arn:aws:s3:::palingames.products/previews/*",
+        "arn:aws:s3:::palingames.products/collections/*"
+      ]
     }
   ]
 }
 ```
 
-Локально `make up-develop` поднимает MinIO и one-shot `minio-init`, который создаёт bucket `products` и включает anonymous read для `previews/*` (см. [README](../README.md) § MinIO).
+Локально `make up-develop` поднимает MinIO и one-shot `minio-init`, который создаёт bucket `products` и включает anonymous read для `previews/*` и `collections/*` (см. [README](../README.md) § MinIO).
 
 ### Миграция существующих превью
 
