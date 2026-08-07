@@ -2566,6 +2566,22 @@ class ProductReviewFlowTests(TestCase):
         self.assertEqual(email.to, [self.user.email])
         self.assertIn("промокод на 10%", email.subject)
         self.assertIn(review.reward_promo_code.code, email.body)
+        for fragment in (
+            "https://example.com/catalog/",
+            "utm_source=email",
+            "utm_medium=transactional",
+            "utm_campaign=review_reward_promo",
+        ):
+            self.assertIn(fragment, email.body)
+        self.assertTrue(email.alternatives)
+        html_body = email.alternatives[0][0]
+        for fragment in (
+            "https://example.com/catalog/",
+            "utm_source=email",
+            "utm_medium=transactional",
+            "utm_campaign=review_reward_promo",
+        ):
+            self.assertIn(fragment, html_body)
 
     @override_settings(
         SITE_BASE_URL="https://example.com",

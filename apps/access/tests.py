@@ -20,7 +20,7 @@ from .email_outbox import (
     decrypt_outbox_payload,
     process_guest_access_email_outbox,
 )
-from .emails import send_guest_order_download_email
+from .emails import build_tracked_url, send_guest_order_download_email
 from .models import GuestAccess
 from .services import create_guest_access, mark_guest_access_used, release_guest_access_use, resolve_guest_access
 
@@ -529,3 +529,52 @@ class GuestAccessEmailOutboxTests(TestCase):
         self.assertFalse(NotificationOutbox.objects.filter(pk=old_sent.pk).exists())
         self.assertFalse(NotificationOutbox.objects.filter(pk=old_failed.pk).exists())
         self.assertTrue(NotificationOutbox.objects.filter(pk=fresh_sent.pk).exists())
+
+
+@override_settings(SITE_BASE_URL="https://example.com")
+class BuildTrackedUrlTests(TestCase):
+    def test_build_tracked_url_appends_utm_query_params(self):
+        url = build_tracked_url(
+            reverse("catalog"),
+            {
+                "utm_source": "email",
+                "utm_medium": "transactional",
+                "utm_campaign": "order_reward_promo",
+            },
+        )
+
+        self.assertEqual(
+            url,
+            "https://example.com/catalog/?utm_source=email&utm_medium=transactional&utm_campaign=order_reward_promo",
+        )
+
+    def test_build_tracked_url_returns_base_url_when_utm_empty(self):
+        url = build_tracked_url(reverse("catalog"), {})
+
+        self.assertEqual(url, "https://example.com/catalog/")
+
+    def test_build_tracked_url_uses_ampersand_when_base_has_query_params(self):
+        url = build_tracked_url(
+            "/catalog/?category=math",
+            {
+                "utm_source": "email",
+                "utm_medium": "transactional",
+                "utm_campaign": "review_reward_promo",
+            },
+        )
+
+        self.assertEqual(
+            url,
+            "https://example.com/catalog/?category=math&utm_source=email&utm_medium=transactional&utm_campaign=review_reward_promo",
+        )
+
+    def test_build_tracked_url_preserves_absolute_url(self):
+        url = build_tracked_url(
+            "https://cdn.example.com/landing",
+            {"utm_source": "email", "utm_campaign": "order_reward_promo"},
+        )
+
+        self.assertEqual(
+            url,
+            "https://cdn.example.com/landing?utm_source=email&utm_campaign=order_reward_promo",
+        )

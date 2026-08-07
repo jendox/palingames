@@ -6,7 +6,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from apps.access.emails import build_absolute_url
+from apps.access.emails import build_absolute_url, build_tracked_url
 from apps.core.logging import log_event
 from apps.emails.senders import OutboundEmail, send_outbound_email
 from apps.notifications.models import NotificationOutbox
@@ -35,12 +35,17 @@ def send_order_reward_user_email(
         return
 
     subject = f"Спасибо за покупку! Ваш промокод на {promo_code.discount_percent}%"
+    utm = {
+        "utm_source": "email",
+        "utm_medium": "transactional",
+        "utm_campaign": "order_reward_promo",
+    }
     context = {
         "order": order,
         "promo_code": promo_code,
         "discount_percent": promo_code.discount_percent,
         "expires_at": promo_code.ends_at,
-        "catalog_url": build_absolute_url(reverse("catalog")),
+        "catalog_url": build_tracked_url(reverse("catalog"), utm),
         "logo_url": build_absolute_url(staticfiles_storage.url("images/logo.svg")),
     }
     text_body = render_to_string("orders/email/order_reward_user.txt", context)

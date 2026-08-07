@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -24,6 +24,14 @@ def build_absolute_url(path_or_url: str) -> str:
     if path_or_url.startswith(("http://", "https://")):
         return path_or_url
     return urljoin(settings.SITE_BASE_URL.rstrip("/") + "/", path_or_url.lstrip("/"))
+
+
+def build_tracked_url(path_or_url: str, utm: dict[str, Any]) -> str:
+    base_url = build_absolute_url(path_or_url)
+    if not utm:
+        return base_url
+    separator = "&" if "?" in base_url else "?"
+    return f"{base_url}{separator}{urlencode(utm)}"
 
 
 def send_guest_order_download_email(

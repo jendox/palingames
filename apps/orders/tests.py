@@ -879,6 +879,7 @@ class OrderModelTests(TestCase):
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     APP_DATA_ENCRYPTION_KEY="5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
+    SITE_BASE_URL="https://example.com",
     ORDER_REWARD_MIN_TOTAL_AMOUNT="25",
     ORDER_REWARD_DISCOUNT_PERCENT=10,
     ORDER_REWARD_VALID_DAYS=14,
@@ -924,6 +925,22 @@ class OrderRewardNotificationTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.order.email])
         self.assertIn("Ваш промокод", mail.outbox[0].subject)
+        email = mail.outbox[0]
+        self._assert_tracked_catalog_url(email, campaign="order_reward_promo")
+
+    def _assert_tracked_catalog_url(self, email, *, campaign: str) -> None:
+        fragments = (
+            "https://example.com/catalog/",
+            "utm_source=email",
+            "utm_medium=transactional",
+            f"utm_campaign={campaign}",
+        )
+        for fragment in fragments:
+            self.assertIn(fragment, email.body)
+        self.assertTrue(email.alternatives)
+        html_body = email.alternatives[0][0]
+        for fragment in fragments:
+            self.assertIn(fragment, html_body)
 
     def test_ensure_order_reward_email_does_not_create_duplicate_outbox(self):
         ensure_order_reward_email(self.order)
