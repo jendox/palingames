@@ -52,6 +52,7 @@
       method: "POST",
       credentials: "same-origin",
       headers: {
+        "X-Requested-With": "XMLHttpRequest",
         "Content-Type": "application/json",
         "X-CSRFToken": getCsrfToken(),
       },
@@ -63,6 +64,12 @@
       data = await response.json();
     } catch (_error) {
       data = {};
+    }
+
+    if (response.status === 401) {
+      throw new Error(
+        "Сессия доступа истекла. Обновите страницу, войдите снова и повторно выберите файл."
+      );
     }
 
     if (!response.ok) {
