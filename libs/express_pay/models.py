@@ -234,7 +234,7 @@ class ExpressPayPayment(PaymentModel):
     amount: Decimal = Field(alias="Amount", max_digits=19, decimal_places=2)
     currency: int | str = Field(alias="Currency")
     info: str | None = Field(default=None, alias="Info")
-
+    canceled_date: datetime | None = Field(default=None, alias="CanceledDate")
     document_date: datetime | None = Field(
         default=None,
         alias="DocumentDate",
@@ -244,7 +244,12 @@ class ExpressPayPayment(PaymentModel):
         alias="TransferredAmount",
     )
 
-    @field_validator("created_at", "document_date", mode="before")
+    @field_validator(
+        "created_at",
+        "document_date",
+        "canceled_date",
+        mode="before",
+    )
     @classmethod
     def parse_date(cls, value: Any) -> datetime | None:
         dt = _parse_express_pay_datetime(
