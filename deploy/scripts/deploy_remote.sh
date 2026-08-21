@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 COMPOSE=(docker compose -f docker-compose.prod.yml -f docker-compose.override.yml)
+DEPLOY_SERVICES=(postgres redis web celery-worker celery-beat)
 STATE_FILE=".deploy-state"
 HEALTH_URL="http://127.0.0.1:8000/health/ready/"
 MAX_RETRIES=12
@@ -81,7 +82,7 @@ rollback() {
   export PALINGAMES_WEB_REF="$PREV_WEB"
   export PALINGAMES_BOT_REF="$PREV_BOT"
   "${COMPOSE[@]}" pull web celery-worker celery-beat telegram-bot
-  "${COMPOSE[@]}" up -d
+  "${COMPOSE[@]}" up -d "${DEPLOY_SERVICES[@]}"
 }
 
 # --- 4 ---
@@ -95,7 +96,7 @@ fi
 
 "${COMPOSE[@]}" pull web celery-worker celery-beat telegram-bot
 "${COMPOSE[@]}" run --rm web python manage.py migrate --noinput
-"${COMPOSE[@]}" up -d
+"${COMPOSE[@]}" up -d "${DEPLOY_SERVICES[@]}"
 
 # --- 5 ---
 if ! wait_for_ready; then

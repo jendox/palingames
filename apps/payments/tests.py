@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -23,13 +23,22 @@ from apps.payments.alerts import (
     record_payment_webhook_failure_incident,
 )
 from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
-from apps.payments.notifications import ensure_invoice_created_user_email
+from apps.payments.notifications import (
+    _monthly_report_recipient,
+    ensure_invoice_created_user_email,
+    notify_payments_monthly_report_admin_telegram,
+)
+from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import mark_custom_game_request_paid
-from apps.payments.tasks import create_invoice_task, sync_waiting_invoice_statuses_task
+from apps.payments.tasks import (
+    create_invoice_task,
+    send_previous_month_payments_report_task,
+    sync_waiting_invoice_statuses_task,
+)
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
 from libs.express_pay.client import ExpressPayClient
-from libs.express_pay.models import ExpressPayConfig
+from libs.express_pay.models import ExpressPayConfig, ExpressPayPayment
 from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStatusResult
 
 TELEGRAM_NOTIFICATION_TEST_SETTINGS = {
@@ -1605,3 +1614,143 @@ class PaymentStatusSyncIncidentAlertTests(TestCase):
         self.assertEqual(incident.key, "payments.status_sync.failures")
         self.assertEqual(incident.fingerprint, "payments.status_sync.failures:EXPRESS_PAY")
         self.assertEqual(incident.details["error_type"], "RuntimeError")
+
+
+def _build_express_pay_payment(
+    *,
+    payment_no: int,
+    account_no: str = "PG000001ABC12345",
+    created_at: str = "2026-07-15T10:30:00",
+    amount: str = "25.00",
+    currency: int = 933,
+) -> ExpressPayPayment:
+    return ExpressPayPayment.model_validate(
+        {
+            "PaymentNo": payment_no,
+            "AccountNo": account_no,
+            "Created": created_at,
+            "Amount": amount,
+            "Currency": currency,
+        },
+    )
+
+
+class BuildNpdMonthlyReportTests(TestCase):
+    period_start = date(2026, 7, 1)
+    period_end = date(2026, 7, 31)
+
+    def test_build_report_without_payments(self):
+        parts = build_npd_monthly_report([], period_start=self.period_start, period_end=self.period_end)
+
+        self.assertEqual(len(parts), 1)
+        self.assertIn("Отчет о платежах (для НПД)", parts[0])
+        self.assertIn("01.07.2026 - 31.07.2026", parts[0])
+        self.assertIn("В заданном периоде платежей не было.", parts[0])
+
+    def test_build_report_single_page(self):
+        payment = _build_express_pay_payment(payment_no=1)
+        parts = build_npd_monthly_report([payment], period_start=self.period_start, period_end=self.period_end)
+
+        self.assertEqual(len(parts), 1)
+        self.assertIn("PG000001ABC12345", parts[0])
+        self.assertIn("25.00 BYN", parts[0])
+
+    @patch("apps.payments.reports.TELEGRAM_MAX_MESSAGE_LIMIT", 300)
+    def test_build_report_splits_long_report_and_keeps_last_page(self):
+        payments = [
+            _build_express_pay_payment(
+                payment_no=index,
+                account_no=f"PG0000{index:02d}ABC12345",
+                amount=f"{index + 10}.00",
+            )
+            for index in range(1, 8)
+        ]
+
+        parts = build_npd_monthly_report(payments, period_start=self.period_start, period_end=self.period_end)
+
+        self.assertGreater(len(parts), 1)
+        self.assertIn("стр. 2", parts[1])
+        self.assertIn("PG000007ABC12345", parts[-1])
+        self.assertIn("Страница:", parts[0])
+
+
+@override_settings(**TELEGRAM_NOTIFICATION_TEST_SETTINGS)
+class NotifyPaymentsMonthlyReportAdminTelegramTests(TestCase):
+    period_start = date(2026, 7, 1)
+    period_end = date(2026, 7, 31)
+
+    def test_notify_skips_all_parts_when_telegram_is_not_configured(self):
+        with override_settings(TELEGRAM_REDIS_URL=""):
+            result = notify_payments_monthly_report_admin_telegram(
+                period_start=self.period_start,
+                period_end=self.period_end,
+                report_text_parts=["part-1", "part-2"],
+            )
+
+        self.assertEqual(result, {"enqueued": 0, "skipped": 2})
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN,
+            ).exists(),
+        )
+
+    def test_notify_enqueues_single_part(self):
+        result = notify_payments_monthly_report_admin_telegram(
+            period_start=self.period_start,
+            period_end=self.period_end,
+            report_text_parts=["<b>report</b>"],
+        )
+
+        self.assertEqual(result, {"enqueued": 1, "skipped": 0})
+        outbox = NotificationOutbox.objects.get(notification_type=NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN)
+        self.assertEqual(
+            outbox.recipient,
+            _monthly_report_recipient(period_start=self.period_start, part_index=1, parts_total=1),
+        )
+        self.assertEqual(outbox.channel, NotificationOutbox.Channel.TELEGRAM)
+
+    def test_notify_skips_already_active_part(self):
+        NotificationOutbox.objects.create(
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            notification_type=NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN,
+            recipient=_monthly_report_recipient(period_start=self.period_start, part_index=1, parts_total=1),
+            payload_encrypted=encrypt_outbox_payload({"report_text": "already sent"}),
+            status=NotificationOutbox.Status.SENT,
+        )
+
+        result = notify_payments_monthly_report_admin_telegram(
+            period_start=self.period_start,
+            period_end=self.period_end,
+            report_text_parts=["<b>report</b>"],
+        )
+
+        self.assertEqual(result, {"enqueued": 0, "skipped": 1})
+        self.assertEqual(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN,
+            ).count(),
+            1,
+        )
+
+
+@override_settings(**TELEGRAM_NOTIFICATION_TEST_SETTINGS)
+class SendPreviousMonthPaymentsReportTaskTests(TestCase):
+    @patch("apps.payments.tasks.notify_payments_monthly_report_admin_telegram")
+    @patch("apps.payments.tasks.build_npd_monthly_report")
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_task_fetches_payments_and_notifies(
+        self,
+        get_express_pay_request_client_mock,
+        build_npd_monthly_report_mock,
+        notify_mock,
+    ):
+        payment = _build_express_pay_payment(payment_no=1)
+        get_express_pay_request_client_mock.return_value.get_payments.return_value = [payment]
+        build_npd_monthly_report_mock.return_value = ["report-part"]
+        notify_mock.return_value = {"enqueued": 1, "skipped": 0}
+
+        send_previous_month_payments_report_task()
+
+        get_express_pay_request_client_mock.return_value.get_payments.assert_called_once()
+        build_npd_monthly_report_mock.assert_called_once()
+        notify_mock.assert_called_once()
