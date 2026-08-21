@@ -209,6 +209,7 @@ make up-develop
 - `NOTIFICATION_OUTBOX_INCIDENT_WINDOW_SECONDS`
 - `STORAGE_INCIDENT_THRESHOLD`
 - `STORAGE_INCIDENT_WINDOW_SECONDS`
+- `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`
 
 `APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
 
@@ -225,6 +226,7 @@ make up-develop
 Для Telegram incident alerts:
 - `TELEGRAM_INCIDENTS_THREAD_ID` — отдельный forum topic для production incidents;
 - `INCIDENT_ALERT_DEDUPE_TTL_SECONDS` — окно dedupe для повторных incident alerts;
+- `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS` — dedupe для watchdog нарушений доставки оплаченных заказов (по умолчанию 7 дней);
 - thresholds per family управляют, после скольких ошибок за окно алерт считается incident-worthy.
 
 ### 4. Применить миграции
@@ -342,12 +344,15 @@ Incident alerts отправляются в отдельный topic через 
 - `downloads.delivery.failures`
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
+- `orders.delivery.invariant`
 
 Resolved alerts сейчас поддерживаются для:
 - `payments.status_sync.failures`
 - `downloads.delivery.failures`
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
+
+`orders.delivery.invariant` — immediate alert при первом обнаружении нарушения (без threshold и без recovery).
 
 Подробнее:
 - [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
@@ -548,7 +553,7 @@ apps.payments.tasks.sync_waiting_invoice_statuses_task
 python manage.py setup_periodic_tasks
 ```
 
-Создаёт три задачи в `django-celery-beat`: cleanup notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин). Подробнее — [deploy/README.md](deploy/README.md).
+Создаёт задачи в `django-celery-beat`: cleanup notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин), watchdog доставки оплаченных заказов (каждые 5 мин) и другие defaults. Подробнее — [deploy/README.md](deploy/README.md).
 
 **Вручную через Django Admin** (если нужно изменить расписание): Periodic tasks → Add periodic task.
 
@@ -577,6 +582,16 @@ Task (registered): apps.payments.tasks.sync_waiting_invoice_statuses_task
 Schedule: interval, например каждые 5 минут
 Enabled: yes
 ```
+
+4. Watchdog доставки оплаченных заказов
+
+```text
+Task (registered): apps.orders.tasks.check_paid_order_delivery_watchdog_task
+Schedule: interval, каждые 5 минут
+Enabled: yes
+```
+
+Проверяет оплаченные заказы в окне 48 часов (grace 10 минут после оплаты) и алертит при нарушении инвариантов invoice/access/guest email. Не исправляет данные автоматически.
 
 Рекомендуемый стартовый профиль для production:
 - `PAYMENTS_STATUS_SYNC_BATCH_SIZE=25`
@@ -625,11 +640,14 @@ apps.core.tasks.clear_expired_sessions_task
 
 ### Рекомендуемый набор periodic tasks
 
-Минимально — три задачи (создаёт `setup_periodic_tasks`):
+Минимально — четыре operational-задачи (создаёт `setup_periodic_tasks`):
 
 1. `apps.notifications.tasks.cleanup_notification_outbox_task` — `03:20` ежедневно  
 2. `apps.core.tasks.clear_expired_sessions_task` — `03:40` ежедневно  
 3. `apps.payments.tasks.sync_waiting_invoice_statuses_task` — каждые 5 минут  
+4. `apps.orders.tasks.check_paid_order_delivery_watchdog_task` — каждые 5 минут  
+
+Полный список defaults — в `apps/core/periodic_tasks.py` (Telegram feedback/reaper, monthly NPD report и др.).
 
 Housekeeping-задачи лучше разводить по времени на 10–30 минут.
 

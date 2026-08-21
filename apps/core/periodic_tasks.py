@@ -69,6 +69,13 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         hour="12",
         day_of_month="1",
     ),
+    PeriodicTaskSpec(
+        name="Check paid order delivery watchdog",
+        task="apps.orders.tasks.check_paid_order_delivery_watchdog_task",
+        schedule_kind="interval",
+        every=5,
+        period=IntervalSchedule.MINUTES,
+    ),
 )
 
 

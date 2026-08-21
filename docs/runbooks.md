@@ -22,6 +22,7 @@ Incident alerts отправляются через отдельный operation
 - `downloads.delivery.failures`
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
+- `orders.delivery.invariant`
 
 Recovery/resolved alerts сейчас реализованы для:
 - `payments.status_sync.failures`
@@ -29,7 +30,7 @@ Recovery/resolved alerts сейчас реализованы для:
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
 
-`payments.webhook.failures` пока без recovery-сигнала, потому что в success path нет надёжного reason-scoped подтверждения восстановления.
+`payments.webhook.failures` и `orders.delivery.invariant` пока без recovery-сигнала.
 
 ## 2. Payment Webhook Failures
 
@@ -263,7 +264,40 @@ Recovery title:
 - не форсить readiness в `200`;
 - не отключать check ради “зелёного” статуса.
 
-## 8. Как пользоваться runbooks
+## 8. Paid Order Delivery Invariant
+
+Incident key:
+- `orders.delivery.invariant`
+
+Симптомы:
+- в Telegram topic `Incidents` пришёл alert `Paid order delivery problem`;
+- в логах есть `order_delivery_watchdog.completed` с `problems > 0`;
+- заказ в админке `PAID`, но клиент не получил доступ или guest email.
+
+Типовые `problem` codes:
+- `order_paid_at_missing`
+- `invoice_missing`, `invoice_status_mismatch`, `invoice_paid_at_missing`
+- `missing_user_product_access`, `missing_guest_access`
+- `guest_download_notification_missing`, `guest_download_notification_failed`
+- `authenticated_order_without_user`, `unknown_checkout_type`
+
+Что это обычно значит:
+- fulfillment после оплаты не завершился полностью;
+- рассинхрон invoice/order;
+- access не выдан или guest email outbox не создан/упал.
+
+Что проверить:
+1. `Order`, `Invoice`, `UserProductAccess` / `GuestAccess` для `order_id` из alert.
+2. Для guest — `NotificationOutbox` с `notification_type=guest_order_download`.
+3. Логи оплаты: webhook / `mark_order_paid` / grant access tasks.
+
+Что не делать автоматически через watchdog:
+- watchdog только обнаруживает и алертит; self-healing в первой итерации не реализован.
+
+Dedupe:
+- повтор того же нарушения не спамит чат 7 дней (настраивается `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`).
+
+## 9. Как пользоваться runbooks
 
 Правильный порядок реакции:
 1. Определи symptom или incident key.
