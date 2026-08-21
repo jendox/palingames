@@ -1,9 +1,22 @@
 from __future__ import annotations
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, resolve_threshold_incident
+from typing import TYPE_CHECKING
+
+from django.conf import settings
+
+from apps.core.alerts import (
+    ThresholdIncidentSpec,
+    record_threshold_incident,
+    resolve_threshold_incident,
+    send_incident_alert,
+)
+
+if TYPE_CHECKING:
+    from apps.products.smoke_checks import ProductSmokeCheckProblem
 
 DOWNLOAD_DELIVERY_FAILURE_INCIDENT_KEY = "downloads.delivery.failures"
 STORAGE_UNAVAILABLE_INCIDENT_KEY = "storage.s3.unavailable"
+PRODUCT_SMOKE_CHECK_INCIDENT_KEY = "products.smoke_check"
 
 
 def _build_download_delivery_counter_key(*, delivery_type: str, reason: str) -> str:
@@ -98,4 +111,34 @@ def resolve_storage_unavailable_incident(*, operation: str) -> bool:
                 "operation": operation,
             },
         ),
+    )
+
+
+def build_product_smoke_check_fingerprint(problem: ProductSmokeCheckProblem) -> str:
+    parts = [
+        PRODUCT_SMOKE_CHECK_INCIDENT_KEY,
+        str(problem.product_id),
+        problem.code,
+    ]
+    image_id = problem.details.get("image_id")
+    if image_id is not None:
+        parts.append(str(image_id))
+    file_id = problem.details.get("file_id")
+    if file_id is not None:
+        parts.append(str(file_id))
+    return ":".join(parts)
+
+
+def alert_product_smoke_check_problem(problem: ProductSmokeCheckProblem) -> bool:
+    return send_incident_alert(
+        key=PRODUCT_SMOKE_CHECK_INCIDENT_KEY,
+        title="Product smoke check failed",
+        severity=problem.severity,
+        fingerprint=build_product_smoke_check_fingerprint(problem),
+        details={
+            "product_id": problem.product_id,
+            "problem": problem.code,
+            **problem.details,
+        },
+        dedupe_ttl_seconds=settings.PRODUCT_SMOKE_CHECK_ALERT_DEDUPE_TTL_SECONDS,
     )
