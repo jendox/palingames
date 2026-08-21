@@ -10,7 +10,7 @@ import httpx
 from pydantic import ValidationError
 
 from libs.express_pay.client import ExpressPayClient
-from libs.express_pay.models import ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest
+from libs.express_pay.models import ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest, MINSK_TZ
 from libs.payments.models import CreateInvoiceRequest, WebhookSignatureVerification
 
 
@@ -162,7 +162,8 @@ class ExpressPayClientTests(unittest.TestCase):
         )
 
         self.assertEqual(len(parsed.items), 1)
-        self.assertEqual(parsed.items[0].document_date, datetime(2026, 7, 15))
+        self.assertEqual(parsed.items[0].created_at, datetime(2026, 7, 15, 10, 30, tzinfo=MINSK_TZ))
+        self.assertEqual(parsed.items[0].document_date, datetime(2026, 7, 15, tzinfo=MINSK_TZ))
 
     def test_get_payments_uses_httpx_client_and_parses_response(self) -> None:
         captured = {}
@@ -199,7 +200,8 @@ class ExpressPayClientTests(unittest.TestCase):
         self.assertIn("To=20260731", captured["url"])
         self.assertEqual(len(payments), 1)
         self.assertEqual(payments[0].payment_no, 2)
-        self.assertEqual(payments[0].document_date, datetime(2026, 7, 13))
+        self.assertEqual(payments[0].created_at, datetime(2026, 7, 13, 12, 0, tzinfo=MINSK_TZ))
+        self.assertEqual(payments[0].document_date, datetime(2026, 7, 13, tzinfo=MINSK_TZ))
 
 
 if __name__ == "__main__":
