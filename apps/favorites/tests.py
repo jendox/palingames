@@ -14,11 +14,13 @@ class FavoritesViewsTests(TestCase):
             title="Игра 1",
             slug="igra-1",
             price="1.50",
+            is_published=True,
         )
         self.product_2 = Product.objects.create(
             title="Игра 2",
             slug="igra-2",
             price="2.00",
+            is_published=True,
         )
         self.product_1.categories.add(self.category)
         self.product_2.categories.add(self.category)
@@ -130,8 +132,8 @@ class FavoritesViewsTests(TestCase):
 class FavoritesPageViewTests(TestCase):
     def setUp(self):
         self.category = Category.objects.create(title="Дидактические игры", slug="didakticheskie-igry")
-        self.product_1 = Product.objects.create(title="Игра 1", slug="igra-1", price="1.50")
-        self.product_2 = Product.objects.create(title="Игра 2", slug="igra-2", price="2.00")
+        self.product_1 = Product.objects.create(title="Игра 1", slug="igra-1", price="1.50", is_published=True)
+        self.product_2 = Product.objects.create(title="Игра 2", slug="igra-2", price="2.00", is_published=True)
         self.product_1.categories.add(self.category)
         self.product_2.categories.add(self.category)
 

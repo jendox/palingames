@@ -61,6 +61,7 @@ PalinGames — server-rendered Django-магазин цифровых товар
 
 ```text
 Product ──► ProductFile (S3 key, один active archive на продукт)
+            is_published — видимость на витрине (default False для новых)
 Order ──► OrderItem(s)
 Order ──► Invoice (Express Pay provider_invoice_no, status)
 Invoice ──► PaymentEvent (idempotency / audit)
@@ -100,6 +101,17 @@ Checkout создаёт заказ и ставит invoice в очередь; fu
 - **Guest:** product IDs в session (`guest_cart_product_ids`), см. `apps/cart/services.py`.
 - **User:** `Cart` / `CartItem` в PostgreSQL.
 - **Merge:** signal `user_logged_in` → `merge_guest_cart_to_user()` в `apps/cart/signals.py` (пропускает уже купленные товары).
+
+### Видимость товара на витрине (`is_published`)
+
+| Зона | Поведение |
+|------|-----------|
+| Каталог, алфавит, search suggest, sitemap | только `Product.objects.published()` |
+| Карточка товара | 404 для гостей; staff (`is_staff`) видит preview |
+| Корзина / избранное / checkout | только опубликованные; при снятии с публикации checkout блокируется с сообщением |
+| Скачивание, заказы, watchdog | **без** фильтра — доступ по покупке сохраняется |
+
+Миграция `products.0009_product_is_published`: добавляет поле и выставляет `is_published=True` всем существующим товарам.
 
 ### 2. Checkout
 

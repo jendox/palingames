@@ -90,6 +90,15 @@ class Theme(TimeStampedModel):
         return self.title
 
 
+class ProductQuerySet(models.QuerySet):
+    def published(self):
+        return self.filter(is_published=True)
+
+
+class ProductManager(models.Manager.from_queryset(ProductQuerySet)):
+    pass
+
+
 class Product(TimeStampedModel):
     title = models.CharField(_("Название"), unique=True, max_length=255)
     slug = models.SlugField("Слаг", unique=True)
@@ -97,6 +106,7 @@ class Product(TimeStampedModel):
     description = models.TextField(_("Описание"), blank=True)
     price = models.DecimalField(_("Цена"), max_digits=10, decimal_places=2)
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
+    is_published = models.BooleanField(_("Опубликован"), default=False, db_index=True)
 
     categories = models.ManyToManyField(Category, related_name="products", verbose_name="Категории")
     subtypes = models.ManyToManyField(SubType, blank=True, related_name="products", verbose_name="Подтипы")
@@ -117,6 +127,8 @@ class Product(TimeStampedModel):
     class Meta:
         verbose_name = _("Продукт")
         verbose_name_plural = _("Продукты")
+
+    objects = ProductManager()
 
     def __str__(self) -> str:
         return self.title

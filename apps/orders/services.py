@@ -57,17 +57,38 @@ class OrderCreationResult:
     created: bool
 
 
+UNAVAILABLE_CART_PRODUCTS_MESSAGE = "Некоторые материалы больше недоступны для покупки."
+
+
 def _get_ordered_cart_products(request) -> list[Product]:
     product_ids = get_cart_product_ids(request)
     if not product_ids:
         return []
 
     products = (
-        Product.objects.filter(id__in=product_ids)
+        Product.objects.filter(id__in=product_ids, is_published=True)
         .prefetch_related("categories", "images")
         .in_bulk(product_ids)
     )
     return [products[product_id] for product_id in product_ids if product_id in products]
+
+
+def _validate_cart_products_available(request, products: list[Product]) -> None:
+    cart_product_ids = get_cart_product_ids(request)
+    if not cart_product_ids:
+        return
+    if len(products) != len(cart_product_ids):
+        raise OrderCreationBlockedError(
+            UNAVAILABLE_CART_PRODUCTS_MESSAGE,
+            reason="unavailable_products",
+        )
+
+
+def has_unavailable_cart_products(request) -> bool:
+    cart_product_ids = get_cart_product_ids(request)
+    if not cart_product_ids:
+        return False
+    return len(_get_ordered_cart_products(request)) != len(cart_product_ids)
 
 
 def _get_checkout_cart_fingerprint(request) -> str:
@@ -395,6 +416,7 @@ def create_order_from_cart(
         return OrderCreationResult(order=existing_order, created=False)
 
     products = _get_ordered_cart_products(request)
+    _validate_cart_products_available(request, products)
     checkout_type = (
         Order.CheckoutType.AUTHENTICATED if request.user.is_authenticated else Order.CheckoutType.GUEST
     )

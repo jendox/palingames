@@ -50,9 +50,19 @@ class CheckoutTestBase(TestCase):
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games")
         cls.other_category = Category.objects.create(title="Методические материалы", slug="method-materials")
-        cls.product = Product.objects.create(title="Альфа", slug="alpha-checkout", price=Decimal("25.00"))
+        cls.product = Product.objects.create(
+            title="Альфа",
+            slug="alpha-checkout",
+            price=Decimal("25.00"),
+            is_published=True,
+        )
         cls.product.categories.add(cls.category)
-        cls.other_product = Product.objects.create(title="Методичка", slug="method-checkout", price=Decimal("10.00"))
+        cls.other_product = Product.objects.create(
+            title="Методичка",
+            slug="method-checkout",
+            price=Decimal("10.00"),
+            is_published=True,
+        )
         cls.other_product.categories.add(cls.other_category)
         cls.user = get_user_model().objects.create_user(email="test@example.com", password="test-pass-123")
 

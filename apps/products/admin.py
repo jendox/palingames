@@ -106,6 +106,7 @@ class ProductAdmin(admin.ModelAdmin):
     add_form_template = "admin/products/product/change_form.html"
     list_display = (
         "title",
+        "is_published",
         "price",
         "currency",
         "categories_list",
@@ -115,6 +116,7 @@ class ProductAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = (
+        "is_published",
         "categories",
         "subtypes",
         "age_groups",
@@ -145,6 +147,7 @@ class ProductAdmin(admin.ModelAdmin):
                     "slug",
                     "price",
                     "currency",
+                    "is_published",
                     "categories",
                     "subtypes",
                     "age_groups",
@@ -226,6 +229,18 @@ class ProductAdmin(admin.ModelAdmin):
             rows,
             add_url,
         )
+
+    @admin.action(description=_("Опубликовать"))
+    def make_published(modeladmin, request, queryset):
+        updated = queryset.update(is_published=True)
+        modeladmin.message_user(request, f"Опубликовано: {updated}", messages.SUCCESS)
+
+    @admin.action(description=_("Снять c публикации"))
+    def make_unpublished(modeladmin, request, queryset):
+        updated = queryset.update(is_published=False)
+        modeladmin.message_user(request, f"Снято с публикации: {updated}", messages.WARNING)
+
+    actions = [make_published, make_unpublished]
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         lock_product_id: int | None = None

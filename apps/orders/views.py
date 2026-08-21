@@ -24,6 +24,7 @@ from apps.promocodes.services import PromoCodeError
 from .forms import CheckoutSubmitForm
 from .models import Order
 from .services import (
+    UNAVAILABLE_CART_PRODUCTS_MESSAGE,
     OrderCreationBlockedError,
     clear_checkout_idempotency_key,
     clear_checkout_promo_code,
@@ -32,6 +33,7 @@ from .services import (
     get_checkout_order_context,
     get_checkout_promo_code,
     get_order_by_checkout_idempotency_key,
+    has_unavailable_cart_products,
     set_checkout_promo_code,
 )
 
@@ -151,6 +153,11 @@ class CheckoutPageView(TemplateView):
             if get_order_by_checkout_idempotency_key(checkout_idempotency_key):
                 self.checkout_context = checkout_context
                 return super().dispatch(request, *args, **kwargs)
+
+            if has_unavailable_cart_products(request):
+                messages.error(request, UNAVAILABLE_CART_PRODUCTS_MESSAGE)
+                log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="unavailable_products")
+                return redirect("cart")
 
             log_event(logger, logging.INFO, "checkout.redirected_to_cart", reason="empty_cart")
             return redirect("cart")
@@ -282,6 +289,9 @@ class CheckoutPageView(TemplateView):
                     checkout_error_message=exc.message,
                 )
                 return self.render_to_response(context, status=409)
+            if exc.reason == "unavailable_products":
+                messages.error(request, exc.message)
+                return redirect("cart")
             messages.error(request, "Некоторые материалы уже куплены и недоступны для повторной покупки.")
             return redirect("cart")
         order = result.order
