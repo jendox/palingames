@@ -95,7 +95,7 @@ class CatalogView(TemplateView):
     mobile_pagination_leading_window = 2
 
     def _base_products_queryset(self):
-        return Product.objects.prefetch_related(
+        return Product.objects.published().prefetch_related(
             "categories",
             "subtypes",
             "age_groups",
@@ -801,6 +801,21 @@ def _get_active_product_tab(request) -> ProductTab:
         return ProductTab.DESCRIPTION
 
 
+def _product_detail_prefetch_queryset():
+    return Product.objects.prefetch_related(
+        "categories",
+        "subtypes",
+        "age_groups",
+        "files",
+        Prefetch("images", queryset=ProductImage.objects.order_by("order")),
+        Prefetch(
+            "reviews",
+            queryset=Review.objects.filter(status=ReviewStatus.PUBLISHED).select_related("user"),
+            to_attr="published_reviews_list",
+        ),
+    )
+
+
 class ProductDetailView(DetailView):
     model = Product
     slug_field = "slug"
@@ -814,18 +829,12 @@ class ProductDetailView(DetailView):
         ProductTab.HOW_TO_PLAY: "pages/product/desktop/tabs/_how_to_play.html",
     }
 
-    queryset = Product.objects.prefetch_related(
-        "categories",
-        "subtypes",
-        "age_groups",
-        "files",
-        Prefetch("images", queryset=ProductImage.objects.order_by("order")),
-        Prefetch(
-            "reviews",
-            queryset=Review.objects.filter(status=ReviewStatus.PUBLISHED).select_related("user"),
-            to_attr="published_reviews_list",
-        ),
-    )
+    def get_queryset(self):
+        queryset = _product_detail_prefetch_queryset()
+        user = self.request.user
+        if user.is_authenticated and user.is_staff:
+            return queryset
+        return queryset.filter(is_published=True)
 
     def get_template_names(self):
         if self.request.headers.get("HX-Request") == "true":
@@ -863,6 +872,12 @@ class ProductDetailView(DetailView):
         if self.request.headers.get("HX-Request") != "true":
             inc_product_page_view(user_type=_metrics_user_type(self.request.user))
         product = context["product"]
+        is_staff_preview = (
+            not product.is_published
+            and self.request.user.is_authenticated
+            and self.request.user.is_staff
+        )
+        context["product_is_staff_preview"] = is_staff_preview
         active_tab = _get_active_product_tab(self.request)
         images = [image.image.url for image in product.images.all()]
         reviews = getattr(product, "published_reviews_list", [])
@@ -969,6 +984,7 @@ class ProductDetailView(DetailView):
                 canonical_url=product.get_absolute_url(),
                 image_url=primary_image_url,
                 og_type="product",
+                robots="noindex,nofollow" if is_staff_preview else "index,follow",
                 json_ld=[
                     build_breadcrumbs_json_ld(breadcrumbs),
                     product_json_ld,

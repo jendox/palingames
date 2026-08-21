@@ -64,6 +64,7 @@ Runbook: [Dev and Prod deployment §4.4](../.cursor/plans/Dev%20and%20Prod%20dep
    ```
 8. Periodic tasks: при каждом деплое через `deploy_remote.sh` выполняются автоматически; вручную — `setup_periodic_tasks` (идемпотентно).
 9. Справочник каталога — см. раздел [«Справочник каталога (tags_fixture.json)»](#справочник-каталога-tags_fixturejson) (staging и prod, один раз после migrate).
+10. **Публикация товаров (`is_published`):** миграция `products.0009_product_is_published` выставляет `is_published=True` всем **уже существующим** товарам; новые после деплоя по умолчанию черновики. Smoke: каталог на месте; в admin — колонка «Опубликован»; Sites (`SITE_ID=1`) на prod — `palingames.by`. Подробнее — [README](../README.md), [ARCHITECTURE](../docs/ARCHITECTURE.md).
 
 ## Справочник каталога (`tags_fixture.json`)
 

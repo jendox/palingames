@@ -74,7 +74,7 @@ def suggest_product_hits(q: str, *, limit: int = 10) -> list[dict[str, str]]:
     """Подсказки для API: заголовок и URL товара."""
     from .models import Product
 
-    qs = Product.objects.all()
+    qs = Product.objects.published()
     qs, active, order_by_sim = apply_product_search(qs, q)
     if not active:
         return []

@@ -51,6 +51,11 @@ from apps.products.services.s3 import (
 from apps.promocodes.models import PromoCode
 
 
+def create_published_product(**kwargs):
+    kwargs.setdefault("is_published", True)
+    return Product.objects.create(**kwargs)
+
+
 class CatalogViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -67,7 +72,7 @@ class CatalogViewTests(TestCase):
         cls.beta = cls._make_product("Бета", "beta", Decimal("10.00"), cls.category, cls.subtype_sets, cls.age_4_5)
         cls.gamma = cls._make_product("Гамма", "gamma", Decimal("20.00"), cls.category, cls.subtype_cards, cls.age_4_5)
 
-        cls.foreign_product = Product.objects.create(
+        cls.foreign_product = create_published_product(
             title="Чужой товар",
             slug="foreign-product",
             price=Decimal("99.00"),
@@ -76,7 +81,7 @@ class CatalogViewTests(TestCase):
 
     @classmethod
     def _make_product(cls, title, slug, price, category, subtype, age_group):
-        product = Product.objects.create(
+        product = create_published_product(
             title=title,
             slug=slug,
             price=price,
@@ -296,7 +301,7 @@ class AlphabetNavigatorViewTests(TestCase):
 
     @classmethod
     def _make_product(cls, title, slug, price, subtype=None, age=None):
-        product = Product.objects.create(title=title, slug=slug, price=price)
+        product = create_published_product(title=title, slug=slug, price=price)
         product.categories.add(cls.category)
         product.subtypes.add(subtype or cls.subtype)
         product.age_groups.add(age or cls.age)
@@ -389,7 +394,7 @@ class ProductSeoTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.category = Category.objects.create(title="Дидактические игры", slug="didactic-games-seo")
-        cls.product = Product.objects.create(
+        cls.product = create_published_product(
             title="Математическая игра",
             slug="math-game",
             price=Decimal("25.00"),
@@ -423,14 +428,14 @@ class ProductSeoTests(TestCase):
 
 class ProductFileModelTests(TestCase):
     def test_product_allows_only_one_active_file(self):
-        product = Product.objects.create(title="Архив", slug="archive", price=Decimal("10.00"))
+        product = create_published_product(title="Архив", slug="archive", price=Decimal("10.00"))
         ProductFile.objects.create(product=product, file_key="products/archive/one.zip", is_active=True)
 
         with self.assertRaises(IntegrityError):
             ProductFile.objects.create(product=product, file_key="products/archive/two.zip", is_active=True)
 
     def test_product_can_have_inactive_files(self):
-        product = Product.objects.create(title="Архив 2", slug="archive-2", price=Decimal("10.00"))
+        product = create_published_product(title="Архив 2", slug="archive-2", price=Decimal("10.00"))
         ProductFile.objects.create(product=product, file_key="products/archive-2/one.zip", is_active=True)
         ProductFile.objects.create(product=product, file_key="products/archive-2/old.zip", is_active=False)
 
@@ -529,7 +534,7 @@ class AdminDirectUploadTests(TestCase):
     def setUp(self):
         caches["default"].clear()
         _allowed_upload_extensions.cache_clear()
-        self.product = Product.objects.create(title="Архив", slug="archive", price=Decimal("10.00"))
+        self.product = create_published_product(title="Архив", slug="archive", price=Decimal("10.00"))
         self.staff_user = get_user_model().objects.create_user(
             email="staff@example.com",
             password="pass-123",
@@ -1140,7 +1145,7 @@ class ProductImageSignalTests(TestCase):
         mock_cleanup_get_s3_client,
     ):
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
-        product = Product.objects.create(title="Signal", slug="signal", price=Decimal("10.00"))
+        product = create_published_product(title="Signal", slug="signal", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1175,7 +1180,7 @@ class ProductImageSignalTests(TestCase):
         mock_client.upload_fileobj.side_effect = track_upload
         mock_client.delete_object.side_effect = track_delete
 
-        product = Product.objects.create(title="Order", slug="order", price=Decimal("10.00"))
+        product = create_published_product(title="Order", slug="order", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1200,7 +1205,7 @@ class ProductImageSignalTests(TestCase):
         mock_cleanup_get_s3_client,
     ):
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
-        product = Product.objects.create(title="Fail", slug="fail-upload", price=Decimal("10.00"))
+        product = create_published_product(title="Fail", slug="fail-upload", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1227,7 +1232,7 @@ class ProductImageSignalTests(TestCase):
         mock_cleanup_get_s3_client,
     ):
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
-        product = Product.objects.create(title="Rollback", slug="rollback", price=Decimal("10.00"))
+        product = create_published_product(title="Rollback", slug="rollback", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1252,7 +1257,7 @@ class ProductImageSignalTests(TestCase):
         mock_cleanup_get_s3_client,
     ):
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
-        product = Product.objects.create(title="Same", slug="same-image", price=Decimal("10.00"))
+        product = create_published_product(title="Same", slug="same-image", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1275,7 +1280,7 @@ class ProductImageSignalTests(TestCase):
         mock_cleanup_get_s3_client,
     ):
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
-        product = Product.objects.create(title="Delete", slug="delete-me", price=Decimal("10.00"))
+        product = create_published_product(title="Delete", slug="delete-me", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("remove.png", b"remove", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1325,7 +1330,7 @@ class ProductImageSignalTests(TestCase):
         from apps.products.services.product_image_cleanup import delete_product_image_object
 
         mock_cleanup_get_s3_client.return_value = Mock()
-        product = Product.objects.create(title="Shared", slug="shared-key", price=Decimal("10.00"))
+        product = create_published_product(title="Shared", slug="shared-key", price=Decimal("10.00"))
         shared_key = "previews/shared-key/shared.png"
         ProductImage.objects.create(product=product, order=0, image=shared_key)
 
@@ -1348,7 +1353,7 @@ class ProductImageSignalTests(TestCase):
 
         self._mock_both_s3_clients(mock_get_s3_client, mock_cleanup_get_s3_client)
         mock_cleanup_get_s3_client.return_value.delete_object.side_effect = ValueError("delete failed")
-        product = Product.objects.create(title="Saved", slug="saved-image", price=Decimal("10.00"))
+        product = create_published_product(title="Saved", slug="saved-image", price=Decimal("10.00"))
         image = ProductImage(product=product, order=0)
         image.image = SimpleUploadedFile("first.png", b"first", content_type="image/png")
         with self.captureOnCommitCallbacks(execute=True):
@@ -1411,7 +1416,7 @@ class ProductAdminSaveProtectionTests(TestCase):
             is_staff=True,
             is_superuser=True,
         )
-        cls.product = Product.objects.create(title="Admin Product", slug="admin-product", price=Decimal("10.00"))
+        cls.product = create_published_product(title="Admin Product", slug="admin-product", price=Decimal("10.00"))
 
     def setUp(self):
         caches["default"].clear()
@@ -1477,7 +1482,7 @@ class ProductImageCascadeDeleteTests(TestCase):
         client = mock_product_image_s3_client()
         mock_storage_get_s3_client.return_value = client
         mock_cleanup_get_s3_client.return_value = client
-        product = Product.objects.create(title="Cascade", slug="cascade-images", price=Decimal("10.00"))
+        product = create_published_product(title="Cascade", slug="cascade-images", price=Decimal("10.00"))
         image_a = ProductImage(product=product, order=0)
         image_a.image = SimpleUploadedFile("a.png", b"a", content_type="image/png")
         image_b = ProductImage(product=product, order=1)
@@ -1500,7 +1505,7 @@ class ProductFileSignalTests(TestCase):
     @patch("apps.products.services.s3.get_s3_client")
     def test_row_delete_removes_object_from_storage(self, mock_get_s3_client):
         mock_get_s3_client.return_value = Mock()
-        product = Product.objects.create(title="File delete", slug="file-delete", price=Decimal("10.00"))
+        product = create_published_product(title="File delete", slug="file-delete", price=Decimal("10.00"))
         product_file = ProductFile.objects.create(
             product=product,
             file_key="file-delete/archive.zip",
@@ -1520,7 +1525,7 @@ class ProductFileSignalTests(TestCase):
     @patch("apps.products.services.s3.get_s3_client")
     def test_product_delete_cascades_file_storage_delete(self, mock_get_s3_client):
         mock_get_s3_client.return_value = Mock()
-        product = Product.objects.create(title="Cascade", slug="cascade-delete", price=Decimal("10.00"))
+        product = create_published_product(title="Cascade", slug="cascade-delete", price=Decimal("10.00"))
         ProductFile.objects.create(
             product=product,
             file_key="cascade-delete/active.zip",
@@ -1550,7 +1555,7 @@ class ProductFileSignalTests(TestCase):
     @override_settings(S3_PRODUCT_IMAGES_PREFIX="previews")
     def test_row_delete_skips_preview_prefix_keys(self, mock_get_s3_client):
         mock_get_s3_client.return_value = Mock()
-        product = Product.objects.create(title="Preview guard", slug="preview-guard", price=Decimal("10.00"))
+        product = create_published_product(title="Preview guard", slug="preview-guard", price=Decimal("10.00"))
         product_file = ProductFile.objects.create(
             product=product,
             file_key="previews/legacy-mistake.zip",
@@ -1582,7 +1587,7 @@ class MigrateProductImagesCommandTests(TestCase):
         local_path = Path(settings.MEDIA_ROOT) / old_key
         local_path.parent.mkdir(parents=True, exist_ok=True)
         local_path.write_bytes(content)
-        product = Product.objects.create(title=f"Product {slug}", slug=slug, price=Decimal("10.00"))
+        product = create_published_product(title=f"Product {slug}", slug=slug, price=Decimal("10.00"))
         image = ProductImage.objects.create(product=product, order=0, image=old_key)
         return product, image, local_path
 
@@ -1626,7 +1631,7 @@ class MigrateProductImagesCommandTests(TestCase):
     @patch("apps.products.storage.get_s3_client")
     def test_skips_already_migrated_image(self, mock_get_s3_client):
         mock_get_s3_client.return_value = mock_product_image_s3_client()
-        product = Product.objects.create(title="Done", slug="done", price=Decimal("10.00"))
+        product = create_published_product(title="Done", slug="done", price=Decimal("10.00"))
         image = ProductImage.objects.create(
             product=product,
             order=0,
@@ -1680,8 +1685,8 @@ class MigrateProductImagesCommandTests(TestCase):
         shared_path.parent.mkdir(parents=True, exist_ok=True)
         shared_path.write_bytes(b"shared-image")
 
-        product_a = Product.objects.create(title="A", slug="product-a", price=Decimal("10.00"))
-        product_b = Product.objects.create(title="B", slug="product-b", price=Decimal("10.00"))
+        product_a = create_published_product(title="A", slug="product-a", price=Decimal("10.00"))
+        product_b = create_published_product(title="B", slug="product-b", price=Decimal("10.00"))
         image_a = ProductImage.objects.create(product=product_a, order=0, image=shared_key)
         image_b = ProductImage.objects.create(product=product_b, order=0, image=shared_key)
 
@@ -1708,8 +1713,8 @@ class MigrateProductImagesCommandTests(TestCase):
         mock_get_s3_client.return_value = mock_client
         shared_key = "products/shared/photo.png"
 
-        product_a = Product.objects.create(title="A", slug="product-a", price=Decimal("10.00"))
-        product_b = Product.objects.create(title="B", slug="product-b", price=Decimal("10.00"))
+        product_a = create_published_product(title="A", slug="product-a", price=Decimal("10.00"))
+        product_b = create_published_product(title="B", slug="product-b", price=Decimal("10.00"))
         ProductImage.objects.create(
             product=product_a,
             order=0,
@@ -1760,7 +1765,7 @@ class ProductDownloadViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(email="download@example.com", password="test-pass-123")
-        cls.product = Product.objects.create(title="Скачивание", slug="download-product", price=Decimal("25.00"))
+        cls.product = create_published_product(title="Скачивание", slug="download-product", price=Decimal("25.00"))
         cls.active_file = ProductFile.objects.create(
             product=cls.product,
             file_key="download-product/archive.zip",
@@ -1903,7 +1908,7 @@ class ProductDetailDownloadContextTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(email="detail@example.com", password="test-pass-123")
-        cls.product = Product.objects.create(title="Деталь", slug="detail-product", price=Decimal("12.00"))
+        cls.product = create_published_product(title="Деталь", slug="detail-product", price=Decimal("12.00"))
         order = Order.objects.create(
             user=cls.user,
             email=cls.user.email,
@@ -1958,7 +1963,7 @@ class ProductReviewFlowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(email="rev@example.com", password="secret12345")
-        cls.product = Product.objects.create(title="Reviewed", slug="reviewed-game", price=Decimal("10.00"))
+        cls.product = create_published_product(title="Reviewed", slug="reviewed-game", price=Decimal("10.00"))
         UserProductAccess.objects.create(user=cls.user, product=cls.product, order=None)
 
     @patch("apps.products.views.schedule_review_submitted_notifications")
@@ -2004,7 +2009,7 @@ class ProductReviewFlowTests(TestCase):
         mock_sched.assert_called_once()
 
     def test_submit_without_purchase_forbidden(self):
-        other = Product.objects.create(title="Other", slug="other-game", price=Decimal("1.00"))
+        other = create_published_product(title="Other", slug="other-game", price=Decimal("1.00"))
         self.client.force_login(self.user)
         url = reverse("product-review-submit", kwargs={"slug": other.slug})
         response = self.client.post(

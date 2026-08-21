@@ -183,7 +183,7 @@ def get_cart_page_context(request) -> dict:
         }
 
     products = (
-        Product.objects.filter(id__in=product_ids)
+        Product.objects.filter(id__in=product_ids, is_published=True)
         .prefetch_related("categories", "images")
         .in_bulk(product_ids)
     )

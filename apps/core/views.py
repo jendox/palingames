@@ -73,7 +73,7 @@ class SitemapXmlView(View):
                 "location": build_absolute_url(product.get_absolute_url()),
                 "lastmod": product.updated_at.date().isoformat(),
             }
-            for product in Product.objects.order_by("id")
+            for product in Product.objects.published().order_by("id")
         ]
         payload = render_to_string(
             "seo/sitemap.xml",

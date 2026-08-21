@@ -58,7 +58,7 @@ def cart_toggle_view(request):
     except (TypeError, ValueError):
         raise Http404("Product not found")
 
-    if not Product.objects.filter(id=product_id).exists():
+    if not Product.objects.filter(id=product_id, is_published=True).exists():
         raise Http404("Product not found")
 
     result = toggle_cart_product(request, product_id)

@@ -240,7 +240,7 @@ def get_favorites_page_context(request) -> dict:
         page_number = 1
 
     products_bulk = (
-        Product.objects.filter(id__in=product_ids)
+        Product.objects.filter(id__in=product_ids, is_published=True)
         .prefetch_related(
             "categories",
             "subtypes",

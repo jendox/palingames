@@ -15,6 +15,13 @@
 {% block content %}
   {{ product_analytics_item|json_script:"product-analytics-item" }}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
+  {% if product_is_staff_preview %}
+    <div class="mx-auto w-full max-w-[1500px] px-4 sm:px-[42px] min-[1600px]:px-[72px]">
+      <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        Предпросмотр: товар не опубликован и не виден покупателям.
+      </div>
+    </div>
+  {% endif %}
   <div class="min-[1024px]:hidden">
     {% include "pages/product/product_mobile.html" %}
   </div>
