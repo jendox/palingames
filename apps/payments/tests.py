@@ -1623,16 +1623,18 @@ def _build_express_pay_payment(
     created_at: str = "2026-07-15T10:30:00",
     amount: str = "25.00",
     currency: int = 933,
+    canceled_date: str | None = None,
 ) -> ExpressPayPayment:
-    return ExpressPayPayment.model_validate(
-        {
-            "PaymentNo": payment_no,
-            "AccountNo": account_no,
-            "Created": created_at,
-            "Amount": amount,
-            "Currency": currency,
-        },
-    )
+    payload = {
+        "PaymentNo": payment_no,
+        "AccountNo": account_no,
+        "Created": created_at,
+        "Amount": amount,
+        "Currency": currency,
+    }
+    if canceled_date is not None:
+        payload["CanceledDate"] = canceled_date
+    return ExpressPayPayment.model_validate(payload)
 
 
 class BuildNpdMonthlyReportTests(TestCase):
@@ -1654,6 +1656,29 @@ class BuildNpdMonthlyReportTests(TestCase):
         self.assertEqual(len(parts), 1)
         self.assertIn("PG000001ABC12345", parts[0])
         self.assertIn("25.00 BYN", parts[0])
+        self.assertIn("<b>ИТОГО:</b>", parts[0])
+        self.assertIn("Платежей: 1", parts[0])
+        self.assertIn("Возвратов: 0", parts[0])
+        self.assertIn("Доход для НПД:", parts[0])
+        self.assertIn(" * BYN: 25.00", parts[0])
+
+    def test_build_report_marks_canceled_payment_and_excludes_from_income(self):
+        payments = [
+            _build_express_pay_payment(payment_no=1, amount="25.00"),
+            _build_express_pay_payment(
+                payment_no=2,
+                amount="10.00",
+                canceled_date="20260720153000",
+            ),
+        ]
+        parts = build_npd_monthly_report(payments, period_start=self.period_start, period_end=self.period_end)
+
+        self.assertEqual(len(parts), 1)
+        self.assertIn("⚠️ ВОЗВРАТ: 20.07.2026 15:30", parts[0])
+        self.assertIn("Платежей: 2", parts[0])
+        self.assertIn("Возвратов: 1", parts[0])
+        self.assertIn(" * BYN: 25.00", parts[0])
+        self.assertNotIn(" * BYN: 35.00", parts[0])
 
     def test_build_report_keeps_express_pay_created_at_in_minsk(self):
         payment = _build_express_pay_payment(payment_no=1, created_at="2026-07-15T14:30:00")

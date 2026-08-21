@@ -165,6 +165,28 @@ class ExpressPayClientTests(unittest.TestCase):
         self.assertEqual(parsed.items[0].created_at, datetime(2026, 7, 15, 10, 30, tzinfo=MINSK_TZ))
         self.assertEqual(parsed.items[0].document_date, datetime(2026, 7, 15, tzinfo=MINSK_TZ))
 
+    def test_payments_response_parses_canceled_date_in_yyyymmddhhmmss_format(self) -> None:
+        parsed = ExpressPayPaymentsResponse.model_validate(
+            {
+                "Items": [
+                    {
+                        "PaymentNo": 1,
+                        "AccountNo": "PG000001ABC12345",
+                        "Created": "20260715103000",
+                        "Amount": "25,00",
+                        "Currency": 933,
+                        "CanceledDate": "20260720153000",
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(len(parsed.items), 1)
+        self.assertEqual(
+            parsed.items[0].canceled_date,
+            datetime(2026, 7, 20, 15, 30, tzinfo=MINSK_TZ),
+        )
+
     def test_get_payments_uses_httpx_client_and_parses_response(self) -> None:
         captured = {}
 

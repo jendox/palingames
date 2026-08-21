@@ -1,12 +1,13 @@
 import html
 from datetime import date, datetime
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
 from libs.express_pay.models import ExpressPayPayment
 
-TELEGRAM_MAX_MESSAGE_LIMIT = 4050
+TELEGRAM_MAX_MESSAGE_LIMIT = 4000
 
 CURRENCY_CODE_TO_STR: dict[int, str] = {
     933: "BYN",
@@ -58,12 +59,21 @@ def build_npd_monthly_report(
 
     report_text: list[str] = []
     page = 1
+    total_amount: dict[str, Decimal] = {code_str: Decimal("0") for code_str in CURRENCY_CODE_TO_STR.values()}
+    cancelled: int = 0
     for payment in payments:
         currency_code = _format_currency(payment.currency)
+        canceled_str = "" if payment.canceled_date is None else f"⚠️ ВОЗВРАТ: {_get_minsk_ts(payment.canceled_date)}"
+        if canceled_str:
+            cancelled += 1
+        else:
+            total_amount.setdefault(currency_code, Decimal("0"))
+            total_amount[currency_code] += payment.amount
         line = (
-            f"{_get_minsk_ts(payment.created_at)} - "
-            f"{html.escape(payment.account_no)} - "
-            f"{payment.amount:.2f} {currency_code}"
+            f"{_get_minsk_ts(payment.created_at)} -"
+            f" {html.escape(payment.account_no)} -"
+            f" {payment.amount:.2f} {currency_code}"
+            f" {canceled_str}"
         )
         lines.append(line)
         text_length = len("\n".join(lines))
@@ -72,11 +82,19 @@ def build_npd_monthly_report(
             report_text.append("\n".join(lines))
             page += 1
             lines = _build_report_header(period_start=period_start, period_end=period_end, page=page)
-            text_length = len("\n".join(lines))
 
     if lines:
         if page > 1 or report_text:
             lines.extend(["", f"Страница: {page}"])
+
+        lines.extend([
+            "",
+            "<b>ИТОГО:</b>",
+            f"Платежей: {len(payments)}",
+            f"Возвратов: {cancelled}",
+            "Доход для НПД:",
+            *[f" * {k}: {v:.2f}" for k, v in total_amount.items() if v > 0],
+        ])
         report_text.append("\n".join(lines))
 
     return report_text
