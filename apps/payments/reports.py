@@ -1,5 +1,5 @@
 import html
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
@@ -28,7 +28,7 @@ def _get_minsk_ts(dt: datetime | None) -> str:
     if dt is None:
         return "-"
     if timezone.is_naive(dt):
-        dt = timezone.make_aware(dt, UTC)
+        dt = dt.replace(tzinfo=ZoneInfo("Europe/Minsk"))
     return dt.astimezone(ZoneInfo("Europe/Minsk")).strftime("%d.%m.%Y %H:%M")
 
 

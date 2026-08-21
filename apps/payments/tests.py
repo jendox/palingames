@@ -1655,6 +1655,13 @@ class BuildNpdMonthlyReportTests(TestCase):
         self.assertIn("PG000001ABC12345", parts[0])
         self.assertIn("25.00 BYN", parts[0])
 
+    def test_build_report_keeps_express_pay_created_at_in_minsk(self):
+        payment = _build_express_pay_payment(payment_no=1, created_at="2026-07-15T14:30:00")
+        parts = build_npd_monthly_report([payment], period_start=self.period_start, period_end=self.period_end)
+
+        self.assertIn("15.07.2026 14:30", parts[0])
+        self.assertNotIn("17:30", parts[0])
+
     @patch("apps.payments.reports.TELEGRAM_MAX_MESSAGE_LIMIT", 300)
     def test_build_report_splits_long_report_and_keeps_last_page(self):
         payments = [

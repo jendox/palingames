@@ -5,10 +5,13 @@ from datetime import datetime
 from decimal import Decimal
 from enum import IntEnum
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pydantic import ConfigDict, Field, field_validator
 
 from libs.payments.models import PaymentModel
+
+MINSK_TZ = ZoneInfo("Europe/Minsk")
 
 
 class ExpressPayCommandType(IntEnum):
@@ -244,14 +247,13 @@ class ExpressPayPayment(PaymentModel):
     @field_validator("created_at", "document_date", mode="before")
     @classmethod
     def parse_date(cls, value: Any) -> datetime | None:
-        if value is None:
-            return None
-        return _parse_express_pay_datetime(
+        dt = _parse_express_pay_datetime(
             value,
             "%Y-%m-%dT%H:%M:%S",
             "%Y%m%d%H%M%S",
             "%Y%m%d",
         )
+        return dt.replace(tzinfo=MINSK_TZ) if dt is not None else None
 
     @field_validator("amount", "transferred_amount", mode="before")
     @classmethod
