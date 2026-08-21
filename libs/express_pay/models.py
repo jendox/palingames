@@ -246,7 +246,12 @@ class ExpressPayPayment(PaymentModel):
     def parse_date(cls, value: Any) -> datetime | None:
         if value is None:
             return None
-        return _parse_express_pay_datetime(value, "%Y-%m-%dT%H:%M:%S", "%Y%m%d%H%M%S")
+        return _parse_express_pay_datetime(
+            value,
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y%m%d%H%M%S",
+            "%Y%m%d",
+        )
 
     @field_validator("amount", "transferred_amount", mode="before")
     @classmethod
