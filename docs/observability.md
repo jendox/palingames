@@ -241,6 +241,23 @@ Route:
 Recovery:
 - `Storage recovered`
 
+6. `orders.delivery.invariant`
+Что считается incident:
+- нарушение инвариантов доставки оплаченного цифрового заказа: missing/mismatched invoice, missing access, missing/failed guest download email.
+
+Route:
+- [`apps/orders/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/orders/alerts.py)
+- [`apps/orders/watchdog.py`](/home/jendox/PycharmProjects/palingames/apps/orders/watchdog.py)
+- [`apps/orders/tasks.py`](/home/jendox/PycharmProjects/palingames/apps/orders/tasks.py)
+
+Recovery:
+- пока не реализован.
+
+Watchdog:
+- periodic task `apps.orders.tasks.check_paid_order_delivery_watchdog_task`, interval 5 минут;
+- grace 10 минут после оплаты, lookback 48 часов;
+- immediate alert (без threshold), dedupe через fingerprint + `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`.
+
 ## 8. What Must Not Go To Telegram Incidents
 
 Не должны попадать в `incidents` topic:
@@ -259,7 +276,8 @@ Recovery:
 - threshold alerting через cache counters;
 - incident dedupe через `key` или explicit `fingerprint`;
 - active incident state для resolved alerts;
-- dedupe TTL через `INCIDENT_ALERT_DEDUPE_TTL_SECONDS`.
+- dedupe TTL через `INCIDENT_ALERT_DEDUPE_TTL_SECONDS`;
+- для `orders.delivery.invariant` — immediate alert с отдельным dedupe TTL `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS` (по умолчанию 7 дней).
 
 Настройки по incident families:
 - `PAYMENT_WEBHOOK_INCIDENT_THRESHOLD`
@@ -272,6 +290,7 @@ Recovery:
 - `NOTIFICATION_OUTBOX_INCIDENT_WINDOW_SECONDS`
 - `STORAGE_INCIDENT_THRESHOLD`
 - `STORAGE_INCIDENT_WINDOW_SECONDS`
+- `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`
 
 ## 10. Recovery/Resolved Semantics
 

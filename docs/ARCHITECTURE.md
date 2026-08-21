@@ -258,8 +258,9 @@ Readiness (`/health/ready/`) проверяет PostgreSQL, Redis и досту�
 | Email не ушёл | outbox retry + retention cleanup | `notifications.outbox.failures` |
 | S3 недоступен | download 5xx, ready degraded | `storage.s3.unavailable` |
 | Guest link expired / limit | 410 на download view | — (expected) |
+| Оплачен, но нет access/email | `check_paid_order_delivery_watchdog_task` | `orders.delivery.invariant` |
 
-Resolved alerts поддерживаются для sync, downloads, outbox, storage (см. [runbooks.md](runbooks.md)).
+Resolved alerts поддерживаются для sync, downloads, outbox, storage (см. [runbooks.md](runbooks.md)). Для `orders.delivery.invariant` recovery пока нет.
 
 ---
 
@@ -287,6 +288,7 @@ Resolved alerts поддерживаются для sync, downloads, outbox, sto
 | Guest download | `apps/access/views.py::GuestProductDownloadView` |
 | User download | `apps/products/views.py` (access check + presigned) |
 | Outbox send | `apps/notifications/tasks.py`, `apps/notifications/services.py` |
+| Order delivery watchdog | `apps/orders/watchdog.py`, `apps/orders/tasks.py` |
 | Cart merge | `apps/cart/signals.py`, `apps/cart/services.py::merge_guest_cart_to_user` |
 | Periodic tasks | `apps/core/management/commands/setup_periodic_tasks.py` |
 | Incidents | `apps/core/alerts.py` |
