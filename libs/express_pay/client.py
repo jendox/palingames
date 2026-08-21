@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -29,6 +29,8 @@ from .models import (
     ExpressPayErrorEnvelope,
     ExpressPayInvoiceDetailsResponse,
     ExpressPayInvoiceStatusResponse,
+    ExpressPayPayment,
+    ExpressPayPaymentsResponse,
     ExpressPayWebhookNotification,
     ExpressPayWebhookRequest,
 )
@@ -161,6 +163,21 @@ class ExpressPayClient(PaymentProvider):
                 mapping=["token", "id"],
             )
         self._request("DELETE", f"/invoices/{request.invoice_no}", params)
+
+    def get_payments(self, *, from_date: date, to_date: date) -> list[ExpressPayPayment]:
+        params = {
+            "Token": self._config.token,
+            "From": from_date.strftime("%Y%m%d"),
+            "To": to_date.strftime("%Y%m%d"),
+        }
+        if self._config.use_signature:
+            params["signature"] = self._compute_signature(
+                params,
+                mapping=["token", "from", "to"],
+            )
+        response = self._request("GET", "/payments", params)
+        parsed = ExpressPayPaymentsResponse.model_validate(response)
+        return parsed.items
 
     def verify_webhook_signature(self, request: WebhookSignatureVerification) -> bool:
         expected = self._compute_raw_signature(request.payload)

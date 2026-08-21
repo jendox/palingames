@@ -20,7 +20,8 @@ from apps.payments.alerts import (
     resolve_payment_status_sync_failure_incident,
 )
 from apps.payments.models import Invoice
-from apps.payments.notifications import ensure_invoice_created_user_email
+from apps.payments.notifications import ensure_invoice_created_user_email, notify_payments_monthly_report_admin_telegram
+from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
@@ -534,3 +535,45 @@ def sync_waiting_invoice_statuses_task() -> dict[str, int]:
         )
     record_invoice_status_sync_summary(summary)
     return summary
+
+
+@shared_task
+def send_previous_month_payments_report_task() -> None:
+    now = timezone.now().date()
+    period_end = now.replace(day=1) - timedelta(days=1)
+    period_start = period_end.replace(day=1)
+
+    log_event(
+        logger,
+        logging.INFO,
+        "payments_report.creation.started",
+        period_start=period_start,
+        period_end=period_end,
+    )
+
+    try:
+        payments = get_express_pay_request_client().get_payments(from_date=period_start, to_date=period_end)
+        report_text_parts = build_npd_monthly_report(payments, period_start=period_start, period_end=period_end)
+        result = notify_payments_monthly_report_admin_telegram(
+            period_start=period_start,
+            period_end=period_end,
+            report_text_parts=report_text_parts,
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "payments_report.creation.completed",
+            count=len(payments),
+            parts_total=len(report_text_parts),
+            enqueued=result["enqueued"],
+            skipped=result["skipped"],
+        )
+    except Exception as exc:
+        log_event(
+            logger,
+            logging.ERROR,
+            "payments_report.creation.failed",
+            exc_info=exc,
+            error_type=type(exc).__name__,
+        )
+        raise

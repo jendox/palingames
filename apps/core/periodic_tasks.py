@@ -61,6 +61,14 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         every=5,
         period=IntervalSchedule.MINUTES,
     ),
+    PeriodicTaskSpec(
+        name="Send previous month payments report",
+        task="apps.payments.tasks.send_previous_month_payments_report_task",
+        schedule_kind="crontab",
+        minute="0",
+        hour="12",
+        day_of_month="1",
+    ),
 )
 
 

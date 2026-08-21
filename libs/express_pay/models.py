@@ -6,7 +6,7 @@ from decimal import Decimal
 from enum import IntEnum
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from libs.payments.models import PaymentModel
 
@@ -220,3 +220,41 @@ class ExpressPayEPOSSettlementNotification(ExpressPaySettlementNotificationBase)
     @classmethod
     def normalize_account_number(cls, value: Any) -> Any:
         return _normalize_account_number(value)
+
+
+class ExpressPayPayment(PaymentModel):
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    payment_no: int = Field(alias="PaymentNo")
+    account_no: str = Field(alias="AccountNo")
+    created_at: datetime = Field(alias="Created")
+    amount: Decimal = Field(alias="Amount", max_digits=19, decimal_places=2)
+    currency: int | str = Field(alias="Currency")
+    info: str | None = Field(default=None, alias="Info")
+
+    document_date: datetime | None = Field(
+        default=None,
+        alias="DocumentDate",
+    )
+    transferred_amount: Decimal | None = Field(
+        default=None,
+        alias="TransferredAmount",
+    )
+
+    @field_validator("created_at", "document_date", mode="before")
+    @classmethod
+    def parse_date(cls, value: Any) -> datetime | None:
+        if value is None:
+            return None
+        return _parse_express_pay_datetime(value, "%Y-%m-%dT%H:%M:%S", "%Y%m%d%H%M%S")
+
+    @field_validator("amount", "transferred_amount", mode="before")
+    @classmethod
+    def parse_amount(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(",", ".")
+        return value
+
+
+class ExpressPayPaymentsResponse(PaymentModel):
+    items: list[ExpressPayPayment] = Field(alias="Items")

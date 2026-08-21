@@ -306,6 +306,39 @@ class CustomGameRequestPaidAdminTelegramTests(TestCase):
 
 @override_settings(
     TELEGRAM_REDIS_URL="redis://localhost:6379/1",
+    TELEGRAM_FORUM_CHAT_ID="-1001234567890",
+    TELEGRAM_NOTIFICATIONS_THREAD_ID=3,
+)
+class PaymentsMonthlyReportAdminTelegramTests(TestCase):
+    @patch("apps.notifications.handlers.send_telegram_message")
+    def test_process_payments_monthly_report_admin_telegram_notification(self, send_telegram_message_mock):
+        outbox = create_notification_outbox(
+            notification_type=NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN,
+            channel=NotificationOutbox.Channel.TELEGRAM,
+            recipient="npd_monthly_report:2026-07:1/1",
+            payload={
+                "report_text": "<b>Отчет о платежах (для НПД)</b>",
+                "destination": TelegramDestination.NOTIFICATIONS.value,
+            },
+            target=None,
+        )
+
+        self.assertTrue(process_notification_outbox(outbox_id=outbox.id))
+
+        send_telegram_message_mock.assert_called_once()
+        self.assertEqual(
+            send_telegram_message_mock.call_args.kwargs["destination"],
+            TelegramDestination.NOTIFICATIONS,
+        )
+        self.assertEqual(send_telegram_message_mock.call_args.kwargs["source"], "outbox")
+        self.assertEqual(send_telegram_message_mock.call_args.kwargs["correlation_id"], str(outbox.id))
+        self.assertIn("Отчет о платежах", send_telegram_message_mock.call_args.kwargs["text"])
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.DELIVERING)
+
+
+@override_settings(
+    TELEGRAM_REDIS_URL="redis://localhost:6379/1",
     TELEGRAM_OUTBOUND_STREAM="telegram:outbound",
 )
 class PublishTelegramOutboundTests(TestCase):
