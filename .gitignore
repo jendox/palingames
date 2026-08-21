@@ -299,3 +299,4 @@ fixtures/
 .cursor/
 AGENTS.md
 staticfiles/
+test_express_pay_client.py

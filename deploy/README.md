@@ -47,14 +47,14 @@ Runbook: [Dev and Prod deployment §4.4](../.cursor/plans/Dev%20and%20Prod%20dep
 1. Установите Docker и Docker Compose plugin.
 2. Склонируйте репозиторий (или скопируйте только каталог `deploy/` и при необходимости `docker-compose.prod.yml` + конфиги).
 3. `cd deploy`
-4. `cp env.example .env` и заполните секреты (в т.ч. `DJANGO_SECRET_KEY`, `APP_DATA_ENCRYPTION_KEY`, OAuth, `DATABASE_URL` с паролем).  
+4. `cp env.example .env` и заполните секреты (в т.ч. `DJANGO_SECRET_KEY`, `APP_DATA_ENCRYPTION_KEY`, OAuth, `DATABASE_URL` с паролем).
    `PALINGAMES_WEB_REF` / `PALINGAMES_BOT_REF` в `.env` **не обязательны** — задаются при запуске [`deploy_remote.sh`](#деплой-обновлений-scriptsdeploy_remote-sh).
 5. Выставьте боевой домен: `CADDY_DOMAIN=shop.example.com` (для Let’s Encrypt не указывайте схему `https://`).
 6. Поднимите стек:
-   - **Сборка на сервере:**  
+   - **Сборка на сервере:**
      `docker compose -f docker-compose.prod.yml up -d --build`
    - **Только образ с Docker Hub:** после первичного bootstrap используйте [`scripts/deploy_remote_staging.sh`](#деплой-обновлений-staging-scriptsdeploy_remote_staging-sh) (staging) или [`scripts/deploy_remote.sh`](#деплой-обновлений-prod-scriptsdeploy_remote-sh) (prod).
-   - **Сборка на сервере (редко):**  
+   - **Сборка на сервере (редко):**
      `docker compose -f docker-compose.prod.yml up -d --build`
 7. **Первичный bootstrap** (один раз): migrate, `setup_periodic_tasks`, `createsuperuser` — см. команды ниже или § «Деплой обновлений» для последующих релизов.
    ```bash
@@ -182,7 +182,7 @@ Sentry (`SENTRY_DSN`) — для traceback и grouping, не дублирова�
 
 1. Создайте репозиторий образа на Docker Hub и access token.
 2. В GitHub: секреты `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
-3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `main` выполняет `ruff`, Django tests (PostgreSQL + Redis) и собирает/push образы `jendox/palingames:<sha>` и `jendox/palingames-bot:<sha>` (см. переменные в workflow).
+3. Workflow [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml) при push в `test_express_pay_client.py` выполняет `ruff`, Django tests (PostgreSQL + Redis) и собирает/push образы `jendox/palingames:<sha>` и `jendox/palingames-bot:<sha>` (см. переменные в workflow).
 4. На сервере задеployте тот же SHA:
    - **prod:** [`scripts/deploy_remote.sh`](#деплой-обновлений-prod-scriptsdeploy_remote-sh)
    - **staging:** [`scripts/deploy_remote_staging.sh`](#деплой-обновлений-staging-scriptsdeploy_remote_staging-sh) (без telegram-bot)
