@@ -14,6 +14,7 @@ from django.http import HttpRequest, JsonResponse
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from apps.products.jobs import maybe_enqueue_product_smoke_check
 from apps.products.models import Product, ProductFile
 from apps.products.services.s3 import (
     ProductFileMetadataError,
@@ -265,6 +266,7 @@ def product_file_finalize(request: HttpRequest) -> JsonResponse:
         )
         if previous_file_key and previous_file_key != obj.file_key:
             delete_product_file(file_key=previous_file_key)
+        maybe_enqueue_product_smoke_check(obj.product_id)
     except ValidationError as exc:
         return _validation_error_response(exc)
     except Product.DoesNotExist:

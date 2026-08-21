@@ -18,6 +18,12 @@ from apps.notifications.services import enqueue_email_notification
 from apps.notifications.types import NotificationType
 
 from .forms import ProductFileAdminForm
+from .jobs import (
+    enqueue_product_smoke_check,
+    enqueue_product_smoke_checks_for_ids,
+    maybe_enqueue_product_smoke_check,
+    should_enqueue_product_smoke_check,
+)
 from .models import (
     AgeGroupTag,
     Category,
@@ -184,6 +190,12 @@ class ProductAdmin(admin.ModelAdmin):
             )
         )
 
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        product = form.instance
+        if should_enqueue_product_smoke_check(is_published=product.is_published):
+            enqueue_product_smoke_check(product.pk)
+
     @admin.display(description=_("Категории"))
     def categories_list(self, obj):
         return ", ".join(category.title for category in obj.categories.all()) or "—"
@@ -232,7 +244,11 @@ class ProductAdmin(admin.ModelAdmin):
 
     @admin.action(description=_("Опубликовать"))
     def make_published(modeladmin, request, queryset):
+        newly_published_ids = list(
+            queryset.filter(is_published=False).values_list("id", flat=True),
+        )
         updated = queryset.update(is_published=True)
+        enqueue_product_smoke_checks_for_ids(newly_published_ids)
         modeladmin.message_user(request, f"Опубликовано: {updated}", messages.SUCCESS)
 
     @admin.action(description=_("Снять c публикации"))
@@ -357,6 +373,8 @@ class ProductFileAdmin(admin.ModelAdmin):
         if uploaded_file and settings.ADMIN_DIRECT_S3_UPLOAD_ENABLED:
             uploaded_file = None
 
+        file_uploaded = bool(uploaded_file)
+
         if uploaded_file:
             uploaded_metadata = upload_product_file(
                 product_slug=obj.product.slug,
@@ -372,6 +390,9 @@ class ProductFileAdmin(admin.ModelAdmin):
 
         if uploaded_file and previous_file_key and previous_file_key != obj.file_key:
             delete_product_file(file_key=previous_file_key)
+
+        if file_uploaded:
+            maybe_enqueue_product_smoke_check(obj.product_id)
 
 
 class ReviewAdminForm(forms.ModelForm):
