@@ -386,6 +386,14 @@ LOGGING = {
             "level": env.str("DJANGO_LOG_LEVEL", default="INFO"),
             "propagate": False,
         },
+        "httpx": {
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "httpcore": {
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
 
