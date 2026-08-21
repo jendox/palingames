@@ -10,7 +10,7 @@ import httpx
 from pydantic import ValidationError
 
 from libs.express_pay.client import ExpressPayClient
-from libs.express_pay.models import ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest, MINSK_TZ
+from libs.express_pay.models import MINSK_TZ, ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest
 from libs.payments.models import CreateInvoiceRequest, WebhookSignatureVerification
 
 
