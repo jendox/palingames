@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import unittest
+from datetime import date, datetime
 from decimal import Decimal
 
 import httpx
 from pydantic import ValidationError
 
 from libs.express_pay.client import ExpressPayClient
-from libs.express_pay.models import ExpressPayConfig, ExpressPayWebhookRequest
+from libs.express_pay.models import ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest
 from libs.payments.models import CreateInvoiceRequest, WebhookSignatureVerification
 
 
@@ -143,6 +144,62 @@ class ExpressPayClientTests(unittest.TestCase):
         self.assertIn("AccountNo=PG220326JGRVL4F8", captured["body"])
         self.assertIn("Amount=25%2C00", captured["body"])
         self.assertEqual(result.invoice_no, 12345678)
+
+    def test_payments_response_parses_document_date_in_yyyymmdd_format(self) -> None:
+        parsed = ExpressPayPaymentsResponse.model_validate(
+            {
+                "Items": [
+                    {
+                        "PaymentNo": 1,
+                        "AccountNo": "PG000001ABC12345",
+                        "Created": "2026-07-15T10:30:00",
+                        "Amount": "25,00",
+                        "Currency": 933,
+                        "DocumentDate": "20260715",
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(len(parsed.items), 1)
+        self.assertEqual(parsed.items[0].document_date, datetime(2026, 7, 15))
+
+    def test_get_payments_uses_httpx_client_and_parses_response(self) -> None:
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["method"] = request.method
+            captured["url"] = str(request.url)
+            return httpx.Response(
+                200,
+                json={
+                    "Items": [
+                        {
+                            "PaymentNo": 2,
+                            "AccountNo": "PG000002ABC12345",
+                            "Created": "2026-07-13T12:00:00",
+                            "Amount": "10,00",
+                            "Currency": 933,
+                            "DocumentDate": "20260713",
+                        },
+                    ],
+                },
+            )
+
+        client = ExpressPayClient(
+            ExpressPayConfig(token="test-token", secret_word="secret", use_signature=True, is_test=True),
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url="https://sandbox-api.express-pay.by/v1"),
+        )
+
+        payments = client.get_payments(from_date=date(2026, 7, 1), to_date=date(2026, 7, 31))
+
+        self.assertEqual(captured["method"], "GET")
+        self.assertIn("/payments?token=test-token", captured["url"])
+        self.assertIn("From=20260701", captured["url"])
+        self.assertIn("To=20260731", captured["url"])
+        self.assertEqual(len(payments), 1)
+        self.assertEqual(payments[0].payment_no, 2)
+        self.assertEqual(payments[0].document_date, datetime(2026, 7, 13))
 
 
 if __name__ == "__main__":
