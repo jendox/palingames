@@ -4,6 +4,7 @@ import http
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from html import unescape
 from typing import Literal
 
 from apps.core.seo import build_absolute_url
@@ -306,7 +307,7 @@ def _check_public_product_page(product: Product) -> list[ProductSmokeCheckProble
             ),
         ]
 
-    if product.title and product.title not in body:
+    if product.title and product.title not in unescape(body):
         return [
             _make_problem(
                 product.id,
