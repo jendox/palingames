@@ -310,6 +310,34 @@ class ProductSmokeCheckAssetTests(ProductSmokeCheckTestBase):
         self.assertEqual(len(problems), 1)
         self.assertEqual(problems[0].severity, "warning")
 
+    def test_public_page_html_escaped_quotes_does_not_warn(self):
+        product = self._create_ready_product(title='Интеллект-карта "Транспорт"', slug="intellect-karta-transport")
+
+        result = self._run_smoke_check(
+            product.id,
+            **{
+                "apps.products.smoke_checks._fetch_public_product_page": {
+                    "return_value": (200, '<html><h1>Интеллект-карта &quot;Транспорт&quot;</h1></html>'),
+                },
+            },
+        )
+
+        self.assertNotIn("product_page_content_invalid", _problem_codes(result))
+
+    def test_public_page_html_escaped_ampersand_does_not_warn(self):
+        product = self._create_ready_product(title="Игры & развитие", slug="igry-i-razvitie")
+
+        result = self._run_smoke_check(
+            product.id,
+            **{
+                "apps.products.smoke_checks._fetch_public_product_page": {
+                    "return_value": (200, "<html><h1>Игры &amp; развитие</h1></html>"),
+                },
+            },
+        )
+
+        self.assertNotIn("product_page_content_invalid", _problem_codes(result))
+
 
 class ProductSmokeCheckAlertTests(TestCase):
     def test_fingerprint_includes_image_id(self):

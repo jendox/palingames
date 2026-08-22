@@ -101,7 +101,6 @@ def get_s3_client():
             },
         ),
     )
-    _register_s3_retry_logging(client)
     log_event(
         logger,
         logging.INFO,
@@ -117,22 +116,6 @@ def get_s3_client():
         retry_max_attempts=settings.S3_RETRY_MAX_ATTEMPTS,
     )
     return client
-
-
-def _register_s3_retry_logging(client) -> None:
-    def _log_retry_attempt(**kwargs) -> None:
-        log_event(
-            logger,
-            logging.WARNING,
-            "product_storage.operation.retry",
-            service_name=kwargs.get("service_name"),
-            operation_name=kwargs.get("operation_name"),
-            attempt_number=kwargs.get("attempt_number"),
-            response_status_code=getattr(kwargs.get("response"), "status_code", None),
-            endpoint_url=settings.S3_ENDPOINT_URL,
-        )
-
-    client.meta.events.register("needs-retry", _log_retry_attempt)
 
 
 def build_product_file_key(*, product_slug: str, filename: str) -> str:
