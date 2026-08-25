@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_payment_duplicate_event,
+    inc_payment_webhook_external_ignored,
     inc_payment_webhook_failed,
     inc_payment_webhook_received,
     inc_payment_webhook_rejected,
@@ -45,6 +46,7 @@ from .helpers import (
     get_parsed_webhook_payload,
     normalize_currency_code,
     parse_express_pay_payload,
+    site_payment_account_exists,
     success_response,
     validate_invoice_payment_payload,
     verify_webhook_signature,
@@ -142,6 +144,20 @@ class ExpressPayNotificationView(View):
     ) -> tuple[Invoice | None, HttpResponse | None]:
         try:
             notification = ExpressPayWebhookNotification.model_validate(payload)
+            if not site_payment_account_exists(notification.account_no):
+                inc_payment_webhook_external_ignored(provider=provider)
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "payment.notification.external_ignored",
+                    provider=provider,
+                    cmd_type=cmd_type,
+                    account_no=notification.account_no,
+                    provider_invoice_no=str(notification.invoice_no)
+                    if notification.invoice_no is not None else None,
+                )
+                return None, success_response()
+
             invoice = self._process_status_change(notification)
         except ValidationError as exc:
             inc_payment_webhook_rejected(provider=provider, reason="invalid_payload")
@@ -438,6 +454,21 @@ class ExpressPaySettlementNotificationView(View):
     def _handle_cmd_type(self, request: HttpRequest, cmd_type: int) -> HttpResponse:
         if cmd_type == ExpressPayCommandType.EPOS_SETTLEMENT:
             notification = parse_express_pay_payload(request, ExpressPayEPOSSettlementNotification)
+            if not site_payment_account_exists(notification.account_number):
+                inc_payment_webhook_external_ignored(provider=PaymentProvider.EXPRESS_PAY.value)
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "payment.settlement_notification.external_ignored",
+                    provider=PaymentProvider.EXPRESS_PAY.value,
+                    cmd_type=cmd_type,
+                    account_number=notification.account_number,
+                    payment_no=str(notification.payment_no)
+                    if notification.payment_no is not None
+                    else None,
+                )
+                return success_response()
+
             invoice = self._process_epos_notification(notification)
             log_event(
                 logger,

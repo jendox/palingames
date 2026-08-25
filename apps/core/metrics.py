@@ -74,6 +74,11 @@ PAYMENT_WEBHOOKS_REJECTED_TOTAL = Counter(
     "Total rejected payment webhooks.",
     ["provider", "reason"],
 )
+PAYMENT_WEBHOOKS_EXTERNAL_IGNORED_TOTAL = Counter(
+    "payment_webhooks_external_ignored_total",
+    "Express Pay webhooks ignored because account is not managed by the site",
+    ["provider"],
+)
 PAYMENT_DUPLICATE_EVENTS_TOTAL = Counter(
     "payment_duplicate_events_total",
     "Total duplicate payment events received.",
@@ -279,6 +284,10 @@ def inc_payment_webhook_failed(*, provider: str, reason: str) -> None:
 
 def inc_payment_webhook_rejected(*, provider: str, reason: str) -> None:
     PAYMENT_WEBHOOKS_REJECTED_TOTAL.labels(provider=provider, reason=reason).inc()
+
+
+def inc_payment_webhook_external_ignored(*, provider: str) -> None:
+    PAYMENT_WEBHOOKS_EXTERNAL_IGNORED_TOTAL.labels(provider=provider).inc()
 
 
 def inc_payment_duplicate_event(*, provider: str, cmd_type: int | str, source: str) -> None:
