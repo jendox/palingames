@@ -687,6 +687,21 @@ class ExpressPayNotificationIncidentTests(TestCase):
             "Signature": signature or self.client_helper._compute_raw_signature(data),
         }
 
+    def test_notification_ignores_external_account_without_incident(self):
+        response = self.client.post(
+            self.notification_url,
+            data=self._build_request_payload(
+                account_no="MANUAL-CLIENT-001",
+                invoice_no=99999999,
+            ),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+        self.invoice.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(PaymentEvent.objects.count(), 0)
+
     @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
     def test_notification_invoice_not_found_records_incident_failure(
         self,
@@ -917,31 +932,6 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.content.decode(), "FAILED | Incorrect digital signature")
 
-    def test_settlement_notification_returns_not_found_for_unknown_order(self):
-        response = self.client.post(
-            self.settlement_url,
-            data=self._build_epos_payload(account_number="UNKNOWN-ACCOUNT"),
-        )
-
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.content.decode(), "FAILED | Order not found")
-
-    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
-    def test_settlement_notification_invoice_not_found_records_incident_failure(
-        self,
-        record_payment_webhook_failure_incident_mock,
-    ):
-        response = self.client.post(
-            self.settlement_url,
-            data=self._build_epos_payload(account_number="UNKNOWN-ACCOUNT"),
-        )
-
-        self.assertEqual(response.status_code, 404)
-        record_payment_webhook_failure_incident_mock.assert_called_once_with(
-            provider=PaymentProvider.EXPRESS_PAY.value,
-            reason="invoice_not_found",
-        )
-
     @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
     @patch("apps.payments.views.express_pay.ExpressPaySettlementNotificationView._process_epos_notification")
     def test_settlement_notification_processing_error_records_incident_failure_and_reraises(
@@ -1065,6 +1055,29 @@ class ExpressPaySettlementNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
+
+    def test_settlement_notification_ignores_external_account(self):
+        response = self.client.post(
+            self.settlement_url,
+            data=self._build_epos_payload(account_number="MANUAL-CLIENT-001"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content.decode(), "SUCCESS")
+        self.assertEqual(PaymentEvent.objects.count(), 0)
+
+    @patch("apps.payments.views.express_pay.record_payment_webhook_failure_incident")
+    def test_settlement_notification_unknown_account_no_longer_records_incident(
+        self,
+        record_payment_webhook_failure_incident_mock,
+    ):
+        response = self.client.post(
+            self.settlement_url,
+            data=self._build_epos_payload(account_number="UNKNOWN-ACCOUNT"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        record_payment_webhook_failure_incident_mock.assert_not_called()
 
 
 @override_settings(**TELEGRAM_NOTIFICATION_TEST_SETTINGS)

@@ -7,10 +7,12 @@ from http import HTTPStatus
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
+from apps.custom_games.models import CustomGameRequest
+from apps.orders.models import Order
 from apps.payments.models import Invoice
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay import ExpressPayClient, ExpressPaySignatureError
-from libs.express_pay.models import ExpressPayConfig
+from libs.express_pay.models import ACCOUNT_NUMBER_PATTERN, ExpressPayConfig
 from libs.payments import WebhookSignatureVerification
 from libs.payments.models import InvoiceStatus
 
@@ -19,6 +21,32 @@ MONEY_QUANT = Decimal("0.01")
 
 class PaymentNotificationMismatch(Exception):
     pass
+
+
+def normalize_express_pay_account_number(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    normalized = value.strip().upper()
+    if ACCOUNT_NUMBER_PATTERN.fullmatch(normalized):
+        return normalized
+
+    candidate = normalized.rsplit("-", maxsplit=1)[-1]
+    if ACCOUNT_NUMBER_PATTERN.fullmatch(candidate):
+        return candidate
+
+    return normalized
+
+
+def site_payment_account_exists(account_number: str | None) -> bool:
+    normalized = normalize_express_pay_account_number(account_number)
+    if normalized is None:
+        return False
+
+    return (
+        Order.objects.filter(payment_account_no=normalized).exists()
+        or CustomGameRequest.objects.filter(payment_account_no=normalized).exists()
+    )
 
 
 @lru_cache(maxsize=8)
