@@ -1,0 +1,17 @@
+# Secrets — never send to AI
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/.env.*
+!deploy/env.example
+
+# Backup / credential files
+**/*.pem
+**/*.key
+**/id_rsa
+**/secrets.json
+**/credentials.json
+**/*-gpg.pass
+**/backup-gpg.pass
+**/backup-telegram.env
