@@ -13,6 +13,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_order_paid,
     inc_order_paid_duplicate,
+    inc_payment_unmapped_provider_status,
     observe_payment_webhook_processing_duration,
 )
 from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
@@ -23,6 +24,7 @@ from apps.orders.models import Order
 from apps.orders.reward_services import issue_order_reward_after_payment
 from libs.payments.models import InvoiceStatus
 
+from .alerts import record_unmapped_provider_status_incident
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
@@ -32,6 +34,11 @@ def map_invoice_status(provider_status: int | None) -> str | None:
     if provider_status is None:
         return None
 
+    # InvoiceStatus.PARTIALLY_PAID (4) и PAID_BY_CARD (6) намеренно не
+    # отображаются: карточная оплата в Express Pay не подключена.
+    # При подключении карт добавить PAID_BY_CARD -> Invoice.InvoiceStatus.PAID.
+    # PARTIALLY_PAID выдавать товар НЕ должен — нужен отдельный статус и разбор вручную.
+    # Любой неотображённый код теперь логируется и шлёт инцидент, см. apply_invoice_status_update.
     mapping = {
         InvoiceStatus.PENDING: Invoice.InvoiceStatus.PENDING,
         InvoiceStatus.EXPIRED: Invoice.InvoiceStatus.EXPIRED,
@@ -330,6 +337,57 @@ def save_invoice_and_target(invoice: Invoice) -> None:
         )
 
 
+def _report_unmapped_provider_status(
+    invoice: Invoice,
+    *,
+    provider: str,
+    provider_status: int,
+    source: str,
+) -> None:
+    log_event(
+        logger,
+        logging.WARNING,
+        "payment.status.unmapped",
+        provider=provider,
+        source=source,
+        provider_status=provider_status,
+        invoice_id=invoice.id,
+        target_type=invoice.target_kind,
+    )
+    inc_payment_unmapped_provider_status(
+        provider=provider,
+        provider_status=provider_status,
+        source=source,
+    )
+    record_unmapped_provider_status_incident(
+        provider=provider,
+        provider_status=provider_status,
+    )
+
+
+def resolve_status_update(
+    invoice: Invoice,
+    *,
+    provider_status: int | None,
+    provider: str,
+    source: str,
+) -> str | None:
+    """Map a provider status to an internal one, dropping unknown codes and paid-state regressions."""
+    normalized_status = map_invoice_status(provider_status)
+
+    if normalized_status is None:
+        if provider_status is not None:
+            _report_unmapped_provider_status(
+                invoice,
+                provider=provider,
+                provider_status=provider_status,
+                source=source,
+            )
+        return None
+
+    return normalized_status
+
+
 def apply_invoice_status_update(
     invoice: Invoice,
     *,
@@ -343,7 +401,12 @@ def apply_invoice_status_update(
     status_payload = status_payload or {}
     result = "success"
     try:
-        normalized_status = map_invoice_status(provider_status)
+        normalized_status = resolve_status_update(
+            invoice,
+            provider_status=provider_status,
+            provider=provider,
+            source=source,
+        )
         normalized_event_at = normalize_notification_datetime(status_payload.get("event_at"))
 
         invoice.provider = provider

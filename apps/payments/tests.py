@@ -29,7 +29,7 @@ from apps.payments.notifications import (
     notify_payments_monthly_report_admin_telegram,
 )
 from apps.payments.reports import build_npd_monthly_report
-from apps.payments.services import mark_custom_game_request_paid
+from apps.payments.services import map_invoice_status, mark_custom_game_request_paid
 from apps.payments.tasks import (
     create_invoice_task,
     send_previous_month_payments_report_task,
@@ -48,6 +48,23 @@ TELEGRAM_NOTIFICATION_TEST_SETTINGS = {
     "TELEGRAM_FORUM_CHAT_ID": "-1001234567890",
     "TELEGRAM_NOTIFICATIONS_THREAD_ID": 3,
 }
+
+
+class MapInvoiceStatusTests(TestCase):
+    def test_known_statuses_are_mapped(self):
+        self.assertEqual(map_invoice_status(InvoiceStatus.PENDING), Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(map_invoice_status(InvoiceStatus.EXPIRED), Invoice.InvoiceStatus.EXPIRED)
+        self.assertEqual(map_invoice_status(InvoiceStatus.PAID), Invoice.InvoiceStatus.PAID)
+        self.assertEqual(map_invoice_status(InvoiceStatus.CANCELED), Invoice.InvoiceStatus.CANCELED)
+        self.assertEqual(map_invoice_status(InvoiceStatus.REFUNDED), Invoice.InvoiceStatus.REFUNDED)
+
+    def test_card_statuses_are_not_mapped_while_cards_are_disabled(self):
+        self.assertIsNone(map_invoice_status(InvoiceStatus.PARTIALLY_PAID))
+        self.assertIsNone(map_invoice_status(InvoiceStatus.PAID_BY_CARD))
+
+    def test_unknown_status_is_not_mapped(self):
+        self.assertIsNone(map_invoice_status(99))
+        self.assertIsNone(map_invoice_status(None))
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
@@ -566,6 +583,37 @@ class ExpressPayNotificationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
+
+    @patch("apps.payments.services.record_unmapped_provider_status_incident")
+    @patch("apps.payments.services.inc_payment_unmapped_provider_status")
+    def test_notification_with_unmapped_provider_status_keeps_state_and_alerts(
+        self,
+        inc_unmapped_mock,
+        record_unmapped_incident_mock,
+    ):
+        """Card payments are not enabled yet: status 6 must not silently pass as processed."""
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PAID_BY_CARD),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertIsNone(self.order.paid_at)
+        self.assertFalse(GuestAccess.objects.exists())
+        inc_unmapped_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            provider_status=InvoiceStatus.PAID_BY_CARD,
+            source="webhook",
+        )
+        record_unmapped_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            provider_status=InvoiceStatus.PAID_BY_CARD,
+        )
 
     def test_notification_ignores_non_status_change_cmd_type(self):
         payload = {

@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from django.conf import settings
 
-from apps.core.alerts import ThresholdIncidentSpec, record_threshold_incident, resolve_threshold_incident
+from apps.core.alerts import (
+    ThresholdIncidentSpec,
+    record_threshold_incident,
+    resolve_threshold_incident,
+    send_incident_alert,
+)
 
 PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY = "payments.webhook.failures"
 PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY = "payments.status_sync.failures"
+UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY = "payments.unmapped_provider_status"
 
 PAYMENT_WEBHOOK_ALERTABLE_REASONS = {
     "invoice_not_found",
@@ -84,4 +90,15 @@ def resolve_payment_status_sync_failure_incident(*, provider: str) -> bool:
                 "provider": provider,
             },
         ),
+    )
+
+
+def record_unmapped_provider_status_incident(*, provider: str, provider_status: int | str) -> bool:
+    return send_incident_alert(
+        key=UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY,
+        title="Unmapped payment provider status",
+        severity="critical",
+        fingerprint=f"{UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY}:{provider}:{provider_status}",
+        details={"provider": provider, "provider_status": str(provider_status)},
+        dedupe_ttl_seconds=settings.ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS,
     )
