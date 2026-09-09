@@ -71,6 +71,7 @@ def save_invoice_target(invoice: Invoice) -> None:
             update_fields=[
                 "status",
                 "paid_at",
+                "refunded_at",
                 "cancelled_at",
                 "failure_reason",
                 "updated_at",

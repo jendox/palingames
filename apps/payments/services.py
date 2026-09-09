@@ -25,20 +25,22 @@ from apps.orders.models import Order
 from apps.orders.reward_services import issue_order_reward_after_payment
 from libs.payments.models import InvoiceStatus
 
-from .alerts import record_unmapped_provider_status_incident
+from .alerts import record_order_refunded_incident, record_unmapped_provider_status_incident
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
 
-# Once an invoice is paid the only legitimate forward move is a refund. Everything else
-# (PENDING/EXPIRED/CANCELED) means a late or out-of-order provider notification: webhook
-# delivery is not ordered, so a stale event must never un-pay a fulfilled order.
-STATUSES_ALLOWED_AFTER_PAID = frozenset(
-    {
-        Invoice.InvoiceStatus.PAID,
-        Invoice.InvoiceStatus.REFUNDED,
-    },
-)
+# Webhook delivery is not ordered, so a stale event must never un-pay a fulfilled order.
+# Once paid, an invoice may only stay paid or be refunded; a refund is final.
+ALLOWED_TRANSITIONS_FROM_TERMINAL_STATUS = {
+    Invoice.InvoiceStatus.PAID: frozenset(
+        {
+            Invoice.InvoiceStatus.PAID,
+            Invoice.InvoiceStatus.REFUNDED,
+        },
+    ),
+    Invoice.InvoiceStatus.REFUNDED: frozenset({Invoice.InvoiceStatus.REFUNDED}),
+}
 
 
 def map_invoice_status(provider_status: int | None) -> str | None:
@@ -247,6 +249,19 @@ def apply_order_status_from_invoice_status(
         )
         return
 
+    if normalized_status == Invoice.InvoiceStatus.REFUNDED:
+        # paid_at is deliberately kept: the payment did happen and reconciliation needs it.
+        invoice.order.status = Order.OrderStatus.REFUNDED
+        invoice.order.refunded_at = event_at or timezone.now()
+        invoice.order.cancelled_at = None
+        invoice.order.failure_reason = None
+        record_order_refunded_incident(
+            provider=invoice.provider,
+            order_id=invoice.order_id,
+            invoice_id=invoice.id,
+        )
+        return
+
     if normalized_status == Invoice.InvoiceStatus.CANCELED:
         invoice.paid_at = None
         invoice.cancelled_at = event_at or timezone.now()
@@ -332,6 +347,7 @@ def save_invoice_and_target(invoice: Invoice) -> None:
             update_fields=[
                 "status",
                 "paid_at",
+                "refunded_at",
                 "cancelled_at",
                 "failure_reason",
                 "updated_at",
@@ -377,12 +393,13 @@ def _report_unmapped_provider_status(
 
 
 def is_paid_status_regression(invoice: Invoice, normalized_status: str | None) -> bool:
-    """A paid invoice may only stay paid or be refunded; anything else is a late/out-of-order event."""
+    """Report whether the incoming status would roll a settled invoice back to an unsettled state."""
     if normalized_status is None:
         return False
-    if invoice.status != Invoice.InvoiceStatus.PAID:
+    allowed = ALLOWED_TRANSITIONS_FROM_TERMINAL_STATUS.get(invoice.status)
+    if allowed is None:
         return False
-    return normalized_status not in STATUSES_ALLOWED_AFTER_PAID
+    return normalized_status not in allowed
 
 
 def _report_paid_status_regression(

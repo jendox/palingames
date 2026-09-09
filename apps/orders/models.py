@@ -18,6 +18,7 @@ class Order(TimeStampedModel):
         CREATED = "CREATED", _("Создан")
         WAITING_FOR_PAYMENT = "WAITING_FOR_PAYMENT", _("Ожидает оплату")
         PAID = "PAID", _("Оплачен")
+        REFUNDED = "REFUNDED", _("Возврат")
         CANCELED = "CANCELED", _("Отменён")
         FAILED = "FAILED", _("Ошибка")
 
@@ -97,6 +98,7 @@ class Order(TimeStampedModel):
     currency = models.PositiveSmallIntegerField(_("Валюта"), choices=Currency.choices, default=Currency.BYN)
     items_count = models.PositiveSmallIntegerField(_("Количество позиций"), default=0)
     paid_at = models.DateTimeField(_("Оплачен в"), null=True, blank=True)
+    refunded_at = models.DateTimeField(_("Возвращён в"), null=True, blank=True)
     cancelled_at = models.DateTimeField(_("Отменён в"), null=True, blank=True)
     failure_reason = models.CharField(_("Причина ошибки"), max_length=128, null=True, blank=True)
 

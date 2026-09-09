@@ -751,6 +751,66 @@ class ExpressPayPaidStatusRegressionTests(ExpressPayNotificationTestDataMixin, T
         inc_duplicate_mock.assert_called_once()
         self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
 
+    @patch("apps.payments.services.record_order_refunded_incident")
+    def test_refund_notification_marks_order_refunded_and_keeps_payment_history(
+        self,
+        record_refund_incident_mock,
+    ):
+        self._pay_order_via_webhook()
+        paid_at = self.order.paid_at
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555006),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        # Re-read from the database: a missing update_fields entry would only show up here.
+        order = Order.objects.get(pk=self.order.pk)
+        self.invoice.refresh_from_db()
+        self.assertEqual(order.status, Order.OrderStatus.REFUNDED)
+        self.assertIsNotNone(order.refunded_at)
+        self.assertEqual(order.paid_at, paid_at)
+        self.assertIsNone(order.cancelled_at)
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.REFUNDED)
+        record_refund_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            order_id=self.order.pk,
+            invoice_id=self.invoice.pk,
+        )
+
+    def test_refund_does_not_revoke_already_granted_access(self):
+        self._pay_order_via_webhook()
+        self.assertEqual(GuestAccess.objects.filter(order=self.order).count(), 1)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555007),
+            )
+
+        self.assertEqual(GuestAccess.objects.filter(order=self.order).count(), 1)
+
+    def test_paid_notification_after_refund_is_ignored(self):
+        self._pay_order_via_webhook()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555008),
+            )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PAID, payment_no=555009),
+            )
+
+        order = Order.objects.get(pk=self.order.pk)
+        self.invoice.refresh_from_db()
+        self.assertEqual(order.status, Order.OrderStatus.REFUNDED)
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.REFUNDED)
+
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
 class ExpressPayNotificationIncidentTests(TestCase):

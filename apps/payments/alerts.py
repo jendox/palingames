@@ -12,6 +12,7 @@ from apps.core.alerts import (
 PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY = "payments.webhook.failures"
 PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY = "payments.status_sync.failures"
 UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY = "payments.unmapped_provider_status"
+ORDER_REFUNDED_INCIDENT_KEY = "payments.order_refunded"
 
 PAYMENT_WEBHOOK_ALERTABLE_REASONS = {
     "invoice_not_found",
@@ -90,6 +91,16 @@ def resolve_payment_status_sync_failure_incident(*, provider: str) -> bool:
                 "provider": provider,
             },
         ),
+    )
+
+
+def record_order_refunded_incident(*, provider: str, order_id: int, invoice_id: int) -> bool:
+    return send_incident_alert(
+        key=ORDER_REFUNDED_INCIDENT_KEY,
+        title="Order refunded by payment provider",
+        severity="warning",
+        fingerprint=f"{ORDER_REFUNDED_INCIDENT_KEY}:{order_id}",
+        details={"provider": provider, "order_id": order_id, "invoice_id": invoice_id},
     )
 
 

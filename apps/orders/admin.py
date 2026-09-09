@@ -89,6 +89,7 @@ class OrderAdmin(admin.ModelAdmin):
         "currency",
         "created_at",
         "paid_at",
+        "refunded_at",
         "cancelled_at",
     )
     search_fields = (
@@ -115,6 +116,7 @@ class OrderAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
         "paid_at",
+        "refunded_at",
         "cancelled_at",
         "items_preview",
         "admin_order_actions",
@@ -169,6 +171,7 @@ class OrderAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "paid_at",
+                    "refunded_at",
                     "cancelled_at",
                     "created_at",
                     "updated_at",

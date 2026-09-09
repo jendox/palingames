@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import caches
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.access.models import UserProductAccess
 from apps.favorites.models import Favorite
@@ -102,6 +103,40 @@ class AccountOrdersDownloadTests(TestCase):
         self.assertEqual(order_item["price"], "19,00 BYN")
         self.assertEqual(order_item["discounted_price"], "17,10 BYN")
         self.assertContains(response, "Промокод EDU10 · Скидка 1,90 BYN")
+
+    def test_account_orders_render_refunded_status(self):
+        refunded_order = Order.objects.create(
+            user=self.user,
+            email=self.user.email,
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.AUTHENTICATED,
+            status=Order.OrderStatus.REFUNDED,
+            paid_at=timezone.now(),
+            refunded_at=timezone.now(),
+            subtotal_amount=Decimal("19.00"),
+            total_amount=Decimal("19.00"),
+            items_count=1,
+        )
+        OrderItem.objects.create(
+            order=refunded_order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="",
+            unit_price_amount=self.product.price,
+            quantity=1,
+            line_total_amount=self.product.price,
+            product_slug_snapshot=self.product.slug,
+            product_image_snapshot="https://example.com/product.png",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("account"), {"tab": "orders"})
+
+        self.assertEqual(response.status_code, 200)
+        order_ctx = next(
+            item for item in response.context["account_orders"] if item["number"] == refunded_order.payment_account_no
+        )
+        self.assertEqual(order_ctx["status"], "Возврат")
 
     def test_account_orders_failed_status_includes_failure_hint(self):
         failed_order = Order.objects.create(

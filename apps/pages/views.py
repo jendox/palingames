@@ -218,6 +218,12 @@ class AccountPageView(TemplateView):
                 "action_label": "Оплачен",
                 "action_url": None,
             },
+            Order.OrderStatus.REFUNDED: {
+                "label": "Возврат",
+                "classes": "bg-[rgba(212,90,90,0.12)] text-[#D45A5A]",
+                "action_label": None,
+                "action_url": None,
+            },
             Order.OrderStatus.CANCELED: {
                 "label": "Отменён",
                 "classes": "bg-[rgba(212,90,90,0.12)] text-[#D45A5A]",
