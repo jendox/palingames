@@ -67,8 +67,7 @@ class MapInvoiceStatusTests(TestCase):
         self.assertIsNone(map_invoice_status(None))
 
 
-@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
-class ExpressPayNotificationViewTests(TestCase):
+class ExpressPayNotificationTestDataMixin:
     @classmethod
     def setUpTestData(cls):
         cls.product = Product.objects.create(title="Товар для оплаты", slug="paid-product", price=Decimal("25.00"))
@@ -135,6 +134,9 @@ class ExpressPayNotificationViewTests(TestCase):
             "Signature": signature or self.client_helper._compute_raw_signature(data),
         }
 
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
+class ExpressPayNotificationViewTests(ExpressPayNotificationTestDataMixin, TestCase):
     def test_notification_marks_invoice_and_order_as_paid(self):
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(self.notification_url, data=self._build_request_payload())
@@ -665,6 +667,89 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.content.decode(), "SUCCESS")
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
+class ExpressPayPaidStatusRegressionTests(ExpressPayNotificationTestDataMixin, TestCase):
+    """Webhook delivery is not ordered: a stale event must never un-pay a fulfilled order."""
+
+    def _pay_order_via_webhook(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+
+    @patch("apps.payments.services.inc_payment_status_regression_ignored")
+    def test_late_pending_notification_does_not_unpay_the_order(self, inc_regression_mock):
+        self._pay_order_via_webhook()
+        paid_at = self.order.paid_at
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PENDING, payment_no=555002),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertEqual(self.order.paid_at, paid_at)
+        inc_regression_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            from_status=Invoice.InvoiceStatus.PAID,
+            to_status=Invoice.InvoiceStatus.PENDING,
+            source="webhook",
+        )
+
+    def test_late_expired_notification_does_not_fail_the_paid_order(self):
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.EXPIRED, payment_no=555003),
+            )
+
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertIsNotNone(self.order.paid_at)
+        self.assertIsNone(self.order.failure_reason)
+
+    def test_late_canceled_notification_does_not_cancel_the_paid_order(self):
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.CANCELED, payment_no=555004),
+            )
+
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertIsNone(self.order.cancelled_at)
+
+    @patch("apps.payments.services.inc_order_paid_duplicate")
+    def test_repeated_paid_notification_still_goes_through_duplicate_path(self, inc_duplicate_mock):
+        """The regression guard must not swallow repeated PAID events: dedupe accounting relies on them."""
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(payment_no=555005),
+            )
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        inc_duplicate_mock.assert_called_once()
+        self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")

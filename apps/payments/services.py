@@ -13,6 +13,7 @@ from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_order_paid,
     inc_order_paid_duplicate,
+    inc_payment_status_regression_ignored,
     inc_payment_unmapped_provider_status,
     observe_payment_webhook_processing_duration,
 )
@@ -28,6 +29,16 @@ from .alerts import record_unmapped_provider_status_incident
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
+
+# Once an invoice is paid the only legitimate forward move is a refund. Everything else
+# (PENDING/EXPIRED/CANCELED) means a late or out-of-order provider notification: webhook
+# delivery is not ordered, so a stale event must never un-pay a fulfilled order.
+STATUSES_ALLOWED_AFTER_PAID = frozenset(
+    {
+        Invoice.InvoiceStatus.PAID,
+        Invoice.InvoiceStatus.REFUNDED,
+    },
+)
 
 
 def map_invoice_status(provider_status: int | None) -> str | None:
@@ -365,6 +376,43 @@ def _report_unmapped_provider_status(
     )
 
 
+def is_paid_status_regression(invoice: Invoice, normalized_status: str | None) -> bool:
+    """A paid invoice may only stay paid or be refunded; anything else is a late/out-of-order event."""
+    if normalized_status is None:
+        return False
+    if invoice.status != Invoice.InvoiceStatus.PAID:
+        return False
+    return normalized_status not in STATUSES_ALLOWED_AFTER_PAID
+
+
+def _report_paid_status_regression(
+    invoice: Invoice,
+    *,
+    provider: str,
+    provider_status: int | None,
+    normalized_status: str,
+    source: str,
+) -> None:
+    log_event(
+        logger,
+        logging.WARNING,
+        "payment.status.regression_ignored",
+        provider=provider,
+        source=source,
+        provider_status=provider_status,
+        invoice_id=invoice.id,
+        target_type=invoice.target_kind,
+        from_status=invoice.status,
+        to_status=normalized_status,
+    )
+    inc_payment_status_regression_ignored(
+        provider=provider,
+        from_status=invoice.status,
+        to_status=normalized_status,
+        source=source,
+    )
+
+
 def resolve_status_update(
     invoice: Invoice,
     *,
@@ -383,6 +431,16 @@ def resolve_status_update(
                 provider_status=provider_status,
                 source=source,
             )
+        return None
+
+    if is_paid_status_regression(invoice, normalized_status):
+        _report_paid_status_regression(
+            invoice,
+            provider=provider,
+            provider_status=provider_status,
+            normalized_status=normalized_status,
+            source=source,
+        )
         return None
 
     return normalized_status
