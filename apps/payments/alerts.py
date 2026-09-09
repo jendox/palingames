@@ -95,21 +95,24 @@ def resolve_payment_status_sync_failure_incident(*, provider: str) -> bool:
 
 
 def record_order_refunded_incident(*, provider: str, order_id: int, invoice_id: int) -> bool:
+    # A refund is terminal, so one alert per order is enough for a long time.
     return send_incident_alert(
         key=ORDER_REFUNDED_INCIDENT_KEY,
         title="Order refunded by payment provider",
         severity="warning",
         fingerprint=f"{ORDER_REFUNDED_INCIDENT_KEY}:{order_id}",
         details={"provider": provider, "order_id": order_id, "invoice_id": invoice_id},
+        dedupe_ttl_seconds=settings.ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS,
     )
 
 
 def record_unmapped_provider_status_incident(*, provider: str, provider_status: int | str) -> bool:
+    # Default dedupe TTL on purpose: every unmapped status is a payment the app did not process,
+    # so the alert has to keep coming back while the problem lasts.
     return send_incident_alert(
         key=UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY,
         title="Unmapped payment provider status",
         severity="critical",
         fingerprint=f"{UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY}:{provider}:{provider_status}",
         details={"provider": provider, "provider_status": str(provider_status)},
-        dedupe_ttl_seconds=settings.ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS,
     )
