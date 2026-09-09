@@ -84,6 +84,8 @@ CREATED
 WAITING_FOR_PAYMENT  ◄── create_invoice_task, invoice URL пользователю
    │
    ├──► PAID          ◄── webhook или sync_waiting_invoice_statuses_task
+   │      │
+   │      └──► REFUNDED   ◄── возврат на стороне провайдера (терминальный)
    ├──► CANCELED
    └──► FAILED
 ```
@@ -91,6 +93,29 @@ WAITING_FOR_PAYMENT  ◄── create_invoice_task, invoice URL пользова
 Статусы определены в `apps/orders/models.py` (`Order.OrderStatus`).
 
 Checkout создаёт заказ и ставит invoice в очередь; fulfillment (`mark_order_paid`) срабатывает только при переходе invoice → `PAID`.
+
+### Правила переходов статуса invoice
+
+Доставка webhook не упорядочена, поэтому переходы из расчётных статусов ограничены
+(`ALLOWED_TRANSITIONS_FROM_TERMINAL_STATUS` в `apps/payments/services.py`):
+
+| Текущий статус invoice | Что принимается | Что происходит с остальным |
+|------------------------|-----------------|----------------------------|
+| `PAID` | `PAID` (идемпотентный повтор), `REFUNDED` | опоздавшие `PENDING` / `EXPIRED` / `CANCELED` игнорируются, пишется `payment.status.regression_ignored` |
+| `REFUNDED` | `REFUNDED` | возврат терминальный, повторный `PAID` не воскрешает заказ |
+
+При возврате `order.paid_at` намеренно сохраняется (нужен для сверки), выставляется
+`order.refunded_at`, уже выданный доступ к файлам **не отзывается** — возврат разбирается вручную.
+
+### Статусы провайдера, которые не маппятся
+
+`map_invoice_status` покрывает не все коды Express Pay. `PARTIALLY_PAID` (4) и `PAID_BY_CARD` (6)
+намеренно не отображаются: оплата картой не подключена. Любой неизвестный код не меняет состояние
+заказа, но пишет `payment.status.unmapped`, инкрементит `payment_unmapped_provider_status_total`
+и поднимает incident alert — то есть не теряется молча.
+
+**При подключении карт** нужно добавить `PAID_BY_CARD → PAID`. `PARTIALLY_PAID` выдавать товар
+не должен: под него нужен отдельный статус и ручной разбор.
 
 ---
 
@@ -267,6 +292,9 @@ Readiness (`/health/ready/`) проверяет PostgreSQL, Redis и досту�
 | Webhook не дошёл / timeout | `sync_waiting_invoice_statuses_task` | `payments.status_sync.failures` |
 | Webhook signature / parse errors | reject + threshold alert | `payments.webhook.failures` |
 | Duplicate webhook | `PaymentEvent` key + `already_paid` guard | metric `order_paid_duplicate` |
+| Неизвестный статус провайдера | статус не применяется, alert | `payments.unmapped_provider_status` |
+| Опоздавший webhook откатывает оплату | guard по терминальным статусам | metric `payment_status_regression_ignored` |
+| Возврат средств | `Order.REFUNDED` + alert, доступ не отзывается | `payments.order_refunded` |
 | Email не ушёл | outbox retry + retention cleanup | `notifications.outbox.failures` |
 | S3 недоступен | download 5xx, ready degraded | `storage.s3.unavailable` |
 | Guest link expired / limit | 410 на download view | — (expected) |

@@ -258,6 +258,36 @@ Watchdog:
 - grace 10 минут после оплаты, lookback 48 часов;
 - immediate alert (без threshold), dedupe через fingerprint + `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`.
 
+7. `payments.unmapped_provider_status`
+Что считается incident:
+- провайдер прислал статус инвойса, которого нет в `map_invoice_status`, поэтому состояние заказа
+  намеренно не изменено (например `PAID_BY_CARD` при неподключённой оплате картой).
+
+Route:
+- [`apps/payments/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/payments/alerts.py)
+- [`apps/payments/services.py`](/home/jendox/PycharmProjects/palingames/apps/payments/services.py)
+
+Тип:
+- immediate alert (без threshold), dedupe по `provider` + `provider_status`.
+
+Recovery:
+- не применим: это событие, а не деградация. Разбирается вручную, см. runbooks.
+
+8. `payments.order_refunded`
+Что считается incident:
+- по инвойсу оплаченного заказа пришёл возврат; заказ переведён в `REFUNDED`, доступ к файлам
+  не отзывается автоматически.
+
+Route:
+- [`apps/payments/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/payments/alerts.py)
+- [`apps/payments/services.py`](/home/jendox/PycharmProjects/palingames/apps/payments/services.py)
+
+Тип:
+- immediate alert (без threshold), dedupe по `order_id`.
+
+Recovery:
+- не применим: возврат терминален и разбирается вручную.
+
 ## 8. What Must Not Go To Telegram Incidents
 
 Не должны попадать в `incidents` topic:

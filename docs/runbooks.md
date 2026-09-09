@@ -19,6 +19,8 @@ Incident alerts отправляются через отдельный operation
 Текущие incident keys:
 - `payments.webhook.failures`
 - `payments.status_sync.failures`
+- `payments.unmapped_provider_status`
+- `payments.order_refunded`
 - `downloads.delivery.failures`
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
@@ -30,7 +32,9 @@ Recovery/resolved alerts сейчас реализованы для:
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
 
-`payments.webhook.failures` и `orders.delivery.invariant` пока без recovery-сигнала.
+Без recovery-сигнала: `payments.webhook.failures`, `orders.delivery.invariant`,
+`payments.unmapped_provider_status`, `payments.order_refunded`. Последние два — событийные
+(разбираются вручную), поэтому «восстановление» для них не определено.
 
 ## 2. Payment Webhook Failures
 
@@ -297,7 +301,67 @@ Incident key:
 Dedupe:
 - повтор того же нарушения не спамит чат 7 дней (настраивается `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`).
 
-## 9. Как пользоваться runbooks
+## 9. Unmapped Payment Provider Status
+
+Incident key:
+- `payments.unmapped_provider_status`
+
+Симптомы:
+- в Telegram topic `Incidents` пришёл alert `Unmapped payment provider status`;
+- в логах есть `payment.status.unmapped` с полем `provider_status`;
+- растёт `payment_unmapped_provider_status_total`;
+- заказ остался в `WAITING_FOR_PAYMENT`, хотя клиент утверждает, что оплатил.
+
+Что это значит:
+- Express Pay прислал статус, которого нет в `map_invoice_status`
+  ([`apps/payments/services.py`](/home/jendox/PycharmProjects/palingames/apps/payments/services.py));
+- приложение намеренно **не** меняет состояние заказа, чтобы не выдать товар по непонятному сигналу.
+
+Самые вероятные коды:
+- `6` (`PAID_BY_CARD`) — включили оплату картой на стороне провайдера, а в коде маппинга нет;
+- `4` (`PARTIALLY_PAID`) — частичная оплата, товар выдавать нельзя.
+
+Что проверить:
+1. `provider_status` из лога и сверить с `libs/express_pay/models.py::InvoiceStatus`.
+2. Реальный статус инвойса в личном кабинете Express Pay.
+3. Не включили ли недавно новый способ оплаты.
+
+Быстрые действия:
+1. Если это подтверждённая полная оплата — выдать доступ вручную через админку и зафиксировать заказ.
+2. Не «чинить» это выставлением `PAID` в БД до подтверждения провайдера.
+3. Завести задачу на добавление кода в `map_invoice_status`; для частичной оплаты нужен отдельный
+   статус и ручной разбор, а не маппинг в `PAID`.
+
+## 10. Order Refunded
+
+Incident key:
+- `payments.order_refunded`
+
+Симптомы:
+- в Telegram topic `Incidents` пришёл alert `Order refunded by payment provider`;
+- заказ в админке перешёл в статус `REFUNDED`, заполнен `refunded_at`.
+
+Что это значит:
+- провайдер сообщил о возврате средств по инвойсу;
+- приложение зафиксировало факт, но **ничего не откатывает автоматически**.
+
+Что происходит и чего не происходит:
+- `order.paid_at` сохраняется намеренно — нужен для сверки и отчётности;
+- выданный `UserProductAccess` / `GuestAccess` **не отзывается**: файлы, скорее всего, уже скачаны;
+- возврат терминальный: последующий `PAID` от провайдера игнорируется.
+
+Что проверить:
+1. Инициатор возврата: клиент, поддержка или провайдер.
+2. Скачивались ли файлы (`downloads_count` у `GuestAccess`, логи download view).
+3. Попал ли заказ в уже отправленный месячный NPD-отчёт.
+
+Быстрые действия:
+1. Решить по политике возвратов, нужно ли отзывать доступ; при необходимости деактивировать
+   access вручную в админке.
+2. Если отчёт за месяц уже сформирован, скорректировать его вручную.
+3. При росте числа возвратов — разбираться с причиной на стороне продукта, а не кода.
+
+## 11. Как пользоваться runbooks
 
 Правильный порядок реакции:
 1. Определи symptom или incident key.

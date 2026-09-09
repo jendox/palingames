@@ -29,7 +29,7 @@ from apps.payments.notifications import (
     notify_payments_monthly_report_admin_telegram,
 )
 from apps.payments.reports import build_npd_monthly_report
-from apps.payments.services import mark_custom_game_request_paid
+from apps.payments.services import map_invoice_status, mark_custom_game_request_paid
 from apps.payments.tasks import (
     create_invoice_task,
     send_previous_month_payments_report_task,
@@ -50,8 +50,24 @@ TELEGRAM_NOTIFICATION_TEST_SETTINGS = {
 }
 
 
-@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
-class ExpressPayNotificationViewTests(TestCase):
+class MapInvoiceStatusTests(TestCase):
+    def test_known_statuses_are_mapped(self):
+        self.assertEqual(map_invoice_status(InvoiceStatus.PENDING), Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(map_invoice_status(InvoiceStatus.EXPIRED), Invoice.InvoiceStatus.EXPIRED)
+        self.assertEqual(map_invoice_status(InvoiceStatus.PAID), Invoice.InvoiceStatus.PAID)
+        self.assertEqual(map_invoice_status(InvoiceStatus.CANCELED), Invoice.InvoiceStatus.CANCELED)
+        self.assertEqual(map_invoice_status(InvoiceStatus.REFUNDED), Invoice.InvoiceStatus.REFUNDED)
+
+    def test_card_statuses_are_not_mapped_while_cards_are_disabled(self):
+        self.assertIsNone(map_invoice_status(InvoiceStatus.PARTIALLY_PAID))
+        self.assertIsNone(map_invoice_status(InvoiceStatus.PAID_BY_CARD))
+
+    def test_unknown_status_is_not_mapped(self):
+        self.assertIsNone(map_invoice_status(99))
+        self.assertIsNone(map_invoice_status(None))
+
+
+class ExpressPayNotificationTestDataMixin:
     @classmethod
     def setUpTestData(cls):
         cls.product = Product.objects.create(title="Товар для оплаты", slug="paid-product", price=Decimal("25.00"))
@@ -118,6 +134,9 @@ class ExpressPayNotificationViewTests(TestCase):
             "Signature": signature or self.client_helper._compute_raw_signature(data),
         }
 
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
+class ExpressPayNotificationViewTests(ExpressPayNotificationTestDataMixin, TestCase):
     def test_notification_marks_invoice_and_order_as_paid(self):
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(self.notification_url, data=self._build_request_payload())
@@ -567,6 +586,37 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), "SUCCESS")
 
+    @patch("apps.payments.services.record_unmapped_provider_status_incident")
+    @patch("apps.payments.services.inc_payment_unmapped_provider_status")
+    def test_notification_with_unmapped_provider_status_keeps_state_and_alerts(
+        self,
+        inc_unmapped_mock,
+        record_unmapped_incident_mock,
+    ):
+        """Card payments are not enabled yet: status 6 must not silently pass as processed."""
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PAID_BY_CARD),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PENDING)
+        self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+        self.assertIsNone(self.order.paid_at)
+        self.assertFalse(GuestAccess.objects.exists())
+        inc_unmapped_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            provider_status=InvoiceStatus.PAID_BY_CARD,
+            source="webhook",
+        )
+        record_unmapped_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            provider_status=InvoiceStatus.PAID_BY_CARD,
+        )
+
     def test_notification_ignores_non_status_change_cmd_type(self):
         payload = {
             "CmdType": 1,
@@ -617,6 +667,149 @@ class ExpressPayNotificationViewTests(TestCase):
         self.assertEqual(response.content.decode(), "SUCCESS")
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.OrderStatus.WAITING_FOR_PAYMENT)
+
+
+@override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")
+class ExpressPayPaidStatusRegressionTests(ExpressPayNotificationTestDataMixin, TestCase):
+    """Webhook delivery is not ordered: a stale event must never un-pay a fulfilled order."""
+
+    def _pay_order_via_webhook(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.notification_url, data=self._build_request_payload())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+
+    @patch("apps.payments.services.inc_payment_status_regression_ignored")
+    def test_late_pending_notification_does_not_unpay_the_order(self, inc_regression_mock):
+        self._pay_order_via_webhook()
+        paid_at = self.order.paid_at
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PENDING, payment_no=555002),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertEqual(self.order.paid_at, paid_at)
+        inc_regression_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            from_status=Invoice.InvoiceStatus.PAID,
+            to_status=Invoice.InvoiceStatus.PENDING,
+            source="webhook",
+        )
+
+    def test_late_expired_notification_does_not_fail_the_paid_order(self):
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.EXPIRED, payment_no=555003),
+            )
+
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertIsNotNone(self.order.paid_at)
+        self.assertIsNone(self.order.failure_reason)
+
+    def test_late_canceled_notification_does_not_cancel_the_paid_order(self):
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.CANCELED, payment_no=555004),
+            )
+
+        self.invoice.refresh_from_db()
+        self.order.refresh_from_db()
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.PAID)
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        self.assertIsNone(self.order.cancelled_at)
+
+    @patch("apps.payments.services.inc_order_paid_duplicate")
+    def test_repeated_paid_notification_still_goes_through_duplicate_path(self, inc_duplicate_mock):
+        """The regression guard must not swallow repeated PAID events: dedupe accounting relies on them."""
+        self._pay_order_via_webhook()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(payment_no=555005),
+            )
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.OrderStatus.PAID)
+        inc_duplicate_mock.assert_called_once()
+        self.assertEqual(GuestAccess.objects.filter(order=self.order, product=self.product).count(), 1)
+
+    @patch("apps.payments.services.record_order_refunded_incident")
+    def test_refund_notification_marks_order_refunded_and_keeps_payment_history(
+        self,
+        record_refund_incident_mock,
+    ):
+        self._pay_order_via_webhook()
+        paid_at = self.order.paid_at
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555006),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        # Re-read from the database: a missing update_fields entry would only show up here.
+        order = Order.objects.get(pk=self.order.pk)
+        self.invoice.refresh_from_db()
+        self.assertEqual(order.status, Order.OrderStatus.REFUNDED)
+        self.assertIsNotNone(order.refunded_at)
+        self.assertEqual(order.paid_at, paid_at)
+        self.assertIsNone(order.cancelled_at)
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.REFUNDED)
+        record_refund_incident_mock.assert_called_once_with(
+            provider=PaymentProvider.EXPRESS_PAY.value,
+            order_id=self.order.pk,
+            invoice_id=self.invoice.pk,
+        )
+
+    def test_refund_does_not_revoke_already_granted_access(self):
+        self._pay_order_via_webhook()
+        self.assertEqual(GuestAccess.objects.filter(order=self.order).count(), 1)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555007),
+            )
+
+        self.assertEqual(GuestAccess.objects.filter(order=self.order).count(), 1)
+
+    def test_paid_notification_after_refund_is_ignored(self):
+        self._pay_order_via_webhook()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.REFUNDED, payment_no=555008),
+            )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.notification_url,
+                data=self._build_request_payload(status=InvoiceStatus.PAID, payment_no=555009),
+            )
+
+        order = Order.objects.get(pk=self.order.pk)
+        self.invoice.refresh_from_db()
+        self.assertEqual(order.status, Order.OrderStatus.REFUNDED)
+        self.assertEqual(self.invoice.status, Invoice.InvoiceStatus.REFUNDED)
 
 
 @override_settings(EXPRESS_PAY_USE_SIGNATURE=True, EXPRESS_PAY_WEBHOOK_SECRET_WORD="secret")

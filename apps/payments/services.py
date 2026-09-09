@@ -13,6 +13,8 @@ from apps.core.logging import log_event
 from apps.core.metrics import (
     inc_order_paid,
     inc_order_paid_duplicate,
+    inc_payment_status_regression_ignored,
+    inc_payment_unmapped_provider_status,
     observe_payment_webhook_processing_duration,
 )
 from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
@@ -23,15 +25,33 @@ from apps.orders.models import Order
 from apps.orders.reward_services import issue_order_reward_after_payment
 from libs.payments.models import InvoiceStatus
 
+from .alerts import record_order_refunded_incident, record_unmapped_provider_status_incident
 from .models import Invoice
 
 logger = logging.getLogger("apps.payments")
+
+# Webhook delivery is not ordered, so a stale event must never un-pay a fulfilled order.
+# Once paid, an invoice may only stay paid or be refunded; a refund is final.
+ALLOWED_TRANSITIONS_FROM_TERMINAL_STATUS = {
+    Invoice.InvoiceStatus.PAID: frozenset(
+        {
+            Invoice.InvoiceStatus.PAID,
+            Invoice.InvoiceStatus.REFUNDED,
+        },
+    ),
+    Invoice.InvoiceStatus.REFUNDED: frozenset({Invoice.InvoiceStatus.REFUNDED}),
+}
 
 
 def map_invoice_status(provider_status: int | None) -> str | None:
     if provider_status is None:
         return None
 
+    # InvoiceStatus.PARTIALLY_PAID (4) и PAID_BY_CARD (6) намеренно не
+    # отображаются: карточная оплата в Express Pay не подключена.
+    # При подключении карт добавить PAID_BY_CARD -> Invoice.InvoiceStatus.PAID.
+    # PARTIALLY_PAID выдавать товар НЕ должен — нужен отдельный статус и разбор вручную.
+    # Любой неотображённый код теперь логируется и шлёт инцидент, см. apply_invoice_status_update.
     mapping = {
         InvoiceStatus.PENDING: Invoice.InvoiceStatus.PENDING,
         InvoiceStatus.EXPIRED: Invoice.InvoiceStatus.EXPIRED,
@@ -229,6 +249,19 @@ def apply_order_status_from_invoice_status(
         )
         return
 
+    if normalized_status == Invoice.InvoiceStatus.REFUNDED:
+        # paid_at is deliberately kept: the payment did happen and reconciliation needs it.
+        invoice.order.status = Order.OrderStatus.REFUNDED
+        invoice.order.refunded_at = event_at or timezone.now()
+        invoice.order.cancelled_at = None
+        invoice.order.failure_reason = None
+        record_order_refunded_incident(
+            provider=invoice.provider,
+            order_id=invoice.order_id,
+            invoice_id=invoice.id,
+        )
+        return
+
     if normalized_status == Invoice.InvoiceStatus.CANCELED:
         invoice.paid_at = None
         invoice.cancelled_at = event_at or timezone.now()
@@ -314,6 +347,7 @@ def save_invoice_and_target(invoice: Invoice) -> None:
             update_fields=[
                 "status",
                 "paid_at",
+                "refunded_at",
                 "cancelled_at",
                 "failure_reason",
                 "updated_at",
@@ -330,6 +364,105 @@ def save_invoice_and_target(invoice: Invoice) -> None:
         )
 
 
+def _report_unmapped_provider_status(
+    invoice: Invoice,
+    *,
+    provider: str,
+    provider_status: int,
+    source: str,
+) -> None:
+    log_event(
+        logger,
+        logging.WARNING,
+        "payment.status.unmapped",
+        provider=provider,
+        source=source,
+        provider_status=provider_status,
+        invoice_id=invoice.id,
+        target_type=invoice.target_kind,
+    )
+    inc_payment_unmapped_provider_status(
+        provider=provider,
+        provider_status=provider_status,
+        source=source,
+    )
+    record_unmapped_provider_status_incident(
+        provider=provider,
+        provider_status=provider_status,
+    )
+
+
+def is_paid_status_regression(invoice: Invoice, normalized_status: str | None) -> bool:
+    """Report whether the incoming status would roll a settled invoice back to an unsettled state."""
+    if normalized_status is None:
+        return False
+    allowed = ALLOWED_TRANSITIONS_FROM_TERMINAL_STATUS.get(invoice.status)
+    if allowed is None:
+        return False
+    return normalized_status not in allowed
+
+
+def _report_paid_status_regression(
+    invoice: Invoice,
+    *,
+    provider: str,
+    provider_status: int | None,
+    normalized_status: str,
+    source: str,
+) -> None:
+    log_event(
+        logger,
+        logging.WARNING,
+        "payment.status.regression_ignored",
+        provider=provider,
+        source=source,
+        provider_status=provider_status,
+        invoice_id=invoice.id,
+        target_type=invoice.target_kind,
+        from_status=invoice.status,
+        to_status=normalized_status,
+    )
+    inc_payment_status_regression_ignored(
+        provider=provider,
+        from_status=invoice.status,
+        to_status=normalized_status,
+        source=source,
+    )
+
+
+def resolve_status_update(
+    invoice: Invoice,
+    *,
+    provider_status: int | None,
+    provider: str,
+    source: str,
+) -> str | None:
+    """Map a provider status to an internal one, dropping unknown codes and paid-state regressions."""
+    normalized_status = map_invoice_status(provider_status)
+
+    if normalized_status is None:
+        if provider_status is not None:
+            _report_unmapped_provider_status(
+                invoice,
+                provider=provider,
+                provider_status=provider_status,
+                source=source,
+            )
+        return None
+
+    if is_paid_status_regression(invoice, normalized_status):
+        _report_paid_status_regression(
+            invoice,
+            provider=provider,
+            provider_status=provider_status,
+            normalized_status=normalized_status,
+            source=source,
+        )
+        return None
+
+    return normalized_status
+
+
 def apply_invoice_status_update(
     invoice: Invoice,
     *,
@@ -343,7 +476,12 @@ def apply_invoice_status_update(
     status_payload = status_payload or {}
     result = "success"
     try:
-        normalized_status = map_invoice_status(provider_status)
+        normalized_status = resolve_status_update(
+            invoice,
+            provider_status=provider_status,
+            provider=provider,
+            source=source,
+        )
         normalized_event_at = normalize_notification_datetime(status_payload.get("event_at"))
 
         invoice.provider = provider

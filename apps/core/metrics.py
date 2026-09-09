@@ -84,6 +84,16 @@ PAYMENT_DUPLICATE_EVENTS_TOTAL = Counter(
     "Total duplicate payment events received.",
     ["provider", "cmd_type", "source"],
 )
+PAYMENT_UNMAPPED_PROVIDER_STATUS_TOTAL = Counter(
+    "payment_unmapped_provider_status_total",
+    "Total invoice notifications with a provider status the app cannot map.",
+    ["provider", "provider_status", "source"],
+)
+PAYMENT_STATUS_REGRESSION_IGNORED_TOTAL = Counter(
+    "payment_status_regression_ignored_total",
+    "Total ignored attempts to move a paid invoice back to an unpaid status.",
+    ["provider", "from_status", "to_status", "source"],
+)
 PAYMENT_WEBHOOK_PROCESSING_DURATION_SECONDS = Histogram(
     "payment_webhook_processing_duration_seconds",
     "Payment webhook/status update processing duration in seconds.",
@@ -292,6 +302,29 @@ def inc_payment_webhook_external_ignored(*, provider: str) -> None:
 
 def inc_payment_duplicate_event(*, provider: str, cmd_type: int | str, source: str) -> None:
     PAYMENT_DUPLICATE_EVENTS_TOTAL.labels(provider=provider, cmd_type=str(cmd_type), source=source).inc()
+
+
+def inc_payment_unmapped_provider_status(*, provider: str, provider_status: int | str, source: str) -> None:
+    PAYMENT_UNMAPPED_PROVIDER_STATUS_TOTAL.labels(
+        provider=provider,
+        provider_status=str(provider_status),
+        source=source,
+    ).inc()
+
+
+def inc_payment_status_regression_ignored(
+    *,
+    provider: str,
+    from_status: str,
+    to_status: str,
+    source: str,
+) -> None:
+    PAYMENT_STATUS_REGRESSION_IGNORED_TOTAL.labels(
+        provider=provider,
+        from_status=from_status,
+        to_status=to_status,
+        source=source,
+    ).inc()
 
 
 def observe_payment_webhook_processing_duration(
