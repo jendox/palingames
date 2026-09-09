@@ -42,6 +42,8 @@ App-level incident alerts и recovery alerts описаны отдельно:
 - `payment_webhooks_received_total`
 - `payment_webhooks_failed_total`
 - `payment_webhooks_rejected_total`
+- `payment_unmapped_provider_status_total`
+- `payment_status_regression_ignored_total`
 - `invoice_status_sync_runs_total`
 - `invoice_status_sync_selected_total`
 - `invoice_status_sync_processed_total`
@@ -128,6 +130,25 @@ App-level incident alerts и recovery alerts описаны отдельно:
   - labels:
     - `provider`
     - `reason`
+
+- `payment_unmapped_provider_status_total`
+  - labels:
+    - `provider`
+    - `provider_status`
+    - `source`
+  - зачем:
+    - провайдер прислал статус, которого нет в `map_invoice_status` (например `PAID_BY_CARD`);
+    - состояние заказа не меняется, поэтому без метрики реальная оплата потерялась бы молча.
+
+- `payment_status_regression_ignored_total`
+  - labels:
+    - `provider`
+    - `from_status`
+    - `to_status`
+    - `source`
+  - зачем:
+    - опоздавший webhook пытался откатить расчётный invoice в неоплаченный статус;
+    - переход отклонён; рост счётчика означает проблемы с порядком доставки на стороне провайдера.
 
 - `invoice_status_sync_runs_total`
 
@@ -267,6 +288,8 @@ App-level incident alerts и recovery alerts описаны отдельно:
 - `payment_webhooks_received_total`
 - `payment_webhooks_failed_total`
 - `payment_webhooks_rejected_total`
+- `payment_unmapped_provider_status_total`
+- `payment_status_regression_ignored_total`
 - `invoice_status_sync_processed_total`
 - `invoice_status_sync_failed_total`
 
@@ -304,10 +327,14 @@ App-level incident alerts и recovery alerts описаны отдельно:
 
 ## 4. First Alert Rules From Metrics
 
-Если позже появится Prometheus/Alertmanager или аналог, начинать стоит с таких правил:
+Действующие правила лежат в [`deploy/prometheus/alerts.yml`](../deploy/prometheus/alerts.yml).
+
+Базовый набор:
 
 - `payment_webhooks_failed_total` резко растет
 - `payment_webhooks_rejected_total` резко растет
+- `payment_unmapped_provider_status_total` > 0 (любое значение — статус провайдера остался необработанным)
+- `payment_status_regression_ignored_total` растет (провайдер шлёт события не по порядку)
 - `invoice_status_sync_failed_total` растет подряд несколько интервалов
 - `guest_email_failed_total` > 0 стабильно несколько интервалов
 - `product_download_failed_total` > 0 стабильно несколько интервалов
