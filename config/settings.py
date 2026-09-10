@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.promocodes.apps.PromocodesConfig",
     "apps.custom_games.apps.CustomGamesConfig",
     "apps.emails.apps.EmailsConfig",
+    "apps.managed_links.apps.ManagedLinksConfig",
 ]
 
 MIDDLEWARE = [
@@ -248,6 +249,23 @@ ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS = env.str(
     "ADMIN_DIRECT_S3_UPLOAD_ALLOWED_EXTENSIONS",
     default=".zip,.pdf,.rar,.7z",
 )
+
+S3_MANAGED_LINKS_BUCKET_NAME = env.str("S3_MANAGED_LINKS_BUCKET_NAME", default="qr-assets")
+MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED = env.bool("MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED", default=False)
+MANAGED_LINK_UPLOAD_MAX_BYTES = env.int("MANAGED_LINK_UPLOAD_MAX_BYTES", default=524288000)
+MANAGED_LINK_UPLOAD_PRESIGN_TTL_SECONDS = env.int("MANAGED_LINK_UPLOAD_PRESIGN_TTL_SECONDS", default=900)
+MANAGED_LINK_UPLOAD_ALLOWED_EXTENSIONS = env.str(
+    "MANAGED_LINK_UPLOAD_ALLOWED_EXTENSIONS",
+    default=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff",
+)
+MANAGED_LINK_REDIRECT_IP_RATE_LIMIT = env.int("MANAGED_LINK_REDIRECT_IP_RATE_LIMIT", default=60)
+MANAGED_LINK_REDIRECT_IP_RATE_LIMIT_WINDOW_SECONDS = env.int(
+    "MANAGED_LINK_REDIRECT_IP_RATE_LIMIT_WINDOW_SECONDS",
+    default=60,
+)
+MANAGED_LINK_QR_PNG_SIZE_PX = env.int("MANAGED_LINK_QR_PNG_SIZE_PX", default=1200)
+MANAGED_LINK_QR_BOX_SIZE = env.int("MANAGED_LINK_QR_BOX_SIZE", default=12)
+MANAGED_LINK_QR_LOGO_MAX_BYTES = env.int("MANAGED_LINK_QR_LOGO_MAX_BYTES", default=262144)
 
 SITE_BASE_URL = env.str("SITE_BASE_URL", default="http://127.0.0.1:8000")
 ANALYTICS_ENABLED = env.bool("ANALYTICS_ENABLED", default=False)

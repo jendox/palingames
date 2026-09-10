@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 
 from .logging import clear_logging_context, generate_request_id, log_event, set_logging_context
@@ -8,6 +9,14 @@ from .metrics import observe_http_request
 from .sentry import configure_sentry_scope
 
 logger = logging.getLogger("apps.request")
+
+_MANAGED_LINK_PATH_RE = re.compile(r"^/go/[^/]+/")
+
+
+def redact_request_path_for_logging(path: str) -> str:
+    if _MANAGED_LINK_PATH_RE.match(path):
+        return "/go/<redacted>/"
+    return path
 
 
 class RequestContextLoggingMiddleware:
@@ -22,15 +31,16 @@ class RequestContextLoggingMiddleware:
         request_id = request.META.get(self.request_id_header) or generate_request_id()
         request.request_id = request_id
         clear_logging_context()
+        logged_path = redact_request_path_for_logging(request.path)
         set_logging_context(
             request_id=request_id,
             http_method=request.method,
-            path=request.path,
+            path=logged_path,
         )
         configure_sentry_scope(
             request_id=request_id,
             http_method=request.method,
-            path=request.path,
+            path=logged_path,
         )
         log_event(logger, logging.INFO, "request.started")
 

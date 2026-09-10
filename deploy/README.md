@@ -551,6 +551,27 @@ aws s3api get-bucket-cors \
 
 API (staff + CSRF): `/admin-api/product-files/presign|finalize/`, `/admin-api/custom-game-files/presign|finalize/`
 
+## Managed links (QR materials, bucket `qr-assets`)
+
+Отдельный приватный bucket для материалов с постоянными QR-ссылками (`/go/<token>/`). Не смешивать с `palingames.products`.
+
+В `deploy/.env`:
+
+```env
+S3_MANAGED_LINKS_BUCKET_NAME=qr-assets
+MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED=true
+MANAGED_LINK_UPLOAD_MAX_BYTES=524288000
+MANAGED_LINK_UPLOAD_ALLOWED_EXTENSIONS=.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff
+```
+
+CORS на bucket `qr-assets` — по тому же шаблону, что для product bucket (origin staging/prod admin).
+
+API (staff + CSRF): `/admin-api/managed-links/presign/`, `/admin-api/managed-links/finalize/`.
+
+Публичный redirect: `GET /go/<token>/` (без auth; `robots.txt`: `Disallow: /go/`).
+
+Orphan-объекты после неудачного finalize — ручная чистка (см. `docs/runbooks.md`).
+
 ### Удаление файлов из S3 (admin delete)
 
 При удалении строки **ProductFile** или **CustomGameFile** в admin (и при **CASCADE** при удалении **Product** / **CustomGameRequest**) Django вызывает `pre_delete`-сигнал: объект в S3 удаляется по `file_key` из этой строки (`delete_object`).

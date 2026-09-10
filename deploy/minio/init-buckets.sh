@@ -5,6 +5,7 @@ MINIO_ENDPOINT="${MINIO_ENDPOINT:-http://minio:9000}"
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-minioadmin123}"
 BUCKET_NAME="${S3_BUCKET_NAME:-products}"
+MANAGED_LINKS_BUCKET_NAME="${S3_MANAGED_LINKS_BUCKET_NAME:-qr-assets}"
 PREVIEWS_PREFIX="${S3_PRODUCT_IMAGES_PREFIX:-previews}"
 
 echo "Configuring MinIO bucket '${BUCKET_NAME}' at ${MINIO_ENDPOINT}..."
@@ -15,6 +16,7 @@ until mc alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_
 done
 
 mc mb "local/${BUCKET_NAME}" --ignore-existing
+mc mb "local/${MANAGED_LINKS_BUCKET_NAME}" --ignore-existing
 mc anonymous set download "local/${BUCKET_NAME}/${PREVIEWS_PREFIX}"
 
-echo "MinIO ready: bucket=${BUCKET_NAME}, anonymous read=${PREVIEWS_PREFIX}/*"
+echo "MinIO ready: bucket=${BUCKET_NAME}, managed_links_bucket=${MANAGED_LINKS_BUCKET_NAME}, anonymous read=${PREVIEWS_PREFIX}/*"

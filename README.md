@@ -48,6 +48,7 @@
 - `apps/orders` — checkout, заказы и order items.
 - `apps/payments` — инвойсы, webhook/payment processing, orchestration after successful payment.
 - `apps/access` — доступ к оплаченным продуктам и guest download grants.
+- `apps/managed_links` — постоянные QR-ссылки `/go/<token>/` для игровых материалов (S3 + external fallback).
 - `apps/notifications` — `NotificationOutbox`, handlers, Telegram/email delivery.
 - `apps/emails` — `EmailLog`, `EmailSuppression`, unified SMTP sender (`send_outbound_email`).
 - `apps/core` — logging, middleware, shared infra, incident alerts.

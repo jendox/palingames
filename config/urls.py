@@ -7,6 +7,8 @@ from config import settings
 urlpatterns = [
     path("admin/", admin_site.urls),
     path("admin-api/", include("apps.products.admin_upload_urls")),
+    path("admin-api/", include("apps.managed_links.admin_upload_urls")),
+    path("", include("apps.managed_links.urls")),
     path("", include("apps.core.urls")),
     path("", include("apps.access.urls")),
     path("", include("apps.users.urls")),
