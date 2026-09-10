@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+  {% include "payments/email/partials/_order_payment_reminder_content.html" %}
+  {% include "payments/email/partials/_payment_button.html" %}
+{% endblock %}
+
+{% block email_footer %}
+  {% include "email/footer_support_social.html" %}
+{% endblock %}

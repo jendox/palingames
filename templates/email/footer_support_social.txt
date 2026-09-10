@@ -1,0 +1,7 @@
+{% load site_contact %}
+С уважением,
+команда PalinGames
+
+Это автоматическое письмо. Если нужна помощь, напишите нам:
+Telegram: {% support_telegram_url %}
+Instagram: {% support_instagram_url %}

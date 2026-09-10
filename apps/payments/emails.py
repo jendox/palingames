@@ -131,3 +131,92 @@ def send_invoice_created_user_email(
         recipient=recipient,
         target_kind=invoice.target_kind,
     )
+
+
+def send_invoice_payment_reminder_user_email(
+    *,
+    invoice: Invoice,
+    notification_outbox: NotificationOutbox | None = None,
+) -> None:
+    invoice = (
+        Invoice.objects.select_related("order")
+        .prefetch_related("order__items")
+        .get(pk=invoice.pk)
+    )
+    order = invoice.order
+    if order is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.payment_reminder_user_email.skipped",
+            invoice_id=invoice.id,
+            reason="missing_order",
+        )
+        return
+
+    if order.checkout_type != Order.CheckoutType.GUEST:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.payment_reminder_user_email.skipped",
+            invoice_id=invoice.id,
+            reason="not_guest_checkout",
+        )
+        return
+
+    recipient = order.email
+    if not recipient:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.payment_reminder_user_email.skipped",
+            invoice_id=invoice.id,
+            reason="empty_recipient",
+        )
+        return
+
+    if not invoice.invoice_url:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.payment_reminder_user_email.skipped",
+            invoice_id=invoice.id,
+            reason="missing_invoice_url",
+        )
+        return
+
+    context = _build_email_context(invoice=invoice, target=order)
+    text_body = render_to_string("payments/email/invoice_payment_reminder_user.txt", context)
+    html_body = render_to_string("payments/email/invoice_payment_reminder_user.html", context)
+
+    send_outbound_email(
+        OutboundEmail(
+            recipient=recipient,
+            subject=f"Нужна помощь с оплатой заказа {order.payment_account_no}",
+            text_body=text_body,
+            html_body=html_body,
+            notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+            template_key="payments/email/invoice_payment_reminder_user",
+            notification_outbox=notification_outbox,
+            metadata={
+                "invoice_id": invoice.id,
+                "provider_invoice_no": invoice.provider_invoice_no,
+                "payment_url": invoice.invoice_url,
+                "target_kind": invoice.target_kind,
+            },
+        ),
+    )
+
+    Invoice.objects.filter(pk=invoice.pk).update(
+        payment_reminder_sent_for_provider_invoice_no=invoice.provider_invoice_no,
+    )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.payment_reminder_user_email.sent",
+        invoice_id=invoice.id,
+        provider_invoice_no=invoice.provider_invoice_no,
+        recipient=recipient,
+        target_kind=invoice.target_kind,
+    )

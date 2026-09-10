@@ -26,12 +26,14 @@ from apps.payments.models import Invoice, PaymentEvent, PaymentProvider
 from apps.payments.notifications import (
     _monthly_report_recipient,
     ensure_invoice_created_user_email,
+    ensure_invoice_payment_reminder_email,
     notify_payments_monthly_report_admin_telegram,
 )
 from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import map_invoice_status, mark_custom_game_request_paid
 from apps.payments.tasks import (
     create_invoice_task,
+    send_invoice_payment_reminders_task,
     send_previous_month_payments_report_task,
     sync_waiting_invoice_statuses_task,
 )
@@ -1312,6 +1314,21 @@ class InvoiceStatusSyncTaskTests(TestCase):
         )
         return order, invoice
 
+    def _configure_eligible_payment_reminder_invoice(
+        self,
+        invoice: Invoice,
+        *,
+        now=None,
+    ):
+        now = now or timezone.now()
+        Invoice.objects.filter(pk=invoice.pk).update(
+            created_at=now - timedelta(hours=22),
+            expires_at=now + timedelta(hours=2),
+            payment_email_sent_for_provider_invoice_no=invoice.provider_invoice_no,
+        )
+        invoice.refresh_from_db()
+        return now
+
     def _create_waiting_custom_game_invoice(self, *, account_suffix: str) -> tuple[CustomGameRequest, Invoice]:
         custom_game_request = CustomGameRequest.objects.create(
             contact_name="Анна",
@@ -1510,6 +1527,113 @@ class InvoiceStatusSyncTaskTests(TestCase):
         self.assertEqual(email.to, [order.email])
         self.assertIn("44445555", email.subject)
         self.assertIn("https://example.com/pay/44445555", email.body)
+
+    @override_settings(
+        SITE_BASE_URL="https://example.com",
+        SUPPORT_TELEGRAM_URL="https://t.me/palingames_bot",
+        SUPPORT_INSTAGRAM_URL="https://www.instagram.com/palingamess/",
+    )
+    def test_process_invoice_payment_reminder_user_notification_sends_guest_order_email(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="55556666")
+        invoice.expires_at = timezone.now() + timedelta(hours=3)
+        invoice.payment_email_sent_for_provider_invoice_no = invoice.provider_invoice_no
+        invoice.save(update_fields=["expires_at", "payment_email_sent_for_provider_invoice_no", "updated_at"])
+
+        outbox = NotificationOutbox.objects.create(
+            channel=NotificationOutbox.Channel.EMAIL,
+            notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+            recipient=order.email,
+            payload_encrypted=encrypt_outbox_payload({"invoice_id": invoice.id}),
+            status=NotificationOutbox.Status.PENDING,
+            content_type=ContentType.objects.get_for_model(invoice),
+            object_id=invoice.id,
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(invoice.payment_reminder_sent_for_provider_invoice_no, "55556666")
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, [order.email])
+        self.assertIn("55556666", email.subject)
+        self.assertIn("Нужна помощь с оплатой заказа", email.subject)
+        self.assertIn("https://example.com/pay/55556666", email.body)
+        self.assertIn("https://t.me/palingames_bot", email.body)
+        self.assertIn("https://www.instagram.com/palingamess/", email.body)
+        self.assertNotIn("support@", email.body)
+
+    def test_ensure_invoice_payment_reminder_email_enqueues_for_eligible_guest_invoice(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="66667777")
+        now = self._configure_eligible_payment_reminder_invoice(invoice)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            enqueued = ensure_invoice_payment_reminder_email(invoice, now=now)
+
+        self.assertTrue(enqueued)
+        outbox = NotificationOutbox.objects.get(
+            notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+            object_id=invoice.id,
+        )
+        self.assertEqual(outbox.recipient, order.email)
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+
+    def test_ensure_invoice_payment_reminder_email_skips_when_not_due_yet(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="66667778")
+        now = timezone.now()
+        Invoice.objects.filter(pk=invoice.pk).update(
+            created_at=now - timedelta(hours=2),
+            expires_at=now + timedelta(hours=22),
+            payment_email_sent_for_provider_invoice_no=invoice.provider_invoice_no,
+        )
+        invoice.refresh_from_db()
+
+        enqueued = ensure_invoice_payment_reminder_email(invoice, now=now)
+
+        self.assertFalse(enqueued)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+                object_id=invoice.id,
+            ).exists(),
+        )
+
+    def test_ensure_invoice_payment_reminder_email_skips_when_reminder_already_sent(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="66667779")
+        now = self._configure_eligible_payment_reminder_invoice(invoice)
+        invoice.payment_reminder_sent_for_provider_invoice_no = invoice.provider_invoice_no
+        invoice.save(update_fields=["payment_reminder_sent_for_provider_invoice_no", "updated_at"])
+
+        enqueued = ensure_invoice_payment_reminder_email(invoice, now=now)
+
+        self.assertFalse(enqueued)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+                object_id=invoice.id,
+            ).exists(),
+        )
+
+    def test_send_invoice_payment_reminders_task_enqueues_eligible_invoice(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="66667780")
+        self._configure_eligible_payment_reminder_invoice(invoice)
+
+        summary = send_invoice_payment_reminders_task()
+
+        self.assertEqual(summary["selected"], 1)
+        self.assertEqual(summary["enqueued"], 1)
+        self.assertEqual(summary["skipped"], 0)
+        self.assertEqual(summary["failed"], 0)
+        self.assertTrue(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+                object_id=invoice.id,
+            ).exists(),
+        )
 
     @patch("apps.notifications.handlers.send_telegram_message")
     def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(

@@ -20,7 +20,7 @@ from apps.notifications.formatters import (
 from apps.notifications.telegram import send_telegram_message
 from apps.orders.emails import send_order_reward_user_email
 from apps.orders.models import Order
-from apps.payments.emails import send_invoice_created_user_email
+from apps.payments.emails import send_invoice_created_user_email, send_invoice_payment_reminder_user_email
 from apps.payments.models import Invoice
 from apps.products.emails import (
     send_review_rejected_user_email,
@@ -237,7 +237,8 @@ def _send_invoice_payment_reminder_user_notification(
     outbox: NotificationOutbox,
     payload: NotificationPayload,
 ) -> None:
-    pass
+    invoice = outbox.target or Invoice.objects.get(pk=payload["invoice_id"])
+    send_invoice_payment_reminder_user_email(invoice=invoice, notification_outbox=outbox)
 
 
 NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType], NotificationHandler] = {
