@@ -60,6 +60,10 @@ Fulfillment и notifications:
 - `notification_type`
 - `channel`
 
+Managed links:
+- `managed_link_id`
+- `token_prefix` (не full token; path `/go/...` redacted в middleware)
+
 Чувствительные поля должны оставаться redacted в logging layer.
 
 ## 4. Event Taxonomy
@@ -115,6 +119,15 @@ Downloads and storage:
 - `custom_game_request.download.failed`
 - `product_file.download_url.generated`
 - `product_file.download_url.failed`
+- `managed_link.redirect.success`
+- `managed_link.redirect.not_found`
+- `managed_link.redirect.s3_failed`
+- `managed_link.redirect.no_destination`
+- `managed_link_storage.metadata.success`
+- `managed_link_storage.metadata.failed`
+- `managed_link.row_delete.deleted`
+- `managed_link.row_delete.delete_failed`
+- `managed_link.qr.failed`
 
 Notifications:
 - `notification.outbox.created`
@@ -232,11 +245,13 @@ Recovery:
 
 5. `storage.s3.unavailable`
 Что считается incident:
-- repeated runtime failures в download URL generation path.
+- repeated runtime failures в download URL generation path (product downloads, managed link redirects, admin presign).
 
 Route:
-- [`apps/products/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/products/alerts.py)
-- [`apps/products/services/s3.py`](/home/jendox/PycharmProjects/palingames/apps/products/services/s3.py)
+- [`apps/products/alerts.py`](apps/products/alerts.py)
+- [`apps/products/services/s3.py`](apps/products/services/s3.py)
+- [`apps/managed_links/services/storage.py`](apps/managed_links/services/storage.py) — operations `managed_link_generate_presigned_download_url`, `managed_link_generate_presigned_upload_url`
+- [`apps/managed_links/views.py`](apps/managed_links/views.py)
 
 Recovery:
 - `Storage recovered`
@@ -352,7 +367,14 @@ Prometheus alerts лучше подходят для:
 - массовые request/worker symptoms;
 - dashboards и trends.
 
-Актуальные alert rules лежат в [`monitoring/prometheus/alerts.yml`](/home/jendox/PycharmProjects/palingames/monitoring/prometheus/alerts.yml).
+Managed links metrics (см. [metrics.md](metrics.md#d2-managed-links-qr-redirects)):
+- `managed_link_redirect_total{source}`
+- `managed_link_redirect_failed_total{reason}`
+- `managed_link_qr_generated_total{qr_format,with_logo}`
+
+Dedicated alert rule для managed links в `deploy/prometheus/alerts.yml` пока не добавлен — рекомендуется post-launch.
+
+Актуальные alert rules лежат в [`monitoring/prometheus/alerts.yml`](../monitoring/prometheus/alerts.yml).
 
 ## 12. Sentry Usage
 

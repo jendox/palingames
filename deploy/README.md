@@ -553,28 +553,88 @@ API (staff + CSRF): `/admin-api/product-files/presign|finalize/`, `/admin-api/cu
 
 ## Managed links (QR materials, bucket `qr-assets`)
 
-Отдельный приватный bucket для материалов с постоянными QR-ссылками (`/go/<token>/`). Не смешивать с `palingames.products`.
+Отдельный **приватный** bucket для материалов с постоянными QR-ссылками (`/go/<token>/`). Не смешивать с `palingames.products`.
 
-В `deploy/.env`:
+### Bucket и IAM (Contabo, один раз на окружение)
+
+1. Создать bucket в Contabo Object Storage (private, без public read/list).
+2. Убедиться, что `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` имеют права: `HeadBucket`, `PutObject`, `GetObject`, `DeleteObject`, `HeadObject` на этот bucket.
+
+| Окружение | Bucket (пример) | `AllowedOrigins` (CORS) |
+|-----------|-----------------|-------------------------|
+| Staging | `staging.palingames.qr-assets` | `https://dev.palingames.by` |
+| Production | `palingames.qr-assets` | `https://palingames.by` |
+
+Имена bucket — **разные** для staging и prod; не используйте один `qr-assets` в обоих `.env`.
+
+### Env в `deploy/.env`
 
 ```env
-S3_MANAGED_LINKS_BUCKET_NAME=qr-assets
+S3_MANAGED_LINKS_BUCKET_NAME=palingames.qr-assets
 MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED=true
 MANAGED_LINK_UPLOAD_MAX_BYTES=524288000
 MANAGED_LINK_UPLOAD_ALLOWED_EXTENSIONS=.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff
+MANAGED_LINK_REDIRECT_IP_RATE_LIMIT=60
+MANAGED_LINK_REDIRECT_IP_RATE_LIMIT_WINDOW_SECONDS=60
+SITE_BASE_URL=https://palingames.by
 ```
 
-CORS на bucket `qr-assets` — по тому же шаблону, что для product bucket (origin staging/prod admin).
+`MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED` в `deploy/env.example` по умолчанию `false` — для prod/staging включить явно.
+
+Readiness `/health/ready/` проверяет `managed_links_s3`, если bucket name не пустой. **Deploy упадёт**, если bucket не создан или недоступен.
+
+### CORS на managed-links bucket
+
+Тот же шаблон, что для product bucket: browser делает cross-origin **PUT** после presign.
+
+Пример `~/cors-qr-assets-prod.json`:
+
+```json
+{
+  "CORSRules": [{
+    "AllowedOrigins": ["https://palingames.by"],
+    "AllowedMethods": ["PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }]
+}
+```
+
+```bash
+aws s3api put-bucket-cors \
+  --bucket palingames.qr-assets \
+  --cors-configuration file://cors-qr-assets-prod.json \
+  --endpoint-url https://eu2.contabostorage.com
+```
+
+### Admin flow
+
+1. Staff → **Управляемые ссылки** → Add: ввести **название** → Save (черновик, `is_active=False`).
+2. На change form: выбрать файл → JS presign → PUT в S3 → finalize → `is_active=True` автоматически.
+3. Альтернатива: указать **внешнюю ссылку** (Yandex Disk) и включить «Активна» → Save без S3 upload.
+4. Скачать QR PNG (с логотипом `logo-qr-mark.png`) или SVG (plain).
 
 API (staff + CSRF): `/admin-api/managed-links/presign/`, `/admin-api/managed-links/finalize/`.
 
-Публичный redirect: `GET /go/<token>/` (без auth; `robots.txt`: `Disallow: /go/`).
+### Публичный redirect
+
+- `GET|HEAD /go/<token>/` — без auth; `robots.txt`: `Disallow: /go/`.
+- Заголовки: `Cache-Control: no-store`, `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`.
+- Rate limit: 60 req/min/IP → 404 (намеренно, без 429).
+
+### Smoke после deploy
+
+1. Создать managed link → upload PDF → открыть `/go/<token>/` → 302 на S3.
+2. Ссылка только с external URL → redirect на Yandex.
+3. `/health/ready/` → `managed_links_s3: ok`.
+4. QR PNG содержит URL `https://palingames.by/go/<token>/` (проверить `SITE_BASE_URL`).
 
 Orphan-объекты после неудачного finalize — ручная чистка (см. `docs/runbooks.md`).
 
 ### Удаление файлов из S3 (admin delete)
 
-При удалении строки **ProductFile** или **CustomGameFile** в admin (и при **CASCADE** при удалении **Product** / **CustomGameRequest**) Django вызывает `pre_delete`-сигнал: объект в S3 удаляется по `file_key` из этой строки (`delete_object`).
+При удалении строки **ProductFile**, **CustomGameFile** или **ManagedLink** в admin (и при **CASCADE** при удалении **Product** / **CustomGameRequest**) Django вызывает `pre_delete`-сигнал: объект в S3 удаляется по `file_key` из этой строки (`delete_object`).
 
 | Действие в admin | БД | S3 |
 |------------------|----|----|
@@ -582,6 +642,8 @@ Orphan-объекты после неудачного finalize — ручная 
 | Delete Product | CASCADE → все ProductFile | каждый связанный объект удалён |
 | Replace / upload нового active-файла | старый деактивирован или удалён | старый ключ удаляется в `save_model` / finalize (как раньше) |
 | Delete CustomGameFile / CustomGameRequest | аналогично | аналогично |
+| Delete ManagedLink | строка удалена | объект в `qr-assets` по `s3_file_key` удалён |
+| Replace managed link file (finalize) | метаданные обновлены | предыдущий ключ удалён сразу |
 
 **Скачивание для покупателей:**
 
@@ -645,9 +707,11 @@ docker compose -f docker-compose.prod.yml start web celery-worker celery-beat
 
 Volume `redis_data` (AOF). Для MVP достаточно пересоздания при потере (очереди Celery, кэш rate-limit, **Telegram outbound streams** — при flush сообщения в очереди теряются; support reply mapping тоже в Redis). Критичные данные — в Postgres.
 
-### S3 (файлы продуктов и custom games)
+### S3 (файлы продуктов, custom games и managed links)
 
 Бэкап — на стороне провайдера: versioning, cross-region replication или периодический `sync`/`rclone` в второй bucket. В `.env` зафиксируйте bucket и ключи; восстановление = новый ключ доступа + те же объекты.
+
+Managed links: отдельный bucket (`S3_MANAGED_LINKS_BUCKET_NAME`) — включить в ту же политику бэкапа, что и product files.
 
 ### Чеклист перед prod
 
@@ -660,5 +724,7 @@ Volume `redis_data` (AOF). Для MVP достаточно пересоздан�
 - [ ] S3 versioning или второй bucket
 - [ ] `S3_PRODUCT_IMAGES_ENABLED=true` и bucket policy для `previews/*` (см. раздел «Product preview images»)
 - [ ] `ADMIN_DIRECT_S3_UPLOAD_ENABLED=true` + CORS на bucket (см. «Admin direct S3 upload»)
+- [ ] Managed links: bucket `S3_MANAGED_LINKS_BUCKET_NAME` создан (private), CORS для admin origin, `MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED=true`, `SITE_BASE_URL` = prod apex (см. «Managed links»)
+- [ ] smoke managed link: create → upload → `/go/<token>/` → 302
 - [ ] документировано, кто и как делает restore
 - [ ] `tags_fixture.json` загружен в БД (см. раздел «Справочник каталога»)

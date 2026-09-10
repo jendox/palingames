@@ -61,6 +61,7 @@
 - `Invoice` / `PaymentEvent` — платежная часть.
 - `UserProductAccess` — постоянный доступ авторизованного пользователя к продукту.
 - `GuestAccess` — ограниченный по времени и количеству скачиваний доступ для guest order.
+- `ManagedLink` — постоянная QR-ссылка `/go/<token>/` на материал в S3 (`qr-assets`) или внешний URL; вне commerce flow.
 - `NotificationOutbox` — зашифрованная очередь исходящих уведомлений (email, Telegram): auth, guest download links, invoice payment, custom game, admin/review alerts.
 - `EmailLog` / `EmailSuppression` — audit каждой SMTP-отправки и ручная блокировка адресов (bounce/complaint/manual).
 
@@ -133,6 +134,18 @@ Product files хранятся в приватном S3-compatible object storag
 
 **Не фильтруется по `is_published`:** скачивание по уже выданному доступу (`UserProductAccess` / `GuestAccess`), история заказов, admin.
 
+### Managed links (QR materials)
+
+Отдельный поток для раздачи PDF/изображений по постоянным QR-ссылкам:
+
+- bucket: `S3_MANAGED_LINKS_BUCKET_NAME` (local dev: `qr-assets` via MinIO init);
+- object key: `{token}/{uuid4}.{ext}`;
+- admin: **Управляемые ссылки** → черновик (title) → upload в S3 → auto-activate;
+- публично: `GET /go/<token>/` → 302 на presigned S3 или `external_url`;
+- QR: PNG с `static/images/logo-qr-mark.png`, SVG без логотипа.
+
+Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [deploy/README.md](deploy/README.md#managed-links-qr-materials-bucket-qr-assets).
+
 ## Стек
 
 - Python `3.13`
@@ -190,6 +203,8 @@ make up-develop
 - `S3_ACCESS_KEY_ID`
 - `S3_SECRET_ACCESS_KEY`
 - `S3_BUCKET_NAME`
+- `S3_MANAGED_LINKS_BUCKET_NAME`
+- `MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED`
 - `S3_PRESIGNED_EXPIRE_SECONDS`
 - `SITE_BASE_URL`
 - `GUEST_ACCESS_EXPIRE_HOURS`

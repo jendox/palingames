@@ -53,6 +53,9 @@ App-level incident alerts и recovery alerts описаны отдельно:
 - `guest_email_failed_total`
 - `product_download_redirect_total`
 - `product_download_failed_total`
+- `managed_link_redirect_total`
+- `managed_link_redirect_failed_total`
+- `managed_link_qr_generated_total`
 - `health_readiness_checks_total`
 - `celery_task_started_total`
 - `celery_task_finished_total`
@@ -206,6 +209,32 @@ App-level incident alerts и recovery alerts описаны отдельно:
 - `downloads.delivery.failures`
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
+
+### D2. Managed links (QR redirects)
+
+- `managed_link_redirect_total`
+  - labels:
+    - `source` — `s3`, `external`, `external_fallback`
+
+- `managed_link_redirect_failed_total`
+  - labels:
+    - `reason` — `rate_limited`, `not_found`, `s3`, `no_destination`
+
+- `managed_link_qr_generated_total`
+  - labels:
+    - `qr_format` — `png`, `svg`
+    - `with_logo` — `true`, `false`
+
+Зачем:
+- видеть нагрузку на `/go/<token>/` и долю S3 vs external;
+- замечать массовые 404/rate limit (сканирование или утечка QR);
+- отслеживать генерацию QR в admin.
+
+Рекомендуемый PromQL (post-launch):
+- `increase(managed_link_redirect_failed_total{reason="s3"}[15m]) > 5`
+- `increase(managed_link_redirect_failed_total{reason="rate_limited"}[5m]) > 100`
+
+Dedicated Prometheus alert rule пока **не** добавлен в `deploy/prometheus/alerts.yml`.
 
 ### E. Background tasks
 
