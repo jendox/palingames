@@ -1635,6 +1635,22 @@ class InvoiceStatusSyncTaskTests(TestCase):
             ).exists(),
         )
 
+    def test_send_invoice_payment_reminders_task_skips_non_waiting_for_payment_order(self):
+        order, invoice = self._create_waiting_invoice(account_suffix="66667781")
+        self._configure_eligible_payment_reminder_invoice(invoice)
+        Order.objects.filter(pk=order.pk).update(status=Order.OrderStatus.FAILED)
+
+        summary = send_invoice_payment_reminders_task()
+
+        self.assertEqual(summary["selected"], 0)
+        self.assertEqual(summary["enqueued"], 0)
+        self.assertFalse(
+            NotificationOutbox.objects.filter(
+                notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+                object_id=invoice.id,
+            ).exists(),
+        )
+
     @patch("apps.notifications.handlers.send_telegram_message")
     def test_mark_custom_game_request_paid_moves_request_to_in_progress_without_download_email(
         self,

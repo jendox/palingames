@@ -546,6 +546,7 @@ def _get_invoice_ids_for_payment_reminders(*, now: datetime) -> list[int]:
         Invoice.objects.filter(
             status=Invoice.InvoiceStatus.PENDING,
             order__checkout_type=Order.CheckoutType.GUEST,
+            order__status=Order.OrderStatus.WAITING_FOR_PAYMENT,
             order__isnull=False,
             expires_at__isnull=False,
             expires_at__gt=now,
