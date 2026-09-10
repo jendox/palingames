@@ -20,7 +20,7 @@ from apps.notifications.formatters import (
 from apps.notifications.telegram import send_telegram_message
 from apps.orders.emails import send_order_reward_user_email
 from apps.orders.models import Order
-from apps.payments.emails import send_invoice_created_user_email
+from apps.payments.emails import send_invoice_created_user_email, send_invoice_payment_reminder_user_email
 from apps.payments.models import Invoice
 from apps.products.emails import (
     send_review_rejected_user_email,
@@ -232,6 +232,15 @@ def _send_payments_monthly_report_admin_telegram_notification(
     )
 
 
+def _send_invoice_payment_reminder_user_notification(
+    *,
+    outbox: NotificationOutbox,
+    payload: NotificationPayload,
+) -> None:
+    invoice = outbox.target or Invoice.objects.get(pk=payload["invoice_id"])
+    send_invoice_payment_reminder_user_email(invoice=invoice, notification_outbox=outbox)
+
+
 NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType], NotificationHandler] = {
     (NotificationOutbox.Channel.EMAIL, NotificationType.GUEST_ORDER_DOWNLOAD):
         _send_guest_order_download_notification,
@@ -261,4 +270,6 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_auth_account_email_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN):
         _send_payments_monthly_report_admin_telegram_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.INVOICE_PAYMENT_REMINDER_USER):
+        _send_invoice_payment_reminder_user_notification,
 }

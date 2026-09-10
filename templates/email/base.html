@@ -12,11 +12,13 @@
       <p style="margin-top:24px;font-size:15px;line-height:22px;">
         С уважением,<br>команда PalinGames
       </p>
-      <p style="margin-top:24px;font-size:13px;line-height:19px;color:#777;">
-        Это автоматическое письмо, отвечать на него не нужно.
-        Если у вас есть вопросы по заказу или доступу к материалам, напишите нам:
-        <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>
-      </p>
+      {% block email_footer %}
+        <p style="margin-top:24px;font-size:13px;line-height:19px;color:#777;">
+          Это автоматическое письмо, отвечать на него не нужно.
+          Если у вас есть вопросы по заказу или доступу к материалам, напишите нам:
+          <a href="mailto:{% support_email %}" style="color:#82d8d9;">{% support_email %}</a>
+        </p>
+      {% endblock %}
     </div>
   </body>
 </html>

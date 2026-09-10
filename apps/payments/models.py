@@ -61,6 +61,12 @@ class Invoice(TimeStampedModel):
         null=True,
         blank=True,
     )
+    payment_reminder_sent_for_provider_invoice_no = models.CharField(
+        _("Номер инвойса провайдера, для которого отправлено напоминание об оплате"),
+        max_length=255,
+        null=True,
+        blank=True,
+    )
     last_status_check_at = models.DateTimeField(_("Последняя проверка статуса"), null=True, blank=True)
     raw_create_response = models.JSONField(_("Ответ создания инвойса"), null=True, blank=True)
     raw_last_status_response = models.JSONField(_("Последний ответ статуса"), null=True, blank=True)

@@ -14,3 +14,4 @@ class NotificationType(StrEnum):
     CUSTOM_GAME_REQUEST_PAID_ADMIN = "custom_game_request_paid_admin"
     INVOICE_CREATED_USER = "invoice_created_user"
     PAYMENTS_MONTHLY_REPORT_ADMIN = "payments_monthly_report_admin"
+    INVOICE_PAYMENT_REMINDER_USER = "invoice_payment_reminder_user"

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.notifications.destinations import TelegramDestination
@@ -13,6 +14,11 @@ from apps.notifications.telegram import get_telegram_destination_skip_reason
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.payments.models import Invoice
+from apps.payments.reminder_policy import (
+    PaymentReminderCandidate,
+    evaluate_payment_reminder,
+    payment_reminder_policy_from_settings,
+)
 
 logger = logging.getLogger("apps.payments.notifications")
 
@@ -37,6 +43,38 @@ def _has_pending_invoice_created_user_notification(invoice: Invoice) -> bool:
             NotificationOutbox.Status.PROCESSING,
         ],
     ).exists()
+
+
+def _has_pending_invoice_payment_reminder_notification(invoice: Invoice) -> bool:
+    content_type = ContentType.objects.get_for_model(invoice, for_concrete_model=False)
+    return NotificationOutbox.objects.filter(
+        notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+        content_type=content_type,
+        object_id=invoice.pk,
+        status__in=[
+            NotificationOutbox.Status.PENDING,
+            NotificationOutbox.Status.PROCESSING,
+        ],
+    ).exists()
+
+
+def build_payment_reminder_candidate(invoice: Invoice) -> PaymentReminderCandidate | None:
+    order = invoice.order
+    if order is None:
+        return None
+
+    return PaymentReminderCandidate(
+        target_kind="order",
+        checkout_type=Order.CheckoutType(order.checkout_type),
+        invoice_status=Invoice.InvoiceStatus(invoice.status),
+        created_at=invoice.created_at,
+        expires_at=invoice.expires_at,
+        provider_invoice_no=invoice.provider_invoice_no or "",
+        invoice_url=invoice.invoice_url,
+        recipient_email=order.email,
+        payment_email_sent_for_provider_invoice_no=invoice.payment_email_sent_for_provider_invoice_no,
+        payment_reminder_sent_for_provider_invoice_no=invoice.payment_reminder_sent_for_provider_invoice_no,
+    )
 
 
 def _monthly_report_recipient(*, period_start: date, part_index: int, parts_total: int) -> str:
@@ -149,6 +187,84 @@ def ensure_invoice_created_user_email(invoice: Invoice) -> None:
         recipient=recipient,
         target_kind=invoice.target_kind,
     )
+
+
+def ensure_invoice_payment_reminder_email(
+    invoice: Invoice,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    now = now or timezone.now()
+    provider_invoice_no = (invoice.provider_invoice_no or "").strip()
+
+    candidate = build_payment_reminder_candidate(invoice)
+    if candidate is None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "invoice.payment_reminder_user_email.enqueue_skipped",
+            invoice_id=invoice.id,
+            reason="missing_order",
+        )
+        return False
+
+    decision = evaluate_payment_reminder(
+        candidate,
+        now=now,
+        policy=payment_reminder_policy_from_settings(),
+    )
+    if not decision.should_send:
+        log_event(
+            logger,
+            logging.INFO,
+            "invoice.payment_reminder_user_email.enqueue_skipped",
+            invoice_id=invoice.id,
+            provider_invoice_no=provider_invoice_no or None,
+            reason=decision.reason,
+        )
+        return False
+
+    recipient = candidate.recipient_email.strip()
+    if _has_pending_invoice_payment_reminder_notification(invoice):
+        log_event(
+            logger,
+            logging.INFO,
+            "invoice.payment_reminder_user_email.enqueue_skipped",
+            invoice_id=invoice.id,
+            provider_invoice_no=provider_invoice_no,
+            reason="pending_outbox_exists",
+        )
+        return False
+
+    try:
+        enqueue_email_notification(
+            notification_type=NotificationType.INVOICE_PAYMENT_REMINDER_USER,
+            recipient=recipient,
+            payload={"invoice_id": invoice.id},
+            target=invoice,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "invoice.payment_reminder_user_email.enqueue_failed",
+            exc_info=True,
+            invoice_id=invoice.id,
+            provider_invoice_no=provider_invoice_no,
+            recipient=recipient,
+        )
+        raise
+
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.payment_reminder_user_email.enqueued",
+        invoice_id=invoice.id,
+        provider_invoice_no=provider_invoice_no,
+        recipient=recipient,
+        target_kind=invoice.target_kind,
+    )
+    return True
 
 
 def notify_payments_monthly_report_admin_telegram(

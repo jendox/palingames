@@ -62,6 +62,13 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         period=IntervalSchedule.MINUTES,
     ),
     PeriodicTaskSpec(
+        name="Send invoice payment reminders",
+        task="apps.payments.tasks.send_invoice_payment_reminders_task",
+        schedule_kind="interval",
+        every=10,
+        period=IntervalSchedule.MINUTES,
+    ),
+    PeriodicTaskSpec(
         name="Send previous month payments report",
         task="apps.payments.tasks.send_previous_month_payments_report_task",
         schedule_kind="crontab",

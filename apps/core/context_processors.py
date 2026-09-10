@@ -50,4 +50,6 @@ def support_contact(request):
 
     return {
         "support_email": settings.SUPPORT_EMAIL,
+        "support_telegram_url": settings.SUPPORT_TELEGRAM_URL,
+        "support_instagram_url": settings.SUPPORT_INSTAGRAM_URL,
     }

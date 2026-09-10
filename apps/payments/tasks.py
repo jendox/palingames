@@ -20,7 +20,11 @@ from apps.payments.alerts import (
     resolve_payment_status_sync_failure_incident,
 )
 from apps.payments.models import Invoice
-from apps.payments.notifications import ensure_invoice_created_user_email, notify_payments_monthly_report_admin_telegram
+from apps.payments.notifications import (
+    ensure_invoice_created_user_email,
+    ensure_invoice_payment_reminder_email,
+    notify_payments_monthly_report_admin_telegram,
+)
 from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import apply_invoice_status_update
 from libs.express_pay.client import ExpressPayClient
@@ -534,6 +538,66 @@ def sync_waiting_invoice_statuses_task() -> dict[str, int]:
             provider=Invoice._meta.get_field("provider").default,
         )
     record_invoice_status_sync_summary(summary)
+    return summary
+
+
+def _get_invoice_ids_for_payment_reminders(*, now: datetime) -> list[int]:
+    return list(
+        Invoice.objects.filter(
+            status=Invoice.InvoiceStatus.PENDING,
+            order__checkout_type=Order.CheckoutType.GUEST,
+            order__status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            order__isnull=False,
+            expires_at__isnull=False,
+            expires_at__gt=now,
+            provider_invoice_no__isnull=False,
+        )
+        .exclude(provider_invoice_no="")
+        .values_list("id", flat=True),
+    )
+
+
+@shared_task
+def send_invoice_payment_reminders_task() -> dict[str, int]:
+    now = timezone.now()
+    invoice_ids = _get_invoice_ids_for_payment_reminders(now=now)
+    summary = {
+        "selected": len(invoice_ids),
+        "enqueued": 0,
+        "skipped": 0,
+        "failed": 0,
+    }
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.payment_reminder.started",
+        selected=summary["selected"],
+    )
+
+    for invoice_id in invoice_ids:
+        try:
+            invoice = Invoice.objects.select_related("order").get(pk=invoice_id)
+            if ensure_invoice_payment_reminder_email(invoice, now=now):
+                summary["enqueued"] += 1
+            else:
+                summary["skipped"] += 1
+        except Exception as exc:
+            summary["failed"] += 1
+            log_event(
+                logger,
+                logging.ERROR,
+                "invoice.payment_reminder.invoice_failed",
+                exc_info=exc,
+                invoice_id=invoice_id,
+                error_type=type(exc).__name__,
+            )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "invoice.payment_reminder.completed",
+        **summary,
+    )
     return summary
 
 
