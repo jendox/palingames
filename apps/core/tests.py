@@ -18,7 +18,7 @@ from apps.core.alerts import (
 )
 from apps.core.analytics import send_ga4_purchase_event_for_order
 from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE, SESSION_KEY_CONSENT_POLICY_VERSION
-from apps.core.context_processors import analytics
+from apps.core.context_processors import analytics, support_contact
 from apps.core.logging import (
     JsonFormatter,
     LoggingContextFilter,
@@ -171,6 +171,20 @@ class TestSettingsIsolationTests(SimpleTestCase):
         self.assertEqual(settings.TELEGRAM_NOTIFICATIONS_THREAD_ID, 0)
         self.assertEqual(settings.TELEGRAM_INCIDENTS_THREAD_ID, 0)
         self.assertEqual(settings.TELEGRAM_REDIS_URL, "")
+
+
+@override_settings(
+    SUPPORT_EMAIL="support@example.com",
+    SUPPORT_TELEGRAM_URL="https://t.me/example_bot",
+    SUPPORT_INSTAGRAM_URL="https://www.instagram.com/example/",
+)
+class SupportContactContextProcessorTests(SimpleTestCase):
+    def test_support_contact_exposes_email_and_social_urls(self):
+        context = support_contact(HttpRequest())
+
+        self.assertEqual(context["support_email"], "support@example.com")
+        self.assertEqual(context["support_telegram_url"], "https://t.me/example_bot")
+        self.assertEqual(context["support_instagram_url"], "https://www.instagram.com/example/")
 
 
 class SetupPeriodicTasksTests(TestCase):

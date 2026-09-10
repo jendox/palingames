@@ -459,6 +459,10 @@ class LegalPolicyPageTests(TestCase):
         self.assertNotContains(response, "Настройки cookie")
         self.assertContains(response, reverse("public-offer"))
 
+    @override_settings(
+        SUPPORT_TELEGRAM_URL="https://t.me/palingames_bot",
+        SUPPORT_INSTAGRAM_URL="https://www.instagram.com/palingamess/",
+    )
     def test_home_includes_support_email_in_footer(self):
         response = self.client.get(reverse("home"))
 
@@ -466,3 +470,5 @@ class LegalPolicyPageTests(TestCase):
         self.assertContains(response, "support@palingames.by")
         self.assertContains(response, 'href="mailto:support@palingames.by"')
         self.assertContains(response, "Поддержка")
+        self.assertContains(response, 'href="https://t.me/palingames_bot"')
+        self.assertContains(response, 'href="https://www.instagram.com/palingamess/"')

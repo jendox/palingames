@@ -232,6 +232,14 @@ def _send_payments_monthly_report_admin_telegram_notification(
     )
 
 
+def _send_invoice_payment_reminder_user_notification(
+    *,
+    outbox: NotificationOutbox,
+    payload: NotificationPayload,
+) -> None:
+    pass
+
+
 NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType], NotificationHandler] = {
     (NotificationOutbox.Channel.EMAIL, NotificationType.GUEST_ORDER_DOWNLOAD):
         _send_guest_order_download_notification,
@@ -261,4 +269,6 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_auth_account_email_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN):
         _send_payments_monthly_report_admin_telegram_notification,
+    (NotificationOutbox.Channel.EMAIL, NotificationType.INVOICE_PAYMENT_REMINDER_USER):
+        _send_invoice_payment_reminder_user_notification,
 }

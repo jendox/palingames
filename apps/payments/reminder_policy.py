@@ -59,16 +59,8 @@ class PaymentReminderDecision:
 
 def payment_reminder_policy_from_settings() -> PaymentReminderPolicy:
     return PaymentReminderPolicy(
-        reminder_before_expiry_hours=getattr(
-            settings,
-            "INVOICE_PAYMENT_REMINDER_BEFORE_EXPIRY_HOURS",
-            DEFAULT_REMINDER_BEFORE_EXPIRY_HOURS,
-        ),
-        min_gap_after_first_email_hours=getattr(
-            settings,
-            "INVOICE_PAYMENT_REMINDER_MIN_GAP_AFTER_FIRST_EMAIL_HOURS",
-            DEFAULT_MIN_GAP_AFTER_FIRST_EMAIL_HOURS,
-        ),
+        reminder_before_expiry_hours=settings.INVOICE_PAYMENT_REMINDER_BEFORE_EXPIRY_HOURS,
+        min_gap_after_first_email_hours=settings.INVOICE_PAYMENT_REMINDER_MIN_GAP_AFTER_FIRST_EMAIL_HOURS,
     )
 
 
