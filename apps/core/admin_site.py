@@ -45,6 +45,7 @@ class PaliAdminSite(AdminSite):
         "orders": 20,
         "payments": 30,
         "access": 40,
+        "managed_links": 45,
         "custom_games": 50,
         "promocodes": 60,
         "favorites": 70,
@@ -80,6 +81,9 @@ class PaliAdminSite(AdminSite):
         "access": {
             "UserProductAccess": 10,
             "GuestAccess": 20,
+        },
+        "managed_links": {
+            "ManagedLink": 10,
         },
         "products": {
             "Product": 10,

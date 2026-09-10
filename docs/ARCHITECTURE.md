@@ -44,6 +44,7 @@ PalinGames — server-rendered Django-магазин цифровых товар
 | `apps/orders` | Checkout, `Order` / `OrderItem`, промокоды |
 | `apps/payments` | `Invoice`, webhook Express Pay, sync pending invoices |
 | `apps/access` | `UserProductAccess`, `GuestAccess`, download endpoints |
+| `apps/managed_links` | Постоянные QR-ссылки `/go/<token>/`, S3 bucket `qr-assets`, admin upload, QR export |
 | `apps/notifications` | `NotificationOutbox`, handlers, Celery delivery |
 | `apps/emails` | `EmailLog`, `EmailSuppression`, единая точка SMTP |
 | `apps/users` | Кастомный user, allauth headless, OAuth, consent |
@@ -71,7 +72,40 @@ Invoice ──► PaymentEvent (idempotency / audit)
   Guest         ──► GuestAccess (token hash, expiry, download limit)
 
 NotificationOutbox ──► encrypted payload ──► Celery ──► email / Telegram stream
+
+ManagedLink (QR materials, вне commerce flow):
+  token (urlsafe) ──► s3_file_key в bucket qr-assets ИЛИ external_url (Yandex Disk и т.п.)
+  is_active=False по умолчанию; после finalize upload ──► is_active=True
+  QR кодирует только https://{SITE_BASE_URL}/go/{token}/ — не S3 и не external URL
 ```
+
+---
+
+## Managed links (QR materials)
+
+Отдельный поток для раздачи игровых материалов по постоянным QR-ссылкам. **Не связан** с `Order`, `UserProductAccess`, `GuestAccess`.
+
+```text
+Staff (admin)
+  → ManagedLink (title, optional external_url, draft is_active=False)
+  → Save → presign → browser PUT в qr-assets → finalize → is_active=True
+  → QR PNG (с logo-qr-mark) / SVG (plain) из admin
+
+Пользователь (без auth)
+  → GET /go/<token>/
+  → если active: 302 на presigned S3 download ИЛИ external_url
+  → если S3 недоступен и есть external_url: fallback redirect
+  → rate limit: 60/min/IP (ответ 404, как для unknown token)
+```
+
+| Компонент | Bucket / storage |
+|-----------|------------------|
+| Материалы (PDF, images) | `S3_MANAGED_LINKS_BUCKET_NAME` (default `qr-assets`), private |
+| Ключ объекта | `{token}/{uuid4}.{ext}` |
+| Custom QR logo (optional) | Django `ImageField` → `managed_links/qr_logos/` (container FS) |
+| Default QR logo | `static/images/logo-qr-mark.png` (Whitenoise) |
+
+Подробнее: [deploy/README.md](../deploy/README.md#managed-links-qr-materials-bucket-qr-assets), [runbooks.md](runbooks.md).
 
 ---
 
@@ -279,9 +313,10 @@ Django/Celery → Redis Stream (TELEGRAM_OUTBOUND_STREAM)
 
 - **Download archives:** private, key `{product_slug}/{uuid}.{ext}`, presigned URL при скачивании.
 - **Previews:** public prefix `previews/...` (CDN/object storage URL).
-- Admin upload: напрямую в S3, метаданные в `ProductFile`.
+- **Managed link materials:** private bucket `qr-assets`, key `{token}/{uuid}.{ext}`.
+- Admin upload: напрямую в S3, метаданные в `ProductFile` / `ManagedLink`.
 
-Readiness (`/health/ready/`) проверяет PostgreSQL, Redis и доступность S3.
+Readiness (`/health/ready/`) проверяет PostgreSQL, Redis, S3 product bucket и (если задан `S3_MANAGED_LINKS_BUCKET_NAME`) bucket managed links.
 
 ---
 
@@ -309,7 +344,7 @@ Resolved alerts поддерживаются для sync, downloads, outbox, sto
 | Endpoint | Назначение |
 |----------|------------|
 | `/health/live/` | Процесс жив (Docker healthcheck web) |
-| `/health/ready/` | PG + Redis + S3 |
+| `/health/ready/` | PG + Redis + S3 + optional `managed_links_s3` |
 | `/metrics/` | Prometheus (внутренняя сеть / не через публичный Caddy) |
 
 Ключевые метрики: `order_paid`, `payment_webhook_*`, `product_download_*`, `health_readiness_check`, outbox counters — см. [metrics.md](metrics.md).
@@ -327,6 +362,9 @@ Resolved alerts поддерживаются для sync, downloads, outbox, sto
 | Guest access | `apps/access/services.py` |
 | Guest download | `apps/access/views.py::GuestProductDownloadView` |
 | User download | `apps/products/views.py` (access check + presigned) |
+| Managed link redirect | `apps/managed_links/views.py`, `apps/managed_links/services/redirect.py` |
+| Managed link admin upload | `apps/managed_links/admin_upload_views.py` |
+| QR generation | `apps/managed_links/services/qr.py` |
 | Outbox send | `apps/notifications/tasks.py`, `apps/notifications/services.py` |
 | Order delivery watchdog | `apps/orders/watchdog.py`, `apps/orders/tasks.py` |
 | Cart merge | `apps/cart/signals.py`, `apps/cart/services.py::merge_guest_cart_to_user` |

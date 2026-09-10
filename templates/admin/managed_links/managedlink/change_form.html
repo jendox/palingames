@@ -1,0 +1,31 @@
+{% extends "admin/change_form.html" %}
+
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  {% if managed_link_direct_s3_upload_enabled %}
+    <script src="{% static 'js/admin-managed-link-upload.js' %}" defer></script>
+  {% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+  {{ block.super }}
+  {% if managed_link_direct_s3_upload_enabled and original.pk %}
+    <div style="margin-top: 12px; max-width: 640px;">
+      <label for="managed-link-file-upload"><strong>Загрузить или заменить файл в S3</strong></label>
+      <input id="managed-link-file-upload" type="file" style="display:block;margin-top:8px;" />
+    </div>
+    <div
+      id="managed-link-direct-upload-status"
+      class="help"
+      style="margin-top: 12px; max-width: 640px;"
+    ></div>
+    {{ managed_link_direct_s3_upload_config|json_script:"managed-link-direct-upload-config" }}
+  {% elif managed_link_direct_s3_upload_enabled %}
+    <p class="help" style="margin-top: 12px; max-width: 640px;">
+      Сохраните черновик (достаточно названия), затем загрузите файл в S3.
+      После успешной загрузки ссылка активируется автоматически.
+    </p>
+  {% endif %}
+{% endblock %}

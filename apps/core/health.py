@@ -28,6 +28,13 @@ def check_s3() -> None:
     get_s3_client().head_bucket(Bucket=settings.S3_BUCKET_NAME)
 
 
+def check_managed_links_s3() -> None:
+    bucket_name = (settings.S3_MANAGED_LINKS_BUCKET_NAME or "").strip()
+    if not bucket_name:
+        return
+    get_s3_client().head_bucket(Bucket=bucket_name)
+
+
 def _run_check(check: Callable[[], None]) -> dict[str, str]:
     try:
         check()
@@ -43,8 +50,11 @@ def _run_check(check: Callable[[], None]) -> dict[str, str]:
 
 
 def build_readiness_report() -> dict[str, dict[str, str]]:
-    return {
+    checks = {
         "database": _run_check(check_database),
         "redis": _run_check(check_redis),
         "s3": _run_check(check_s3),
     }
+    if (settings.S3_MANAGED_LINKS_BUCKET_NAME or "").strip():
+        checks["managed_links_s3"] = _run_check(check_managed_links_s3)
+    return checks

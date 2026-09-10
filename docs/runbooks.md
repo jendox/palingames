@@ -228,10 +228,10 @@ Recovery title:
 - boto client/runtime error.
 
 Проверить сначала:
-1. Есть ли `product_file.download_url.failed`.
-2. Какой `operation` указан в alert details.
+1. Есть ли `product_file.download_url.failed` или `managed_link.redirect.s3_failed`.
+2. Какой `operation` указан в alert details (`generate_presigned_download_url`, `managed_link_generate_presigned_download_url`, `managed_link_generate_presigned_upload_url`).
 3. Доступен ли bucket и endpoint из окружения приложения.
-4. Не менялись ли `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`.
+4. Не менялись ли `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`, `S3_MANAGED_LINKS_BUCKET_NAME`.
 
 Быстрые действия:
 1. Проверить storage endpoint и credentials.
@@ -241,6 +241,19 @@ Recovery title:
 Когда считать проблему закрытой:
 - `generate_presigned_download_url` снова отрабатывает успешно;
 - пришёл `resolved` alert `Storage recovered`.
+
+### Managed links: orphan objects в `qr-assets`
+
+Симптомы:
+- после неудачного finalize в admin остался объект в S3 без строки `ManagedLink.s3_file_key`;
+- `/go/<token>/` работает по `external_url`, но в bucket есть лишние ключи `{token}/{uuid}.ext`.
+
+Действия:
+1. Найти ключ в bucket (prefix `{token}/`).
+2. Сверить с `ManagedLink.s3_file_key` в PostgreSQL.
+3. Удалить orphan вручную через S3 CLI/console, если ключ не используется ни одной записью.
+
+Автоматический orphan cleanup **не** включён в MVP.
 
 ## 7. Readiness Returns 503
 
@@ -257,6 +270,7 @@ Recovery title:
   - `database`
   - `redis`
   - `s3`
+  - `managed_links_s3` (если настроен `S3_MANAGED_LINKS_BUCKET_NAME`)
 3. Это один инстанс или все.
 
 Быстрые действия:

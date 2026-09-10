@@ -138,6 +138,21 @@ PRODUCT_DOWNLOAD_FAILED_TOTAL = Counter(
     "Total failed product download attempts.",
     ["access_type", "reason"],
 )
+MANAGED_LINK_REDIRECT_TOTAL = Counter(
+    "managed_link_redirect_total",
+    "Total successful managed link redirects.",
+    ["source"],
+)
+MANAGED_LINK_REDIRECT_FAILED_TOTAL = Counter(
+    "managed_link_redirect_failed_total",
+    "Total failed managed link redirect attempts.",
+    ["reason"],
+)
+MANAGED_LINK_QR_GENERATED_TOTAL = Counter(
+    "managed_link_qr_generated_total",
+    "Total managed link QR images generated in admin.",
+    ["qr_format", "with_logo"],
+)
 HEALTH_READINESS_CHECKS_TOTAL = Counter(
     "health_readiness_checks_total",
     "Total readiness checks by component and status.",
@@ -367,6 +382,18 @@ def inc_product_download_redirect(*, access_type: str) -> None:
 
 def inc_product_download_failed(*, access_type: str, reason: str) -> None:
     PRODUCT_DOWNLOAD_FAILED_TOTAL.labels(access_type=access_type, reason=reason).inc()
+
+
+def inc_managed_link_redirect(*, source: str) -> None:
+    MANAGED_LINK_REDIRECT_TOTAL.labels(source=source).inc()
+
+
+def inc_managed_link_redirect_failed(*, reason: str) -> None:
+    MANAGED_LINK_REDIRECT_FAILED_TOTAL.labels(reason=reason).inc()
+
+
+def inc_managed_link_qr_generated(*, qr_format: str, with_logo: str) -> None:
+    MANAGED_LINK_QR_GENERATED_TOTAL.labels(qr_format=qr_format, with_logo=with_logo).inc()
 
 
 def inc_health_readiness_check(*, component: str, status: str) -> None:
