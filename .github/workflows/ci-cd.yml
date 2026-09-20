@@ -4,6 +4,10 @@ name: CI and Docker image
 on:
   push:
     branches: [main]
+    # Skip CI when the push changes only documentation (no new Docker image).
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 env:
