@@ -85,39 +85,11 @@
                 </div>
 
                 <div class="mx-auto w-full max-w-[428px]">
-                  <label
-                    for="signupPassword1"
-                    class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
-                  >
-                    {% trans "Пароль *" %}
-                  </label>
-                  <input
-                    id="signupPassword1"
-                    type="password"
-                    name="password1"
-                    autocomplete="new-password"
-                    class="modal-input mt-[15px]"
-                    required
-                  />
-                  <p data-field-error="password1" class="mt-2 hidden text-sm text-red-700"></p>
+                  {% include "components/modals/_password_field_with_toggle.html" with field_id="signupPassword1" field_name="password1" error_name="password1" autocomplete="new-password" label=_("Пароль *") %}
                 </div>
 
                 <div class="mx-auto w-full max-w-[428px]">
-                  <label
-                    for="signupPassword2"
-                    class="block text-[16px] font-bold leading-[16px] text-[color:var(--color-black-80)]"
-                  >
-                    {% trans "Повторить пароль *" %}
-                  </label>
-                  <input
-                    id="signupPassword2"
-                    type="password"
-                    name="password2"
-                    autocomplete="new-password"
-                    class="modal-input mt-[15px]"
-                    required
-                  />
-                  <p data-field-error="password2" class="mt-2 hidden text-sm text-red-700"></p>
+                  {% include "components/modals/_password_field_with_toggle.html" with field_id="signupPassword2" field_name="password2" error_name="password2" autocomplete="new-password" label=_("Повторить пароль *") %}
                 </div>
               </div>
 
