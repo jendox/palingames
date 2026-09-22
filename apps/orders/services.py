@@ -23,6 +23,7 @@ from apps.promocodes.models import PromoCodeRedemption
 from apps.promocodes.services import (
     PromoCodeDiscount,
     PromoCodeError,
+    PromoValidationOptions,
     calculate_percent_discount,
     calculate_promo_code_discount,
     create_promo_code_redemption,
@@ -174,6 +175,8 @@ def _calculate_order_discount(
     request,
     email: str,
     promo_code: str,
+    lock_promo: bool = False,
+    exclude_order_id: int | None = None,
 ) -> PromoCodeDiscount | None:
     normalized_code = normalize_promo_code(promo_code)
     if not normalized_code:
@@ -183,6 +186,10 @@ def _calculate_order_discount(
         products=products,
         user=request.user,
         email=email,
+        validation=PromoValidationOptions(
+            lock_promo=lock_promo,
+            exclude_order_id=exclude_order_id,
+        ),
     )
 
 
@@ -264,7 +271,7 @@ def get_checkout_order_context(
                 products=products,
                 user=request.user,
                 email=email,
-                require_email_limits=bool(email),
+                validation=PromoValidationOptions(require_email_limits=bool(email)),
             )
         except PromoCodeError as exc:
             promo_message = promo_message or exc.message
@@ -360,6 +367,7 @@ def _create_new_order_from_products(
             request=request,
             email=order_ctx.email,
             promo_code=order_ctx.promo_code,
+            lock_promo=bool(normalize_promo_code(order_ctx.promo_code)),
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
@@ -556,7 +564,10 @@ def _manual_order_resolve_promo(
             products=expanded_products,
             user=order.user if order.user_id else AnonymousUser(),
             email=order.email,
-            require_email_limits=True,
+            validation=PromoValidationOptions(
+                lock_promo=True,
+                exclude_order_id=order.id,
+            ),
         )
     except PromoCodeError as exc:
         raise ValidationError(exc.message) from exc

@@ -494,10 +494,12 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
             email="guest@example.com",
             source=Order.Source.PALINGAMES,
             checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
             subtotal_amount=Decimal("25.00"),
             discount_amount=Decimal("2.50"),
             total_amount=Decimal("22.50"),
             items_count=1,
+            promo_code=promo_code,
         )
         PromoCodeRedemption.objects.create(
             promo_code=promo_code,

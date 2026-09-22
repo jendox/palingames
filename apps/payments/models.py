@@ -84,6 +84,15 @@ class Invoice(TimeStampedModel):
                 ),
                 name="payments_invoice_exactly_one_target",
             ),
+            models.CheckConstraint(
+                condition=~Q(status="PAID") | Q(paid_at__isnull=False),
+                name="payments_invoice_paid_requires_paid_at",
+            ),
+            models.UniqueConstraint(
+                fields=["provider", "provider_invoice_no"],
+                condition=Q(provider_invoice_no__isnull=False) & ~Q(provider_invoice_no=""),
+                name="payments_invoice_unique_provider_invoice_no",
+            ),
         ]
 
     def __str__(self) -> str:

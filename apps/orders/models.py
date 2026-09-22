@@ -2,6 +2,8 @@ import uuid
 from decimal import Decimal
 
 from django.db import models
+from django.db.models import Q
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -110,6 +112,13 @@ class Order(TimeStampedModel):
         ordering = ["-created_at", "-id"]
         verbose_name = _("Заказ")
         verbose_name_plural = _("Заказы")
+        indexes = [
+            models.Index(
+                Lower("email"),
+                name="orders_guest_email_lower_idx",
+                condition=Q(user__isnull=True),
+            ),
+        ]
 
     @classmethod
     def generate_payment_account_no(cls, source: str, order_date=None) -> str:

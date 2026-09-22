@@ -1,6 +1,7 @@
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
@@ -51,6 +52,16 @@ class NotificationOutbox(TimeStampedModel):
         indexes = [
             models.Index(fields=["notification_type", "status"]),
             models.Index(fields=["content_type", "object_id"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["notification_type", "content_type", "object_id", "channel"],
+                condition=Q(
+                    object_id__isnull=False,
+                    status__in=["PENDING", "PROCESSING", "DELIVERING"],
+                ),
+                name="notifications_outbox_one_inflight_per_target",
+            ),
         ]
 
     def __str__(self) -> str:
