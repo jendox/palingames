@@ -5,6 +5,7 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import Literal
 
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
@@ -30,6 +31,7 @@ class OrderDeliveryProblemCode(StrEnum):
     UNKNOWN_CHECKOUT_TYPE = "unknown_checkout_type"
     GUEST_DOWNLOAD_NOTIFICATION_MISSING = "guest_download_notification_missing"
     GUEST_DOWNLOAD_NOTIFICATION_FAILED = "guest_download_notification_failed"
+    GUEST_DOWNLOAD_NOTIFICATION_STUCK = "guest_download_notification_stuck"
     ORDER_PAID_AT_MISSING = "order_paid_at_missing"
     PAYMENT_INVOICE_MISSING = "payment_invoice_missing"
 
@@ -172,6 +174,20 @@ def _check_accesses(order: Order) -> list[OrderDeliveryProblem]:
     ]
 
 
+def _guest_download_outbox_stale_cutoff():
+    return timezone.now() - timedelta(minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES)
+
+
+def _guest_download_outbox_is_stuck(outbox: NotificationOutbox) -> bool:
+    cutoff = _guest_download_outbox_stale_cutoff()
+    if outbox.status == NotificationOutbox.Status.PENDING:
+        return outbox.created_at < cutoff
+    if outbox.status == NotificationOutbox.Status.PROCESSING:
+        reference_at = outbox.last_attempt_at or outbox.created_at
+        return reference_at < cutoff
+    return False
+
+
 def _get_guest_download_outbox(order: Order) -> NotificationOutbox | None:
     order_content_type = ContentType.objects.get_for_model(Order, for_concrete_model=False)
 
@@ -213,6 +229,21 @@ def _check_guest_notification(order: Order) -> list[OrderDeliveryProblem]:
                     "outbox_id": outbox.id,
                     "attempts": outbox.attempts,
                     "last_error": outbox.last_error,
+                },
+            ),
+        ]
+
+    if _guest_download_outbox_is_stuck(outbox):
+        return [
+            OrderDeliveryProblem(
+                order_id=order.id,
+                code=OrderDeliveryProblemCode.GUEST_DOWNLOAD_NOTIFICATION_STUCK,
+                severity="critical",
+                details={
+                    "outbox_id": outbox.id,
+                    "outbox_status": outbox.status,
+                    "attempts": outbox.attempts,
+                    "email": order.email,
                 },
             ),
         ]

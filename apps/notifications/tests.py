@@ -356,6 +356,38 @@ class NotificationOutboxProcessingRecoveryTests(TestCase):
         self.assertEqual(reaped, 0)
         delay_mock.assert_not_called()
 
+    @override_settings(
+        NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15,
+        NOTIFICATION_OUTBOX_MAX_PROCESSING_ATTEMPTS=5,
+    )
+    @patch("apps.notifications.services.record_notification_outbox_failure_incident")
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_reap_stuck_processing_marks_failed_when_max_attempts_exceeded(
+        self,
+        delay_mock,
+        record_incident_mock,
+    ):
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=5,
+            last_attempt_at=timezone.now() - timedelta(minutes=20),
+        )
+
+        reaped = reap_stuck_notification_outbox_processing()
+
+        self.assertEqual(reaped, 1)
+        delay_mock.assert_not_called()
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.FAILED)
+        record_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+
 
 class TelegramRouteTests(TestCase):
     @override_settings(

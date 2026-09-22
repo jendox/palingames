@@ -380,6 +380,30 @@ def send_notification(*, outbox: NotificationOutbox, payload: NotificationPayloa
     handler(outbox=outbox, payload=payload)
 
 
+def _mark_outbox_failed_max_attempts(outbox: NotificationOutbox) -> None:
+    error_message = "notification outbox processing attempts exhausted"
+    outbox.status = NotificationOutbox.Status.FAILED
+    outbox.last_error = error_message
+    outbox.save(update_fields=["status", "last_error", "updated_at"])
+    log_event(
+        logger,
+        logging.ERROR,
+        "notification.outbox.failed",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        recipient=outbox.recipient,
+        attempts=outbox.attempts,
+        error_type="MaxProcessingAttemptsExceeded",
+    )
+    if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
+        inc_guest_email_failed()
+    record_notification_outbox_failure_incident(
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+    )
+
+
 def _reap_stuck_processing_outboxes(*, cutoff, send_task) -> int:
     stuck_outbox_ids = list(
         NotificationOutbox.objects.filter(
@@ -390,9 +414,11 @@ def _reap_stuck_processing_outboxes(*, cutoff, send_task) -> int:
         .values_list("id", flat=True),
     )
 
+    max_attempts = settings.NOTIFICATION_OUTBOX_MAX_PROCESSING_ATTEMPTS
     reaped = 0
     for outbox_id in stuck_outbox_ids:
         reconciled = False
+        failed_max_attempts = False
         with transaction.atomic():
             outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
             if outbox.status != NotificationOutbox.Status.PROCESSING:
@@ -400,8 +426,14 @@ def _reap_stuck_processing_outboxes(*, cutoff, send_task) -> int:
             if outbox.last_attempt_at is not None and outbox.last_attempt_at >= cutoff:
                 continue
             reconciled = _reconcile_outbox_from_sent_email_log(outbox)
+            if not reconciled and outbox.attempts >= max_attempts:
+                _mark_outbox_failed_max_attempts(outbox)
+                failed_max_attempts = True
 
         if reconciled:
+            reaped += 1
+            continue
+        if failed_max_attempts:
             reaped += 1
             continue
 
