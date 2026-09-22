@@ -160,7 +160,7 @@ docker compose -f docker-compose.prod.yml exec web \
 - `TELEGRAM_NOTIFICATIONS_THREAD_ID` — business/admin (outbox → Notifications)
 - `TELEGRAM_INCIDENTS_THREAD_ID` — incidents и recovery
 - `TELEGRAM_OUTBOUND_STREAM`, `TELEGRAM_OUTBOUND_ACK_STREAM`, `TELEGRAM_OUTBOUND_FAILED_STREAM`
-- `TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP`, `TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES`
+- `TELEGRAM_OUTBOUND_FEEDBACK_CONSUMER_GROUP`, `TELEGRAM_OUTBOX_DELIVERING_TIMEOUT_MINUTES`, `NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES`
 
 **`telegram-bot`** (единственный сервис с `TELEGRAM_BOT_TOKEN`):
 
@@ -830,7 +830,7 @@ Managed links: отдельный bucket (`S3_MANAGED_LINKS_BUCKET_NAME`) — в
 
 ### Чеклист перед prod
 
-- [ ] `setup_periodic_tasks` выполнен после первого `migrate` (в т.ч. Telegram feedback + reaper)
+- [ ] `setup_periodic_tasks` выполнен после первого `migrate` (в т.ч. Telegram feedback + reapers, notification outbox processing reaper)
 - [ ] SMTP: `EMAIL_HOST`, credentials, `DEFAULT_FROM_EMAIL`, `EMAIL_TIMEOUT=30`, `SERVER_EMAIL`
 - [ ] DNS SPF/DKIM/DMARC для From-домена (см. `.cursor/plans/Email to Production.md`, фаза 1)
 - [ ] `TELEGRAM_*`: forum + thread ids на web/celery; `TELEGRAM_BOT_TOKEN` + `TELEGRAM_OUTBOUND_ENABLED=true` на `telegram-bot` (см. «Алертинг», «Образ Telegram bot»)

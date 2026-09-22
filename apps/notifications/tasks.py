@@ -4,7 +4,11 @@ from celery import Task, shared_task
 
 from apps.core.logging import log_event
 
-from .services import cleanup_old_notification_outboxes, process_notification_outbox
+from .services import (
+    cleanup_old_notification_outboxes,
+    process_notification_outbox,
+    reap_stuck_notification_outbox_processing,
+)
 from .telegram_delivery import process_telegram_outbound_feedback, reap_stuck_telegram_outbox_deliveries
 
 logger = logging.getLogger("apps.notifications.tasks")
@@ -59,3 +63,14 @@ def reap_stuck_telegram_outbox_deliveries_task(self: Task) -> int:
         task_id=self.request.id,
     )
     return reap_stuck_telegram_outbox_deliveries()
+
+
+@shared_task(bind=True)
+def reap_stuck_notification_outbox_processing_task(self: Task) -> int:
+    log_event(
+        logger,
+        logging.INFO,
+        "notification.outbox.reaper.started",
+        task_id=self.request.id,
+    )
+    return reap_stuck_notification_outbox_processing()

@@ -297,6 +297,7 @@ Producer (orders, access, payments, auth, …)
 - Payload шифруется `APP_DATA_ENCRYPTION_KEY` (Fernet).
 - В Celery broker уходит только `outbox_id`, не guest tokens.
 - Cleanup: `cleanup_notification_outbox_task` (Beat, 03:20).
+- Recovery: `reap_stuck_notification_outbox_processing_task` (Beat, каждые 10 мин) — stale `PENDING` / `PROCESSING` старше `NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES`; reconcile outbox → `SENT` по `EmailLog`; иначе повтор `send_notification_outbox_task`. Параллельные task не дублируют SMTP (skip `processing_in_progress`).
 
 Критичные типы (guest download, invoice, auth) при repeated failures → Telegram **incidents** (`apps/core/alerts.py`).
 

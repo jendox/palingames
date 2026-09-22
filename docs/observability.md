@@ -135,9 +135,15 @@ Downloads and storage:
 Notifications:
 - `notification.outbox.created`
 - `notification.outbox.enqueued`
+- `notification.outbox.task.started`
+- `notification.outbox.skipped` (reason: `already_sent`, `awaiting_telegram_delivery`, `processing_in_progress`)
 - `notification.outbox.processing.started`
+- `notification.outbox.processing.recovered` (stale `PROCESSING` → retry)
+- `notification.outbox.reconciled` (outbox → `SENT` по `EmailLog.SENT`)
 - `notification.outbox.failed`
 - `notification.outbox.sent`
+- `notification.outbox.delivering` (Telegram)
+- `notification.outbox.reaper.started` / `notification.outbox.reaper.completed` (поля: `reaped`, `processing_reaped`, `pending_reaped`, `timeout_minutes`)
 
 Email delivery (`apps/emails/senders.py`):
 - `email.send.sent`

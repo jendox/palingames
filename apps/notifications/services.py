@@ -10,10 +10,12 @@ from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
+from apps.emails.models import EmailLog
 
 from .alerts import (
     record_notification_outbox_failure_incident,
@@ -172,7 +174,77 @@ def _truncate_error(error: Exception) -> str:
     return str(error)[:MAX_LAST_ERROR_LENGTH]
 
 
-def process_notification_outbox(*, outbox_id: int) -> bool:
+def _processing_stale_cutoff():
+    return timezone.now() - timedelta(minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES)
+
+
+def _reconcile_outbox_from_sent_email_log(outbox: NotificationOutbox) -> bool:
+    sent_log = (
+        EmailLog.objects.filter(
+            notification_outbox_id=outbox.id,
+            status=EmailLog.Status.SENT,
+        )
+        .order_by("-sent_at", "-id")
+        .first()
+    )
+    if sent_log is None:
+        return False
+
+    outbox.status = NotificationOutbox.Status.SENT
+    outbox.sent_at = sent_log.sent_at or timezone.now()
+    outbox.last_error = ""
+    outbox.save(update_fields=["status", "sent_at", "last_error", "updated_at"])
+    log_event(
+        logger,
+        logging.INFO,
+        "notification.outbox.reconciled",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        recipient=outbox.recipient,
+        email_log_id=sent_log.id,
+        reason="email_log_sent",
+    )
+    if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
+        inc_guest_email_sent()
+    resolve_notification_outbox_failure_incident(
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+    )
+    return True
+
+
+def _handle_stale_processing_outbox(outbox: NotificationOutbox) -> bool | None:
+    """Returns True/False if processing should stop; None to continue with send."""
+    if outbox.last_attempt_at is not None and outbox.last_attempt_at >= _processing_stale_cutoff():
+        log_event(
+            logger,
+            logging.INFO,
+            "notification.outbox.skipped",
+            outbox_id=outbox.id,
+            notification_type=outbox.notification_type,
+            reason="processing_in_progress",
+        )
+        return False
+
+    if _reconcile_outbox_from_sent_email_log(outbox):
+        return True
+
+    outbox.status = NotificationOutbox.Status.PENDING
+    outbox.save(update_fields=["status", "updated_at"])
+    log_event(
+        logger,
+        logging.WARNING,
+        "notification.outbox.processing.recovered",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        attempts=outbox.attempts,
+    )
+    return None
+
+
+def _lock_outbox_and_begin_processing(*, outbox_id: int) -> tuple[NotificationOutbox | None, bool | None]:
     with transaction.atomic():
         outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
         if outbox.status == NotificationOutbox.Status.SENT:
@@ -184,7 +256,7 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
                 notification_type=outbox.notification_type,
                 reason="already_sent",
             )
-            return False
+            return None, False
 
         if outbox.status == NotificationOutbox.Status.DELIVERING:
             log_event(
@@ -195,13 +267,26 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
                 notification_type=outbox.notification_type,
                 reason="awaiting_telegram_delivery",
             )
-            return False
+            return None, False
+
+        if outbox.status == NotificationOutbox.Status.PROCESSING:
+            stale_result = _handle_stale_processing_outbox(outbox)
+            if stale_result is not None:
+                return None, stale_result
 
         outbox.status = NotificationOutbox.Status.PROCESSING
         outbox.attempts += 1
         outbox.last_attempt_at = timezone.now()
         outbox.last_error = ""
         outbox.save(update_fields=["status", "attempts", "last_attempt_at", "last_error", "updated_at"])
+    return outbox, None
+
+
+def process_notification_outbox(*, outbox_id: int) -> bool:
+    outbox, finished = _lock_outbox_and_begin_processing(outbox_id=outbox_id)
+    if finished is not None:
+        return finished
+
     log_event(
         logger,
         logging.INFO,
@@ -293,6 +378,86 @@ def send_notification(*, outbox: NotificationOutbox, payload: NotificationPayloa
             f"channel={outbox.channel}, notification_type={outbox.notification_type}",
         )
     handler(outbox=outbox, payload=payload)
+
+
+def _reap_stuck_processing_outboxes(*, cutoff, send_task) -> int:
+    stuck_outbox_ids = list(
+        NotificationOutbox.objects.filter(
+            status=NotificationOutbox.Status.PROCESSING,
+        )
+        .filter(Q(last_attempt_at__lt=cutoff) | Q(last_attempt_at__isnull=True))
+        .order_by("id")
+        .values_list("id", flat=True),
+    )
+
+    reaped = 0
+    for outbox_id in stuck_outbox_ids:
+        reconciled = False
+        with transaction.atomic():
+            outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
+            if outbox.status != NotificationOutbox.Status.PROCESSING:
+                continue
+            if outbox.last_attempt_at is not None and outbox.last_attempt_at >= cutoff:
+                continue
+            reconciled = _reconcile_outbox_from_sent_email_log(outbox)
+
+        if reconciled:
+            reaped += 1
+            continue
+
+        send_task(outbox_id)
+        reaped += 1
+
+    return reaped
+
+
+def _reap_stale_pending_outboxes(*, cutoff, send_task) -> int:
+    pending_outbox_ids = list(
+        NotificationOutbox.objects.filter(
+            status=NotificationOutbox.Status.PENDING,
+            created_at__lt=cutoff,
+        )
+        .order_by("id")
+        .values_list("id", flat=True),
+    )
+
+    reaped = 0
+    for outbox_id in pending_outbox_ids:
+        with transaction.atomic():
+            outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
+            if outbox.status != NotificationOutbox.Status.PENDING:
+                continue
+            if outbox.created_at >= cutoff:
+                continue
+
+        send_task(outbox_id)
+        reaped += 1
+
+    return reaped
+
+
+def reap_stuck_notification_outbox_processing() -> int:
+    from .tasks import send_notification_outbox_task
+
+    cutoff = _processing_stale_cutoff()
+    send_task = send_notification_outbox_task.delay
+
+    processing_reaped = _reap_stuck_processing_outboxes(cutoff=cutoff, send_task=send_task)
+    pending_reaped = _reap_stale_pending_outboxes(cutoff=cutoff, send_task=send_task)
+    reaped = processing_reaped + pending_reaped
+
+    if reaped:
+        log_event(
+            logger,
+            logging.WARNING,
+            "notification.outbox.reaper.completed",
+            reaped=reaped,
+            processing_reaped=processing_reaped,
+            pending_reaped=pending_reaped,
+            timeout_minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES,
+        )
+
+    return reaped
 
 
 def cleanup_old_notification_outboxes(
