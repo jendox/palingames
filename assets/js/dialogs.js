@@ -266,35 +266,116 @@
     showNotification: showPageNotification,
   };
 
+  function getSafeSameOriginPath(candidate) {
+    if (typeof candidate !== "string" || candidate.length === 0) return null;
+    if (!candidate.startsWith("/")) return null;
+    if (candidate.startsWith("//")) return null;
+    if (candidate.includes("\\")) return null;
+    if (/[\x00-\x1f\x7f]/.test(candidate)) return null;
+
+    try {
+      const resolved = new URL(candidate, window.location.origin);
+      if (resolved.origin !== window.location.origin) return null;
+      return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    } catch {
+      return null;
+    }
+  }
+
   function getCurrentSafePath() {
     const url = new URL(window.location.href);
     url.searchParams.delete("dialog");
     url.searchParams.delete("social_error");
     const next = `${url.pathname}${url.search}${url.hash}`;
-    return next.startsWith("/") ? next : "/";
+    return getSafeSameOriginPath(next) || "/";
+  }
+
+  function storePostLoginRedirect(candidate) {
+    const safe = getSafeSameOriginPath(candidate);
+    if (!safe) return;
+    window.__postLoginRedirect = safe;
+    try {
+      sessionStorage.setItem("postLoginRedirect", safe);
+    } catch {
+      // ignore
+    }
   }
 
   function getPostLoginRedirect() {
     try {
-      const fromSession = sessionStorage.getItem("postLoginRedirect");
-      if (typeof fromSession === "string" && fromSession.startsWith("/")) {
-        return fromSession;
-      }
+      const fromSession = getSafeSameOriginPath(sessionStorage.getItem("postLoginRedirect"));
+      if (fromSession) return fromSession;
     } catch {
       // ignore
     }
 
-    const fromWindow = window.__postLoginRedirect;
-    if (typeof fromWindow === "string" && fromWindow.startsWith("/")) {
+    const fromWindow = getSafeSameOriginPath(window.__postLoginRedirect);
+    if (fromWindow) return fromWindow;
+
+    const fromOpener = getSafeSameOriginPath(lastOpener?.getAttribute?.("data-post-login-redirect"));
+    if (fromOpener) return fromOpener;
+
+    return getCurrentSafePath();
+  }
+
+  function takePostLoginRedirectForNavigation() {
+    let candidate = null;
+    try {
+      candidate = sessionStorage.getItem("postLoginRedirect");
+      sessionStorage.removeItem("postLoginRedirect");
+    } catch {
+      // ignore
+    }
+
+    const fromSession = getSafeSameOriginPath(candidate);
+    if (fromSession) {
+      try {
+        delete window.__postLoginRedirect;
+      } catch {
+        // ignore
+      }
+      return fromSession;
+    }
+
+    const fromWindow = getSafeSameOriginPath(window.__postLoginRedirect);
+    if (fromWindow) {
+      try {
+        delete window.__postLoginRedirect;
+      } catch {
+        // ignore
+      }
       return fromWindow;
     }
 
-    const fromOpener = lastOpener?.getAttribute?.("data-post-login-redirect");
-    if (typeof fromOpener === "string" && fromOpener.startsWith("/")) {
-      return fromOpener;
+    const fromOpener = getSafeSameOriginPath(lastOpener?.getAttribute?.("data-post-login-redirect"));
+    if (fromOpener) return fromOpener;
+
+    try {
+      delete window.__postLoginRedirect;
+    } catch {
+      // ignore
     }
 
-    return getCurrentSafePath();
+    return null;
+  }
+
+  function resetPasswordVisibility(root) {
+    if (!root) return;
+    for (const field of root.querySelectorAll("[data-password-field]")) {
+      const input = field.querySelector("input");
+      const toggle = field.querySelector("[data-password-toggle]");
+      if (!input || !toggle) continue;
+      input.type = "password";
+      toggle.setAttribute("aria-pressed", "false");
+      toggle.setAttribute(
+        "aria-label",
+        toggle.getAttribute("data-label-show") || "Показать пароль",
+      );
+      for (const icon of toggle.querySelectorAll("[data-password-toggle-icon]")) {
+        const mode = icon.getAttribute("data-password-toggle-icon");
+        icon.classList.toggle("hidden", mode === "visible");
+      }
+    }
   }
 
   function requireOAuthPrivacyConsent(socialLoginLink) {
@@ -370,6 +451,7 @@
     }
 
     resetPasswordResetDialog(dlg);
+    resetPasswordVisibility(dlg);
 
     // следующий тик, чтобы transition отработал
     requestAnimationFrame(() => {
@@ -496,13 +578,8 @@
     if (dialog === "login") {
       const next = params.get("next");
       const hasSocialError = params.get("social_error") === "1";
-      if (next && typeof next === "string" && next.startsWith("/")) {
-        window.__postLoginRedirect = next;
-        try {
-          sessionStorage.setItem("postLoginRedirect", next);
-        } catch {
-          // ignore
-        }
+      if (next) {
+        storePostLoginRedirect(next);
       }
       const dlg = getDialogById("loginDialog");
       openDialog(dlg, null);
@@ -604,6 +681,29 @@
   });
 
   document.addEventListener("click", (e) => {
+    const passwordToggle = e.target.closest?.("[data-password-toggle]");
+    if (passwordToggle) {
+      e.preventDefault();
+      const field = passwordToggle.closest("[data-password-field]");
+      const input = field?.querySelector("input");
+      if (!input) return;
+
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      passwordToggle.setAttribute("aria-pressed", show ? "true" : "false");
+      passwordToggle.setAttribute(
+        "aria-label",
+        show
+          ? (passwordToggle.getAttribute("data-label-hide") || "Скрыть пароль")
+          : (passwordToggle.getAttribute("data-label-show") || "Показать пароль"),
+      );
+      for (const icon of passwordToggle.querySelectorAll("[data-password-toggle-icon]")) {
+        const mode = icon.getAttribute("data-password-toggle-icon");
+        icon.classList.toggle("hidden", show ? mode === "hidden" : mode === "visible");
+      }
+      return;
+    }
+
     const notificationClose = e.target.closest?.("[data-page-notification-close]");
     if (notificationClose) {
       e.preventDefault();
@@ -684,12 +784,7 @@
       if (id === "loginDialog") {
         const redirectTo = openBtn.getAttribute("data-post-login-redirect");
         if (redirectTo) {
-          window.__postLoginRedirect = redirectTo;
-          try {
-            sessionStorage.setItem("postLoginRedirect", redirectTo);
-          } catch {
-            // ignore
-          }
+          storePostLoginRedirect(redirectTo);
         }
       }
       openDialog(getDialogById(id), openBtn);
@@ -936,33 +1031,7 @@
       // (или даже без JSON body). Поэтому: если 2xx и ошибок нет, считаем успехом,
       // кроме случая когда сервер явно сказал is_authenticated=false.
       if (resp.ok && !errors.length && metaIsAuthenticated !== false) {
-        let postLoginRedirect = null;
-        try {
-          postLoginRedirect = sessionStorage.getItem("postLoginRedirect");
-          sessionStorage.removeItem("postLoginRedirect");
-        } catch {
-          // ignore
-        }
-
-        if (!postLoginRedirect) {
-          const fromWindow = window.__postLoginRedirect;
-          if (typeof fromWindow === "string" && fromWindow.startsWith("/")) {
-            postLoginRedirect = fromWindow;
-          }
-        }
-
-        if (!postLoginRedirect) {
-          const fromOpener = lastOpener?.getAttribute?.("data-post-login-redirect");
-          if (typeof fromOpener === "string" && fromOpener.startsWith("/")) {
-            postLoginRedirect = fromOpener;
-          }
-        }
-
-        try {
-          delete window.__postLoginRedirect;
-        } catch {
-          // ignore
-        }
+        const postLoginRedirect = takePostLoginRedirectForNavigation();
 
         closeDialog(dlg);
         if (postLoginRedirect) {
