@@ -369,6 +369,27 @@ Dedupe:
 
 ## 10. Unmapped Payment Provider Status
 
+### Политика DEFERRED-1 (оплата картой не в продукте)
+
+PalinGames **намеренно не маппит** коды Express Pay `4` (`PARTIALLY_PAID`) и `6` (`PAID_BY_CARD`), пока оплата картой **не включена** как продуктовая возможность. Это **не** «висящий баг», а отложенная capability с контролями:
+
+- заказ и инвойс **не** переводятся в `PAID` по этим кодам автоматически;
+- каждый такой webhook → **`payments.unmapped_provider_status`** (Telegram Incidents), лог `payment.status.unmapped`, метрика `payment_unmapped_provider_status_total`.
+
+**Ожидаемо в норме:** алертов по `6` **нет**, если в кабинете Express Pay не включали оплату картой.
+
+**Если пришёл алерт с `provider_status=6`:**
+
+1. Проверить, не включили ли карты у провайдера без деплоя маппинга.
+2. Проверить в EP, была ли реальная оплата; при подтверждённой полной оплате — выдать доступ вручную (ниже).
+3. Завести работу **`card-payment-readiness`**: `PAID_BY_CARD → PAID`, отдельная политика для `4` (частичная оплата **не** выдаёт товар).
+
+**Перед включением карт на сайте и в EP:** сначала merge/deploy маппинга и smoke на staging. Не добавлять «заготовку» `6→PAID` в prod, пока карты выключены — иначе ошибочный статус 6 от провайдера выдаст товар без намерения.
+
+Подробнее: `.cursor/plans/Reliability audit bugfixes-22092026.plan.md` §0.1 (локально, не в git).
+
+---
+
 Incident key:
 - `payments.unmapped_provider_status`
 
@@ -380,12 +401,12 @@ Incident key:
 
 Что это значит:
 - Express Pay прислал статус, которого нет в `map_invoice_status`
-  ([`apps/payments/services.py`](/home/jendox/PycharmProjects/palingames/apps/payments/services.py));
+  ([`apps/payments/services.py`](../../apps/payments/services.py));
 - приложение намеренно **не** меняет состояние заказа, чтобы не выдать товар по непонятному сигналу.
 
 Самые вероятные коды:
-- `6` (`PAID_BY_CARD`) — включили оплату картой на стороне провайдера, а в коде маппинга нет;
-- `4` (`PARTIALLY_PAID`) — частичная оплата, товар выдавать нельзя.
+- `6` (`PAID_BY_CARD`) — DEFERRED-1: карты включили у провайдера или пришёл реальный card-payment без маппинга в коде;
+- `4` (`PARTIALLY_PAID`) — частичная оплата; товар выдавать нельзя (отдельная политика при включении карт).
 
 Что проверить:
 1. `provider_status` из лога и сверить с `libs/express_pay/models.py::InvoiceStatus`.
