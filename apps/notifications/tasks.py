@@ -20,6 +20,8 @@ logger = logging.getLogger("apps.notifications.tasks")
     retry_backoff=True,
     retry_jitter=True,
     retry_kwargs={"max_retries": 5},
+    soft_time_limit=90,
+    time_limit=120,
 )
 def send_notification_outbox_task(self: Task, outbox_id: int) -> None:
     log_event(

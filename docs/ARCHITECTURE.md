@@ -297,7 +297,9 @@ Producer (orders, access, payments, auth, …)
 - Payload шифруется `APP_DATA_ENCRYPTION_KEY` (Fernet).
 - В Celery broker уходит только `outbox_id`, не guest tokens.
 - Cleanup: `cleanup_notification_outbox_task` (Beat, 03:20).
-- Recovery: `reap_stuck_notification_outbox_processing_task` (Beat, каждые 10 мин) — stale `PENDING` / `PROCESSING` старше `NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES`; reconcile outbox → `SENT` по `EmailLog`; иначе повтор `send_notification_outbox_task`. Параллельные task не дублируют SMTP (skip `processing_in_progress`).
+- Recovery: `reap_stuck_notification_outbox_processing_task` (Beat, каждые 10 мин) — stale `PENDING` / `PROCESSING` старше `NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES`; reconcile outbox → `SENT` по `EmailLog`; иначе повтор `send_notification_outbox_task`; при `attempts >= NOTIFICATION_OUTBOX_MAX_PROCESSING_ATTEMPTS` → `FAILED` + incident. Параллельные task не дублируют SMTP (skip `processing_in_progress`).
+- Celery: `CELERY_TASK_ACKS_LATE`, `CELERY_TASK_REJECT_ON_WORKER_LOST`; `send_notification_outbox_task` — soft/hard time limit 90/120 с.
+- Watchdog paid delivery: `guest_download_notification_stuck` для guest outbox в `PENDING`/`PROCESSING` старше timeout (→ `orders.delivery.invariant`).
 
 Критичные типы (guest download, invoice, auth) при repeated failures → Telegram **incidents** (`apps/core/alerts.py`).
 

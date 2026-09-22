@@ -217,6 +217,47 @@ class CheckPaidOrderDeliveryTests(OrderDeliveryWatchdogTestBase):
         self.assertEqual(problems[0].details["attempts"], 3)
         self.assertEqual(problems[0].details["last_error"], "smtp timeout")
 
+    @override_settings(**ENCRYPTION_TEST_SETTINGS, NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    def test_guest_notification_stuck_processing_reports_problem(self):
+        order = self._create_order(checkout_type=Order.CheckoutType.GUEST)
+        self._add_order_item(order, self.product)
+        self._create_invoice(order)
+        self._create_guest_access(order, self.product)
+        outbox = self._create_guest_download_outbox(
+            order,
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=2,
+        )
+        NotificationOutbox.objects.filter(pk=outbox.pk).update(
+            last_attempt_at=timezone.now() - timedelta(minutes=20),
+        )
+
+        problems = check_paid_order_delivery(order)
+
+        self.assertEqual(len(problems), 1)
+        self.assertEqual(problems[0].code, OrderDeliveryProblemCode.GUEST_DOWNLOAD_NOTIFICATION_STUCK)
+        self.assertEqual(problems[0].details["outbox_id"], outbox.id)
+
+    @override_settings(**ENCRYPTION_TEST_SETTINGS, NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    def test_guest_notification_fresh_processing_is_not_stuck(self):
+        order = self._create_order(checkout_type=Order.CheckoutType.GUEST)
+        self._add_order_item(order, self.product)
+        self._create_invoice(order)
+        self._create_guest_access(order, self.product)
+        self._create_guest_download_outbox(
+            order,
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=1,
+        )
+        NotificationOutbox.objects.filter(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            object_id=order.id,
+        ).update(last_attempt_at=timezone.now())
+
+        problems = check_paid_order_delivery(order)
+
+        self.assertEqual(problems, [])
+
     def test_invoice_missing_reports_problem(self):
         order = self._create_order(checkout_type=Order.CheckoutType.AUTHENTICATED, user=self.user)
         self._add_order_item(order, self.product)
