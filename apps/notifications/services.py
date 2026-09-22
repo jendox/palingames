@@ -10,6 +10,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.logging import log_event
@@ -377,6 +378,49 @@ def send_notification(*, outbox: NotificationOutbox, payload: NotificationPayloa
             f"channel={outbox.channel}, notification_type={outbox.notification_type}",
         )
     handler(outbox=outbox, payload=payload)
+
+
+def reap_stuck_notification_outbox_processing() -> int:
+    cutoff = _processing_stale_cutoff()
+    stuck_outbox_ids = list(
+        NotificationOutbox.objects.filter(
+            status=NotificationOutbox.Status.PROCESSING,
+        )
+        .filter(Q(last_attempt_at__lt=cutoff) | Q(last_attempt_at__isnull=True))
+        .order_by("id")
+        .values_list("id", flat=True),
+    )
+
+    from .tasks import send_notification_outbox_task
+
+    reaped = 0
+    for outbox_id in stuck_outbox_ids:
+        reconciled = False
+        with transaction.atomic():
+            outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
+            if outbox.status != NotificationOutbox.Status.PROCESSING:
+                continue
+            if outbox.last_attempt_at is not None and outbox.last_attempt_at >= cutoff:
+                continue
+            reconciled = _reconcile_outbox_from_sent_email_log(outbox)
+
+        if reconciled:
+            reaped += 1
+            continue
+
+        send_notification_outbox_task.delay(outbox_id)
+        reaped += 1
+
+    if reaped:
+        log_event(
+            logger,
+            logging.WARNING,
+            "notification.outbox.reaper.completed",
+            reaped=reaped,
+            timeout_minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES,
+        )
+
+    return reaped
 
 
 def cleanup_old_notification_outboxes(

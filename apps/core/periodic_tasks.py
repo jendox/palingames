@@ -48,6 +48,13 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         period=IntervalSchedule.MINUTES,
     ),
     PeriodicTaskSpec(
+        name="Reap stuck notification outbox processing",
+        task="apps.notifications.tasks.reap_stuck_notification_outbox_processing_task",
+        schedule_kind="interval",
+        every=10,
+        period=IntervalSchedule.MINUTES,
+    ),
+    PeriodicTaskSpec(
         name="Clear expired Django sessions",
         task="apps.core.tasks.clear_expired_sessions_task",
         schedule_kind="crontab",
