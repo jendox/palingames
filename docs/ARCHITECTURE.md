@@ -176,7 +176,18 @@ Checkout создаёт заказ и ставит invoice в очередь; fu
 
 Entry: `apps/orders/services.py` — создание `Order` из корзины, idempotency key в session, промокод, consent.
 
-После создания заказа → `apps/payments/tasks.py::create_invoice_task` → Express Pay API → `Invoice` в статусе `PENDING`, заказ `WAITING_FOR_PAYMENT`.
+После создания заказа → `enqueue_invoice_creation` → Celery `create_invoice_task` → Express Pay API → `Invoice` в статусе `PENDING`, заказ `WAITING_FOR_PAYMENT` → `ensure_invoice_created_user_email` (письмо со ссылкой).
+
+**Устойчивость создания инвойса:**
+
+| Механизм | Поведение |
+|----------|-----------|
+| Retry | Transport, HTTP 429/5xx — до 5 попыток, backoff до 10 мин; `ExpressPayAPIError` и idempotent skip — без retry |
+| Логи | `invoice.creation.retry_scheduled` при retry; `invoice.creation.failed` — финальный провал |
+| Watchdog | Тот же `check_paid_order_delivery_watchdog_task`: заказы `CREATED` / `WAITING_FOR_PAYMENT` без полного инвойса старше 10 мин (lookback 48 ч) → `payment_invoice_missing` |
+| Incident | `payments.invoice_creation.missing` (dedupe 15 мин), отдельно от `orders.delivery.invariant` |
+
+При редком сбое «Express Pay ответил OK, запись в БД не успела» retry может создать **второй** счёт у провайдера; в БД один инвойс на заказ, клиент получает актуальную ссылку. Лишний pending-счёт у провайдера допустим; восстановление — админка «Создать инвойс» или повтор `create_invoice_task`.
 
 ### 3. Оплата (два канала)
 
@@ -333,6 +344,7 @@ Readiness (`/health/ready/`) проверяет PostgreSQL, Redis, S3 product bu
 | Email не ушёл | outbox retry + retention cleanup | `notifications.outbox.failures` |
 | S3 недоступен | download 5xx, ready degraded | `storage.s3.unavailable` |
 | Guest link expired / limit | 410 на download view | — (expected) |
+| Нет инвойса / ссылки до оплаты | retry `create_invoice_task` + watchdog | `payments.invoice_creation.missing` |
 | Оплачен, но нет access/email | `check_paid_order_delivery_watchdog_task` | `orders.delivery.invariant` |
 
 Resolved alerts поддерживаются для sync, downloads, outbox, storage (см. [runbooks.md](runbooks.md)). Для `orders.delivery.invariant` recovery пока нет.

@@ -700,8 +700,123 @@ docker compose -f docker-compose.prod.yml start web celery-worker celery-beat
 Рекомендации:
 
 - хранить дампы off-site (другой регион/облако), не только на том же VPS;
-- периодически проверять restore на staging;
+- периодически проверять restore на staging (см. ниже);
 - перед major-миграциями — ручной snapshot.
+
+#### Off-site backup (Google Drive, GPG)
+
+На VPS: cron **05:00** (prod) и **05:15** (staging) → `palingames-backup-upload.sh` → `gdrive:palingames-backups/{prod,staging}/`.
+
+- Скрипт: [`scripts/palingames-backup-upload.sh`](scripts/palingames-backup-upload.sh)
+- Файлы на Drive: `prod-YYYYMMDD.dump.gpg`, `staging-YYYYMMDD.dump.gpg`
+- GPG-пароль: менеджер паролей («PalinGames backup GPG»); на VPS также `/root/.config/palingames/backup-gpg.pass` (только для backup job, не коммитить)
+- Напоминание о drill: [GitHub issue #15](https://github.com/jendox/palingames/issues/15) (раз в 6 месяцев)
+
+#### Restore drill: prod backup → staging (раз в 6 месяцев)
+
+**Цель:** убедиться, что последний prod-дамп с Drive расшифровывается и поднимается в PostgreSQL. **Restore только в `palingames_staging`**, не в prod.
+
+**Где:** SSH на VPS (`root`), rclone remote `gdrive` уже настроен.
+
+**0. Pre-flight (опционально, перед drill)**
+
+```bash
+crontab -l | grep palingames-backup
+tail -20 /var/log/palingames-prod-backup-upload.log
+rclone ls gdrive:palingames-backups/prod | tail -5
+```
+
+Ожидаются свежие `prod-YYYYMMDD.dump.gpg` и строки `OK prod -> Drive` в логе.
+
+**1. Выбрать последний prod-файл на Drive**
+
+```bash
+WORK=/tmp/backup-restore-test
+mkdir -p "$WORK"
+cd "$WORK"
+
+LATEST=$(rclone ls gdrive:palingames-backups/prod | awk '{print $2}' | sort | tail -1)
+echo "Using: $LATEST"
+test -n "$LATEST"
+```
+
+**2. Скачать с Drive**
+
+```bash
+rclone copy "gdrive:palingames-backups/prod/${LATEST}" "$WORK/"
+ls -lh "$WORK/${LATEST}"
+```
+
+**3. Расшифровать**
+
+Пароль — из менеджера (**GPG**, не Google). На VPS можно использовать тот же файл, что и backup job:
+
+```bash
+DUMP_PLAIN="${LATEST%.gpg}"
+
+gpg --batch --pinentry-mode loopback \
+  --passphrase-file /root/.config/palingames/backup-gpg.pass \
+  --output "$WORK/${DUMP_PLAIN}" \
+  --decrypt "$WORK/${LATEST}"
+```
+
+Либо без `--passphrase-file` — GPG запросит пароль интерактивно.
+
+Проверка формата:
+
+```bash
+file "$WORK/${DUMP_PLAIN}"
+# PostgreSQL custom database dump - v1.16...
+```
+
+**4. Restore в staging (остановить приложение)**
+
+Staging будет **перезаписан** данными из prod — это нормально для drill.
+
+```bash
+cd /opt/palingames-staging/deploy
+export COMPOSE_PROJECT_NAME=palingames-staging
+
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
+  stop web celery-worker celery-beat
+
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
+  exec -T postgres pg_restore -U palingames -d palingames_staging \
+  --clean --if-exists --no-owner \
+  < "$WORK/${DUMP_PLAIN}"
+
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
+  start web celery-worker celery-beat
+```
+
+Предупреждения `pg_restore` часто допустимы; смотрите на строки с `ERROR`.
+
+**5. Smoke**
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" https://staging.palingames.by/health/ready/
+```
+
+В браузере: admin staging — заказы, пользователи, инвойсы. Или в psql:
+
+```bash
+cd /opt/palingames-staging/deploy
+export COMPOSE_PROJECT_NAME=palingames-staging
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
+  exec postgres psql -U palingames -d palingames_staging \
+  -c "SELECT COUNT(*) FROM orders_order;"
+```
+
+**6. Очистка**
+
+```bash
+rm -rf /tmp/backup-restore-test
+```
+
+**7. Зафиксировать результат**
+
+- Комментарий и чеклист в [issue #15](https://github.com/jendox/palingames/issues/15); перенести due date / milestone на +6 месяцев
+- Журнал в локальном `.cursor/plans/PostgreSQL backup Google Drive.md` §6.4
 
 ### Redis
 

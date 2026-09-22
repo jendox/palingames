@@ -25,6 +25,7 @@ Incident alerts отправляются через отдельный operation
 - `notifications.outbox.failures`
 - `storage.s3.unavailable`
 - `orders.delivery.invariant`
+- `payments.invoice_creation.missing`
 
 Recovery/resolved alerts сейчас реализованы для:
 - `payments.status_sync.failures`
@@ -33,8 +34,8 @@ Recovery/resolved alerts сейчас реализованы для:
 - `storage.s3.unavailable`
 
 Без recovery-сигнала: `payments.webhook.failures`, `orders.delivery.invariant`,
-`payments.unmapped_provider_status`, `payments.order_refunded`. Последние два — событийные
-(разбираются вручную), поэтому «восстановление» для них не определено.
+`payments.invoice_creation.missing`, `payments.unmapped_provider_status`, `payments.order_refunded`.
+Последние три — событийные (разбираются вручную), поэтому «восстановление» для них не определено.
 
 ## 2. Payment Webhook Failures
 
@@ -282,7 +283,43 @@ Recovery title:
 - не форсить readiness в `200`;
 - не отключать check ради “зелёного” статуса.
 
-## 8. Paid Order Delivery Invariant
+## 8. Order Stuck Without Payment Invoice
+
+Incident key:
+- `payments.invoice_creation.missing`
+
+Симптомы:
+- в Telegram topic `Incidents` пришёл alert `Order stuck without payment invoice`;
+- в логах `order_delivery_watchdog.completed` с `checked_unpaid_orders > 0` и `problems > 0`;
+- заказ в админке `CREATED` или `WAITING_FOR_PAYMENT`, нет `Invoice` или у инвойса пустые
+  `provider_invoice_no` / `invoice_url`;
+- клиент оформил checkout, но письмо со ссылкой на оплату не пришло.
+
+Что это обычно значит:
+- `create_invoice_task` не завершилась после исчерпания retry (сеть, 5xx Express Pay);
+- задача не была обработана Celery;
+- реже — сбой между успешным ответом API и записью в БД (см. ниже про дубликат у провайдера).
+
+Проверить сначала:
+1. Логи `invoice.creation.failed`, `invoice.creation.retry_scheduled`, `invoice.creation.success` по `order_id` / `target_id`.
+2. Заказ: `status`, `payment_account_no`, `created_at`, связанный `Invoice`.
+3. Очередь Celery / состояние worker.
+
+Быстрые действия:
+1. В админке заказа — **«Создать инвойс»** (offsite) или повторно поставить
+   `create_invoice_task` для site-checkout заказа.
+2. Убедиться, что появились `invoice_url` и outbox `invoice_created_user` (письмо со ссылкой).
+3. Если клиент уже жаловался — проверить spam и email на заказе.
+
+Дубликат инвойса у Express Pay:
+- при редком retry после «API успешен, БД не записана» у провайдера может появиться лишний
+  неоплаченный счёт; в PostgreSQL остаётся **один** инвойс на заказ, покупателю уходит актуальная
+  ссылка. Это **допустимо**; сверка — в кабинете Express Pay по `payment_account_no`.
+
+Dedupe:
+- повторный alert по тому же заказу — не чаще `INCIDENT_ALERT_DEDUPE_TTL_SECONDS` (по умолчанию 15 мин).
+
+## 9. Paid Order Delivery Invariant
 
 Incident key:
 - `orders.delivery.invariant`
@@ -315,7 +352,7 @@ Incident key:
 Dedupe:
 - повтор того же нарушения не спамит чат 7 дней (настраивается `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`).
 
-## 9. Unmapped Payment Provider Status
+## 10. Unmapped Payment Provider Status
 
 Incident key:
 - `payments.unmapped_provider_status`
@@ -346,7 +383,7 @@ Incident key:
 3. Завести задачу на добавление кода в `map_invoice_status`; для частичной оплаты нужен отдельный
    статус и ручной разбор, а не маппинг в `PAID`.
 
-## 10. Order Refunded
+## 11. Order Refunded
 
 Incident key:
 - `payments.order_refunded`

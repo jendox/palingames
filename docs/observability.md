@@ -88,11 +88,14 @@ Orders:
 - `order.creation.success`
 - `order.creation.failed`
 - `order.paid`
+- `order_delivery_watchdog.completed` (поля: `checked_orders`, `checked_unpaid_orders`, `problems`, `alerts_sent`)
 
 Invoices:
 - `invoice.creation.started`
 - `invoice.creation.success`
+- `invoice.creation.retry_scheduled`
 - `invoice.creation.failed`
+- `invoice.creation.skipped`
 - `invoice.status_sync.started`
 - `invoice.status_sync.invoice_processed`
 - `invoice.status_sync.invoice_failed`
@@ -256,9 +259,27 @@ Route:
 Recovery:
 - `Storage recovered`
 
-6. `orders.delivery.invariant`
+6. `payments.invoice_creation.missing`
 Что считается incident:
-- нарушение инвариантов доставки оплаченного цифрового заказа: missing/mismatched invoice, missing access, missing/failed guest download email.
+- заказ до оплаты (`CREATED` / `WAITING_FOR_PAYMENT`) без полного инвойса (`provider_invoice_no`, `invoice_url`) дольше grace period.
+
+Route:
+- [`apps/payments/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/payments/alerts.py)
+- [`apps/orders/watchdog.py`](/home/jendox/PycharmProjects/palingames/apps/orders/watchdog.py)
+- [`apps/orders/tasks.py`](/home/jendox/PycharmProjects/palingames/apps/orders/tasks.py)
+
+Recovery:
+- не применим (событие); восстановление вручную — пересоздание инвойса, см. runbooks §8.
+
+Watchdog:
+- тот же periodic task `check_paid_order_delivery_watchdog_task`, interval 5 минут;
+- для pre-payment: grace 10 минут после `order.created_at`, lookback 48 часов;
+- problem code `payment_invoice_missing`;
+- immediate alert, dedupe `INCIDENT_ALERT_DEDUPE_TTL_SECONDS` (по умолчанию 15 мин).
+
+7. `orders.delivery.invariant`
+Что считается incident:
+- нарушение инвариантов доставки **оплаченного** цифрового заказа: missing/mismatched invoice, missing access, missing/failed guest download email.
 
 Route:
 - [`apps/orders/alerts.py`](/home/jendox/PycharmProjects/palingames/apps/orders/alerts.py)
@@ -270,10 +291,10 @@ Recovery:
 
 Watchdog:
 - periodic task `apps.orders.tasks.check_paid_order_delivery_watchdog_task`, interval 5 минут;
-- grace 10 минут после оплаты, lookback 48 часов;
+- для paid: grace 10 минут после `paid_at`, lookback 48 часов;
 - immediate alert (без threshold), dedupe через fingerprint + `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`.
 
-7. `payments.unmapped_provider_status`
+8. `payments.unmapped_provider_status`
 Что считается incident:
 - провайдер прислал статус инвойса, которого нет в `map_invoice_status`, поэтому состояние заказа
   намеренно не изменено (например `PAID_BY_CARD` при неподключённой оплате картой).
@@ -288,7 +309,7 @@ Route:
 Recovery:
 - не применим: это событие, а не деградация. Разбирается вручную, см. runbooks.
 
-8. `payments.order_refunded`
+9. `payments.order_refunded`
 Что считается incident:
 - по инвойсу оплаченного заказа пришёл возврат; заказ переведён в `REFUNDED`, доступ к файлам
   не отзывается автоматически.

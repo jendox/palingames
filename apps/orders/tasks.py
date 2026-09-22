@@ -6,7 +6,8 @@ from celery import shared_task
 
 from apps.core.logging import log_event
 from apps.orders.alerts import alert_order_delivery_problem
-from apps.orders.watchdog import run_order_delivery_watchdog
+from apps.orders.watchdog import OrderDeliveryProblemCode, run_order_delivery_watchdog
+from apps.payments.alerts import alert_missing_payment_invoice_problem
 
 logger = logging.getLogger("apps.orders")
 
@@ -18,11 +19,15 @@ def check_paid_order_delivery_watchdog_task() -> dict[str, int]:
     alerts_sent = 0
 
     for problem in result.problems:
-        if alert_order_delivery_problem(problem):
+        if problem.code == OrderDeliveryProblemCode.PAYMENT_INVOICE_MISSING:
+            if alert_missing_payment_invoice_problem(problem):
+                alerts_sent += 1
+        elif alert_order_delivery_problem(problem):
             alerts_sent += 1
 
     summary = {
         "checked_orders": result.checked_orders,
+        "checked_unpaid_orders": result.checked_unpaid_orders,
         "problems": len(result.problems),
         "alerts_sent": alerts_sent,
     }

@@ -19,13 +19,16 @@ from apps.orders.tasks import check_paid_order_delivery_watchdog_task
 from apps.orders.watchdog import (
     WATCHDOG_GRACE_PERIOD,
     WATCHDOG_LOOKBACK,
+    OrderDeliveryProblemCode,
     check_paid_order_delivery,
+    check_unpaid_order_missing_invoice,
     run_order_delivery_watchdog,
 )
 from apps.payments.models import Invoice
 from apps.products.models import Product
 
 WATCHDOG_READY_PAID_AT = timezone.now() - WATCHDOG_GRACE_PERIOD - timedelta(minutes=1)
+WATCHDOG_READY_CREATED_AT = timezone.now() - WATCHDOG_GRACE_PERIOD - timedelta(minutes=1)
 ENCRYPTION_TEST_SETTINGS = {
     "APP_DATA_ENCRYPTION_KEY": "5AZwcbvUq7egV4dW9zPP_BHqp-KeQK3j16ZZ8S8_L4A=",
 }
@@ -247,6 +250,60 @@ class CheckPaidOrderDeliveryTests(OrderDeliveryWatchdogTestBase):
         self.assertEqual(warning.details["invoice_id"], invoice.id)
 
 
+class UnpaidOrderInvoiceWatchdogTests(OrderDeliveryWatchdogTestBase):
+    def test_stale_created_order_without_invoice_reports_problem(self):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            paid_at=None,
+        )
+        Order.objects.filter(pk=order.pk).update(created_at=WATCHDOG_READY_CREATED_AT)
+        order.refresh_from_db()
+
+        problems = check_unpaid_order_missing_invoice(order)
+
+        self.assertEqual(len(problems), 1)
+        self.assertEqual(problems[0].code, OrderDeliveryProblemCode.PAYMENT_INVOICE_MISSING)
+
+    def test_fresh_created_order_is_ignored_by_runner(self):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            paid_at=None,
+        )
+
+        result = run_order_delivery_watchdog()
+
+        codes = {problem.code for problem in result.problems if problem.order_id == order.id}
+        self.assertNotIn(OrderDeliveryProblemCode.PAYMENT_INVOICE_MISSING, codes)
+
+    def test_waiting_for_payment_with_valid_invoice_is_healthy(self):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            paid_at=None,
+        )
+        self._create_invoice(order, status=Invoice.InvoiceStatus.PENDING, paid_at=None)
+        Order.objects.filter(pk=order.pk).update(created_at=WATCHDOG_READY_CREATED_AT)
+        order.refresh_from_db()
+
+        self.assertEqual(check_unpaid_order_missing_invoice(order), [])
+
+    def test_runner_includes_stale_unpaid_order_without_invoice(self):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            paid_at=None,
+        )
+        Order.objects.filter(pk=order.pk).update(created_at=WATCHDOG_READY_CREATED_AT)
+
+        result = run_order_delivery_watchdog()
+
+        self.assertGreaterEqual(result.checked_unpaid_orders, 1)
+        codes = {problem.code for problem in result.problems if problem.order_id == order.id}
+        self.assertIn(OrderDeliveryProblemCode.PAYMENT_INVOICE_MISSING, codes)
+
+
 class RunOrderDeliveryWatchdogTests(OrderDeliveryWatchdogTestBase):
     def test_paid_order_with_missing_paid_at_is_checked_by_runner(self):
         order = self._create_order(
@@ -299,13 +356,13 @@ class OrderDeliveryAlertTests(TestCase):
 
         problem_a = OrderDeliveryProblem(
             order_id=817,
-            code="missing_guest_access",
+            code=OrderDeliveryProblemCode.MISSING_GUEST_ACCESS,
             severity="critical",
             details={"product_id": 10},
         )
         problem_b = OrderDeliveryProblem(
             order_id=817,
-            code="missing_guest_access",
+            code=OrderDeliveryProblemCode.MISSING_GUEST_ACCESS,
             severity="critical",
             details={"product_id": 20},
         )
@@ -346,3 +403,20 @@ class OrderDeliveryWatchdogTaskTests(OrderDeliveryWatchdogTestBase):
         alert_mock.assert_called()
         alerted_order_ids = {call.args[0].order_id for call in alert_mock.call_args_list}
         self.assertIn(order.id, alerted_order_ids)
+
+    @patch("apps.orders.tasks.alert_missing_payment_invoice_problem", return_value=True)
+    @patch("apps.orders.tasks.alert_order_delivery_problem")
+    def test_task_alerts_on_missing_payment_invoice(self, paid_alert_mock, unpaid_alert_mock):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            paid_at=None,
+        )
+        Order.objects.filter(pk=order.pk).update(created_at=WATCHDOG_READY_CREATED_AT)
+
+        summary = check_paid_order_delivery_watchdog_task()
+
+        self.assertGreaterEqual(summary["problems"], 1)
+        self.assertGreaterEqual(summary["checked_unpaid_orders"], 1)
+        unpaid_alert_mock.assert_called()
+        paid_alert_mock.assert_not_called()

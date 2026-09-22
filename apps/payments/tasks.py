@@ -5,7 +5,8 @@ import random
 from datetime import datetime, timedelta
 from functools import lru_cache
 
-from celery import shared_task
+import httpx
+from celery import Task, shared_task
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
@@ -27,6 +28,7 @@ from apps.payments.notifications import (
 )
 from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import apply_invoice_status_update
+from libs.express_pay import ExpressPayAPIError
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig
 from libs.payments.models import CreateInvoiceRequest, InvoiceStatusRequest
@@ -36,6 +38,7 @@ TEST_INVOICE_NO_MIN = 10_000_000
 TEST_INVOICE_NO_MAX = 99_999_999
 INVOICE_STATUS_SYNC_DEFAULT_BATCH_SIZE = 50
 INVOICE_STATUS_SYNC_DEFAULT_MIN_INTERVAL_SECONDS = 300
+INVOICE_CREATION_MAX_RETRIES = 5
 PAYMENT_TARGET_ORDER = "order"
 PAYMENT_TARGET_CUSTOM_GAME_REQUEST = "custom_game_request"
 
@@ -58,6 +61,19 @@ def _invoice_status_sync_min_interval() -> timedelta:
         INVOICE_STATUS_SYNC_DEFAULT_MIN_INTERVAL_SECONDS,
     )
     return timedelta(seconds=max(int(configured), 0))
+
+
+def _is_retryable_invoice_creation_error(exc: BaseException) -> bool:
+    if isinstance(exc, httpx.TransportError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return (
+            exc.response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR
+            or exc.response.status_code == httpx.codes.TOO_MANY_REQUESTS
+        )
+    if isinstance(exc, ExpressPayAPIError):
+        return False
+    return False
 
 
 class InvoiceCreationSkipped(Exception):
@@ -325,8 +341,8 @@ def _sync_single_waiting_invoice(invoice_id: int) -> str:
     return normalized_status.lower()
 
 
-@shared_task(bind=True, autoretry_for=(), retry_backoff=False)
-def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARGET_ORDER) -> None:
+@shared_task(bind=True, max_retries=INVOICE_CREATION_MAX_RETRIES)
+def create_invoice_task(self: Task, target_id: int, payment_target: str = PAYMENT_TARGET_ORDER) -> None:
     try:
         with transaction.atomic():
             target = _get_locked_target_for_invoice_creation(target_id, payment_target)
@@ -392,6 +408,16 @@ def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARG
         )
         return
     except Exception as exc:
+        if _is_retryable_invoice_creation_error(exc) and self.request.retries < self.max_retries:
+            log_event(
+                logger,
+                logging.INFO,
+                "invoice.creation.retry_scheduled",
+                target_id=target_id,
+                payment_target=payment_target,
+                error_type=type(exc).__name__,
+            )
+            raise self.retry(exc=exc, countdown=min(60 * (2 ** self.request.retries), 600)) from exc
         log_event(
             logger,
             logging.ERROR,
@@ -405,7 +431,7 @@ def create_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARG
 
 
 @shared_task(bind=True, autoretry_for=(), retry_backoff=False)
-def create_test_invoice_task(self, target_id: int, payment_target: str = PAYMENT_TARGET_ORDER) -> None:
+def create_test_invoice_task(self: Task, target_id: int, payment_target: str = PAYMENT_TARGET_ORDER) -> None:
     try:
         with transaction.atomic():
             target = _get_locked_target_for_invoice_creation(target_id, payment_target)

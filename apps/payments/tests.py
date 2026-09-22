@@ -3,6 +3,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+import httpx
+from celery.exceptions import Retry
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.core import mail
@@ -32,6 +34,7 @@ from apps.payments.notifications import (
 from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import map_invoice_status, mark_custom_game_request_paid
 from apps.payments.tasks import (
+    _is_retryable_invoice_creation_error,
     create_invoice_task,
     send_invoice_payment_reminders_task,
     send_previous_month_payments_report_task,
@@ -39,6 +42,7 @@ from apps.payments.tasks import (
 )
 from apps.products.models import Product
 from apps.promocodes.models import PromoCode
+from libs.express_pay import ExpressPayAPIError
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import ExpressPayConfig, ExpressPayPayment
 from libs.payments.models import CreateInvoiceResult, InvoiceStatus, InvoiceStatusResult
@@ -67,6 +71,71 @@ class MapInvoiceStatusTests(TestCase):
     def test_unknown_status_is_not_mapped(self):
         self.assertIsNone(map_invoice_status(99))
         self.assertIsNone(map_invoice_status(None))
+
+
+class InvoiceCreationRetryTests(TestCase):
+    def test_is_retryable_for_transport_error(self):
+        self.assertTrue(_is_retryable_invoice_creation_error(httpx.ConnectError("connection failed")))
+
+    def test_is_retryable_for_server_errors_and_rate_limit(self):
+        request = httpx.Request("POST", "https://api.express-pay.by/v1/invoices")
+        for status_code in (429, 500, 503):
+            with self.subTest(status_code=status_code):
+                response = httpx.Response(status_code, request=request)
+                error = httpx.HTTPStatusError("upstream error", request=request, response=response)
+                self.assertTrue(_is_retryable_invoice_creation_error(error))
+
+    def test_is_not_retryable_for_client_error_or_api_error(self):
+        request = httpx.Request("POST", "https://api.express-pay.by/v1/invoices")
+        response = httpx.Response(400, request=request)
+        bad_request = httpx.HTTPStatusError("bad request", request=request, response=response)
+        self.assertFalse(_is_retryable_invoice_creation_error(bad_request))
+        self.assertFalse(_is_retryable_invoice_creation_error(ExpressPayAPIError(100, "invalid request")))
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_create_invoice_task_schedules_retry_on_connect_error(self, mock_get_client):
+        order = Order.objects.create(
+            email="guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+            payment_account_no="PG25032699998888",
+        )
+        mock_client = Mock()
+        mock_client.create_invoice.side_effect = httpx.ConnectError("connection failed")
+        mock_get_client.return_value = mock_client
+
+        with patch.object(create_invoice_task, "retry", side_effect=Retry()) as retry_mock:
+            with self.assertRaises(Retry):
+                create_invoice_task(order.id)
+
+        retry_mock.assert_called_once()
+        self.assertFalse(Invoice.objects.filter(order=order).exists())
+
+    @patch("apps.payments.tasks.get_express_pay_request_client")
+    def test_create_invoice_task_does_not_retry_on_express_pay_api_error(self, mock_get_client):
+        order = Order.objects.create(
+            email="guest@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.CREATED,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("25.00"),
+            items_count=1,
+            payment_account_no="PG25032699997777",
+        )
+        mock_client = Mock()
+        mock_client.create_invoice.side_effect = ExpressPayAPIError(100, "invalid request")
+        mock_get_client.return_value = mock_client
+
+        with patch.object(create_invoice_task, "retry") as retry_mock:
+            with self.assertRaises(ExpressPayAPIError):
+                create_invoice_task(order.id)
+
+        retry_mock.assert_not_called()
 
 
 class ExpressPayNotificationTestDataMixin:
