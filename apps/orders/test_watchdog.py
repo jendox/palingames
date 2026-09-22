@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -20,6 +20,7 @@ from apps.orders.watchdog import (
     WATCHDOG_GRACE_PERIOD,
     WATCHDOG_LOOKBACK,
     OrderDeliveryProblemCode,
+    _check_invoice,
     check_paid_order_delivery,
     check_unpaid_order_missing_invoice,
     run_order_delivery_watchdog,
@@ -282,9 +283,11 @@ class CheckPaidOrderDeliveryTests(OrderDeliveryWatchdogTestBase):
     def test_invoice_paid_at_missing_reports_warning(self):
         order = self._create_order(checkout_type=Order.CheckoutType.AUTHENTICATED, user=self.user)
         self._add_order_item(order, self.product)
-        invoice = self._create_invoice(order, paid_at=None)
+        invoice = self._create_invoice(order)
+        invoice.paid_at = None
 
-        problems = check_paid_order_delivery(order)
+        with patch.object(Order, "invoice", new_callable=PropertyMock, return_value=invoice):
+            problems = _check_invoice(order)
 
         warning = next(problem for problem in problems if problem.code == "invoice_paid_at_missing")
         self.assertEqual(warning.severity, "warning")

@@ -8,6 +8,7 @@ from django.core.cache import caches
 from django.http import HttpRequest
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.core.alerts import (
     ThresholdIncidentSpec,
@@ -815,6 +816,7 @@ class PurchaseAnalyticsTests(TestCase):
             invoice_url="https://example.com/pay/99990001",
             amount=Decimal("22.50"),
             currency=933,
+            paid_at=timezone.now(),
         )
         OrderItem.objects.create(
             order=cls.order,
