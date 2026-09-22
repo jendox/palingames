@@ -193,7 +193,9 @@ Recovery title:
 
 Повторная обработка в `process_notification_outbox`:
 - свежий `PROCESSING` → skip (`processing_in_progress`), без второго SMTP;
-- stale `PROCESSING` без `EmailLog` → recovery и retry send.
+- stale `PROCESSING` без `EmailLog` → recovery и retry send;
+- после `NOTIFICATION_OUTBOX_MAX_PROCESSING_ATTEMPTS` reaper помечает outbox `FAILED` и шлёт critical outbox incident.
+- Celery: `CELERY_TASK_ACKS_LATE` / `CELERY_TASK_REJECT_ON_WORKER_LOST` — задача переотправляется при падении worker до ack.
 
 Что это обычно значит:
 - SMTP/transport недоступен;
@@ -346,7 +348,7 @@ Incident key:
 - `order_paid_at_missing`
 - `invoice_missing`, `invoice_status_mismatch`, `invoice_paid_at_missing`
 - `missing_user_product_access`, `missing_guest_access`
-- `guest_download_notification_missing`, `guest_download_notification_failed`
+- `guest_download_notification_missing`, `guest_download_notification_failed`, `guest_download_notification_stuck`
 - `authenticated_order_without_user`, `unknown_checkout_type`
 
 Что это обычно значит:
