@@ -181,7 +181,19 @@ Recovery title:
 - пользователь не получил письмо со ссылкой на оплату после checkout или создания инвойса игры на заказ (`invoice_created_user`);
 - пользователь не получил auth-письмо с confirm/reset/login link (`auth_account_email`);
 - в Telegram пришёл alert `Repeated critical notification outbox failures`;
-- в БД outbox-записи остаются в `FAILED`.
+- в БД outbox-записи остаются в `FAILED`;
+- outbox «завис» в `PENDING` или `PROCESSING` (письмо не ушло, incident ещё не сработал).
+
+Автовосстановление (Celery Beat, каждые 10 мин):
+- task `reap_stuck_notification_outbox_processing_task`;
+- grace `NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES` (по умолчанию 15 мин);
+- stale `PROCESSING`: reconcile по `EmailLog.SENT` или повтор `send_notification_outbox_task`;
+- stale `PENDING` (старше grace): повторная постановка `send_notification_outbox_task`;
+- логи `notification.outbox.reaper.completed`, `notification.outbox.reconciled`, `notification.outbox.processing.recovered`.
+
+Повторная обработка в `process_notification_outbox`:
+- свежий `PROCESSING` → skip (`processing_in_progress`), без второго SMTP;
+- stale `PROCESSING` без `EmailLog` → recovery и retry send.
 
 Что это обычно значит:
 - SMTP/transport недоступен;
@@ -191,12 +203,13 @@ Recovery title:
 
 Проверить сначала:
 1. Какой `notification_type` и `channel` в alert details.
-2. Что в `NotificationOutbox.last_error`.
-3. Жив ли Celery worker.
-4. Есть ли недавние изменения в email/telegram formatter.
-5. Для `invoice_created_user`: есть ли у связанного `Invoice` поле `invoice_url` и совпадает ли `payment_email_sent_for_provider_invoice_no` с `provider_invoice_no`.
-6. Для `auth_account_email`: не срабатывает ли allauth rate limit `confirm_email` (1/10s/key) — повторный resend в течение 10 секунд не создаёт outbox.
-7. В admin **Emails → Email logs**: статус (`SENT` / `FAILED` / `SUPPRESSED`), `error`, связь с outbox. Для `SUPPRESSED` проверить **Emails → Email suppressions** (manual unsuppress через `active=False`).
+2. Статус outbox: `PENDING` / `PROCESSING` / `FAILED` / `SENT`, `attempts`, `last_attempt_at`, `created_at`.
+3. Что в `NotificationOutbox.last_error`.
+4. Жив ли Celery worker и beat (`Reap stuck notification outbox processing` в django-celery-beat).
+5. Есть ли недавние изменения в email/telegram formatter.
+6. Для `invoice_created_user`: есть ли у связанного `Invoice` поле `invoice_url` и совпадает ли `payment_email_sent_for_provider_invoice_no` с `provider_invoice_no`.
+7. Для `auth_account_email`: не срабатывает ли allauth rate limit `confirm_email` (1/10s/key) — повторный resend в течение 10 секунд не создаёт outbox.
+8. В admin **Emails → Email logs**: статус (`SENT` / `FAILED` / `SUPPRESSED`), `error`, связь с outbox. Для `SUPPRESSED` проверить **Emails → Email suppressions** (manual unsuppress через `active=False`). Если outbox `PROCESSING`, а EmailLog уже `SENT` — дождаться reaper/reconcile или вручную «Отправить» из admin outbox (идемпотентно после reconcile).
 
 Быстрые действия:
 1. Проверить транспорт:
