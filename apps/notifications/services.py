@@ -380,8 +380,7 @@ def send_notification(*, outbox: NotificationOutbox, payload: NotificationPayloa
     handler(outbox=outbox, payload=payload)
 
 
-def reap_stuck_notification_outbox_processing() -> int:
-    cutoff = _processing_stale_cutoff()
+def _reap_stuck_processing_outboxes(*, cutoff, send_task) -> int:
     stuck_outbox_ids = list(
         NotificationOutbox.objects.filter(
             status=NotificationOutbox.Status.PROCESSING,
@@ -390,8 +389,6 @@ def reap_stuck_notification_outbox_processing() -> int:
         .order_by("id")
         .values_list("id", flat=True),
     )
-
-    from .tasks import send_notification_outbox_task
 
     reaped = 0
     for outbox_id in stuck_outbox_ids:
@@ -408,8 +405,46 @@ def reap_stuck_notification_outbox_processing() -> int:
             reaped += 1
             continue
 
-        send_notification_outbox_task.delay(outbox_id)
+        send_task(outbox_id)
         reaped += 1
+
+    return reaped
+
+
+def _reap_stale_pending_outboxes(*, cutoff, send_task) -> int:
+    pending_outbox_ids = list(
+        NotificationOutbox.objects.filter(
+            status=NotificationOutbox.Status.PENDING,
+            created_at__lt=cutoff,
+        )
+        .order_by("id")
+        .values_list("id", flat=True),
+    )
+
+    reaped = 0
+    for outbox_id in pending_outbox_ids:
+        with transaction.atomic():
+            outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
+            if outbox.status != NotificationOutbox.Status.PENDING:
+                continue
+            if outbox.created_at >= cutoff:
+                continue
+
+        send_task(outbox_id)
+        reaped += 1
+
+    return reaped
+
+
+def reap_stuck_notification_outbox_processing() -> int:
+    from .tasks import send_notification_outbox_task
+
+    cutoff = _processing_stale_cutoff()
+    send_task = send_notification_outbox_task.delay
+
+    processing_reaped = _reap_stuck_processing_outboxes(cutoff=cutoff, send_task=send_task)
+    pending_reaped = _reap_stale_pending_outboxes(cutoff=cutoff, send_task=send_task)
+    reaped = processing_reaped + pending_reaped
 
     if reaped:
         log_event(
@@ -417,6 +452,8 @@ def reap_stuck_notification_outbox_processing() -> int:
             logging.WARNING,
             "notification.outbox.reaper.completed",
             reaped=reaped,
+            processing_reaped=processing_reaped,
+            pending_reaped=pending_reaped,
             timeout_minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES,
         )
 

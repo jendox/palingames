@@ -321,6 +321,41 @@ class NotificationOutboxProcessingRecoveryTests(TestCase):
         self.assertEqual(reaped, 0)
         delay_mock.assert_not_called()
 
+    @override_settings(NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_reap_stale_pending_outbox_enqueues_send(self, delay_mock):
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.PENDING,
+        )
+        NotificationOutbox.objects.filter(pk=outbox.pk).update(
+            created_at=timezone.now() - timedelta(minutes=20),
+        )
+
+        reaped = reap_stuck_notification_outbox_processing()
+
+        self.assertEqual(reaped, 1)
+        delay_mock.assert_called_once_with(outbox.id)
+
+    @override_settings(NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    @patch("apps.notifications.tasks.send_notification_outbox_task.delay")
+    def test_reap_stale_pending_outbox_ignores_fresh_pending(self, delay_mock):
+        NotificationOutbox.objects.create(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.PENDING,
+        )
+
+        reaped = reap_stuck_notification_outbox_processing()
+
+        self.assertEqual(reaped, 0)
+        delay_mock.assert_not_called()
+
 
 class TelegramRouteTests(TestCase):
     @override_settings(
