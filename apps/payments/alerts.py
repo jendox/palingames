@@ -8,11 +8,13 @@ from apps.core.alerts import (
     resolve_threshold_incident,
     send_incident_alert,
 )
+from apps.orders.watchdog import OrderDeliveryProblem
 
 PAYMENT_WEBHOOK_FAILURE_INCIDENT_KEY = "payments.webhook.failures"
 PAYMENT_STATUS_SYNC_FAILURE_INCIDENT_KEY = "payments.status_sync.failures"
 UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY = "payments.unmapped_provider_status"
 ORDER_REFUNDED_INCIDENT_KEY = "payments.order_refunded"
+MISSING_PAYMENT_INVOICE_INCIDENT_KEY = "payments.invoice_creation.missing"
 
 PAYMENT_WEBHOOK_ALERTABLE_REASONS = {
     "invoice_not_found",
@@ -115,4 +117,22 @@ def record_unmapped_provider_status_incident(*, provider: str, provider_status: 
         severity="critical",
         fingerprint=f"{UNMAPPED_PROVIDER_STATUS_INCIDENT_KEY}:{provider}:{provider_status}",
         details={"provider": provider, "provider_status": str(provider_status)},
+    )
+
+
+def alert_missing_payment_invoice_problem(problem: OrderDeliveryProblem) -> bool:
+    if not isinstance(problem, OrderDeliveryProblem):
+        raise TypeError("expected OrderDeliveryProblem")
+
+    return send_incident_alert(
+        key=MISSING_PAYMENT_INVOICE_INCIDENT_KEY,
+        title="Order stuck without payment invoice",
+        severity=problem.severity,
+        fingerprint=f"{MISSING_PAYMENT_INVOICE_INCIDENT_KEY}:{problem.order_id}",
+        details={
+            "order_id": problem.order_id,
+            "problem": problem.code,
+            **problem.details,
+        },
+        dedupe_ttl_seconds=settings.INCIDENT_ALERT_DEDUPE_TTL_SECONDS,
     )
