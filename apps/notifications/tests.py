@@ -6,11 +6,13 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.custom_games.models import CustomGameRequest
+from apps.emails.models import EmailLog
 from apps.notifications.destinations import TelegramDestination
 from apps.notifications.formatters import format_custom_game_request_paid_admin_telegram
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import (
     create_notification_outbox,
+    encrypt_outbox_payload,
     enqueue_notification_outbox,
     process_notification_outbox,
 )
@@ -159,6 +161,92 @@ class NotificationOutboxLoggingTests(TestCase):
             notification_type=NotificationType.ORDER_REWARD_USER,
             channel=NotificationOutbox.Channel.EMAIL,
         )
+
+
+class NotificationOutboxProcessingRecoveryTests(TestCase):
+    @override_settings(NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    @patch("apps.notifications.services.send_notification")
+    def test_process_notification_outbox_skips_fresh_processing(self, send_notification_mock):
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=1,
+            last_attempt_at=timezone.now(),
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertFalse(processed)
+        send_notification_mock.assert_not_called()
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.PROCESSING)
+        self.assertEqual(outbox.attempts, 1)
+
+    @override_settings(NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    @patch("apps.notifications.services.resolve_notification_outbox_failure_incident")
+    def test_process_notification_outbox_reconciles_stale_processing_from_email_log(
+        self,
+        resolve_incident_mock,
+    ):
+        sent_at = timezone.now() - timedelta(minutes=30)
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=b"{}",
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=1,
+            last_attempt_at=timezone.now() - timedelta(minutes=20),
+        )
+        EmailLog.objects.create(
+            notification_outbox=outbox,
+            recipient="guest@example.com",
+            subject="Pay",
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            status=EmailLog.Status.SENT,
+            sent_at=sent_at,
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(outbox.sent_at, sent_at)
+        resolve_incident_mock.assert_called_once_with(
+            notification_type=NotificationType.INVOICE_CREATED_USER,
+            channel=NotificationOutbox.Channel.EMAIL,
+        )
+
+    @override_settings(NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES=15)
+    @patch("apps.notifications.services.resolve_notification_outbox_failure_incident")
+    @patch("apps.notifications.services.send_notification")
+    def test_process_notification_outbox_retries_stale_processing_without_email_log(
+        self,
+        send_notification_mock,
+        resolve_incident_mock,
+    ):
+        outbox = NotificationOutbox.objects.create(
+            notification_type=NotificationType.GUEST_ORDER_DOWNLOAD,
+            channel=NotificationOutbox.Channel.EMAIL,
+            recipient="guest@example.com",
+            payload_encrypted=encrypt_outbox_payload([]),
+            status=NotificationOutbox.Status.PROCESSING,
+            attempts=2,
+            last_attempt_at=timezone.now() - timedelta(minutes=20),
+        )
+
+        processed = process_notification_outbox(outbox_id=outbox.id)
+
+        self.assertTrue(processed)
+        send_notification_mock.assert_called_once()
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, NotificationOutbox.Status.SENT)
+        self.assertEqual(outbox.attempts, 3)
+        resolve_incident_mock.assert_called_once()
 
 
 class TelegramRouteTests(TestCase):

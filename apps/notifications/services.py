@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_guest_email_failed, inc_guest_email_outbox_created, inc_guest_email_sent
+from apps.emails.models import EmailLog
 
 from .alerts import (
     record_notification_outbox_failure_incident,
@@ -172,7 +173,77 @@ def _truncate_error(error: Exception) -> str:
     return str(error)[:MAX_LAST_ERROR_LENGTH]
 
 
-def process_notification_outbox(*, outbox_id: int) -> bool:
+def _processing_stale_cutoff():
+    return timezone.now() - timedelta(minutes=settings.NOTIFICATION_OUTBOX_PROCESSING_TIMEOUT_MINUTES)
+
+
+def _reconcile_outbox_from_sent_email_log(outbox: NotificationOutbox) -> bool:
+    sent_log = (
+        EmailLog.objects.filter(
+            notification_outbox_id=outbox.id,
+            status=EmailLog.Status.SENT,
+        )
+        .order_by("-sent_at", "-id")
+        .first()
+    )
+    if sent_log is None:
+        return False
+
+    outbox.status = NotificationOutbox.Status.SENT
+    outbox.sent_at = sent_log.sent_at or timezone.now()
+    outbox.last_error = ""
+    outbox.save(update_fields=["status", "sent_at", "last_error", "updated_at"])
+    log_event(
+        logger,
+        logging.INFO,
+        "notification.outbox.reconciled",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        recipient=outbox.recipient,
+        email_log_id=sent_log.id,
+        reason="email_log_sent",
+    )
+    if outbox.notification_type == NotificationType.GUEST_ORDER_DOWNLOAD:
+        inc_guest_email_sent()
+    resolve_notification_outbox_failure_incident(
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+    )
+    return True
+
+
+def _handle_stale_processing_outbox(outbox: NotificationOutbox) -> bool | None:
+    """Returns True/False if processing should stop; None to continue with send."""
+    if outbox.last_attempt_at is not None and outbox.last_attempt_at >= _processing_stale_cutoff():
+        log_event(
+            logger,
+            logging.INFO,
+            "notification.outbox.skipped",
+            outbox_id=outbox.id,
+            notification_type=outbox.notification_type,
+            reason="processing_in_progress",
+        )
+        return False
+
+    if _reconcile_outbox_from_sent_email_log(outbox):
+        return True
+
+    outbox.status = NotificationOutbox.Status.PENDING
+    outbox.save(update_fields=["status", "updated_at"])
+    log_event(
+        logger,
+        logging.WARNING,
+        "notification.outbox.processing.recovered",
+        outbox_id=outbox.id,
+        notification_type=outbox.notification_type,
+        channel=outbox.channel,
+        attempts=outbox.attempts,
+    )
+    return None
+
+
+def _lock_outbox_and_begin_processing(*, outbox_id: int) -> tuple[NotificationOutbox | None, bool | None]:
     with transaction.atomic():
         outbox = NotificationOutbox.objects.select_for_update().get(pk=outbox_id)
         if outbox.status == NotificationOutbox.Status.SENT:
@@ -184,7 +255,7 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
                 notification_type=outbox.notification_type,
                 reason="already_sent",
             )
-            return False
+            return None, False
 
         if outbox.status == NotificationOutbox.Status.DELIVERING:
             log_event(
@@ -195,13 +266,26 @@ def process_notification_outbox(*, outbox_id: int) -> bool:
                 notification_type=outbox.notification_type,
                 reason="awaiting_telegram_delivery",
             )
-            return False
+            return None, False
+
+        if outbox.status == NotificationOutbox.Status.PROCESSING:
+            stale_result = _handle_stale_processing_outbox(outbox)
+            if stale_result is not None:
+                return None, stale_result
 
         outbox.status = NotificationOutbox.Status.PROCESSING
         outbox.attempts += 1
         outbox.last_attempt_at = timezone.now()
         outbox.last_error = ""
         outbox.save(update_fields=["status", "attempts", "last_attempt_at", "last_error", "updated_at"])
+    return outbox, None
+
+
+def process_notification_outbox(*, outbox_id: int) -> bool:
+    outbox, finished = _lock_outbox_and_begin_processing(outbox_id=outbox_id)
+    if finished is not None:
+        return finished
+
     log_event(
         logger,
         logging.INFO,
