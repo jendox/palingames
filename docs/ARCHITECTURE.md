@@ -224,7 +224,7 @@ Celery Beat: sync_waiting_invoice_statuses_task (каждые ~5 мин)
 Дополнительно (один раз на первый переход в PAID):
 
 - `issue_order_reward_after_payment` — промокод за заказ
-- GA4 / Yandex Metrica purchase events (`transaction.on_commit`)
+- GA4 / Yandex Metrica purchase events: `transaction.on_commit` → `send_order_purchase_analytics_task` (`apps/core/tasks.py`, Celery worker)
 - Custom game flow — отдельная ветка через `mark_custom_game_request_paid`
 
 **Idempotency:** если `order.status == PAID`, повторный webhook логирует `order.paid.duplicate` и не создаёт повторный access.
@@ -248,6 +248,7 @@ sequenceDiagram
     EP->>W: Webhook PAID
     W->>DB: mark_order_paid
     W->>DB: GuestAccess + NotificationOutbox
+    W->>C: send_order_purchase_analytics_task (after commit)
     W->>C: enqueue send_notification_outbox_task
     C->>M: Email with /downloads/guest/{token}/
     U->>W: GET guest download link
@@ -380,6 +381,7 @@ Resolved alerts поддерживаются для sync, downloads, outbox, sto
 | Managed link redirect | `apps/managed_links/views.py`, `apps/managed_links/services/redirect.py` |
 | Managed link admin upload | `apps/managed_links/admin_upload_views.py` |
 | QR generation | `apps/managed_links/services/qr.py` |
+| Purchase analytics (GA4 / Yandex) | `apps/core/tasks.py::send_order_purchase_analytics_task` |
 | Outbox send | `apps/notifications/tasks.py`, `apps/notifications/services.py` |
 | Order delivery watchdog | `apps/orders/watchdog.py`, `apps/orders/tasks.py` |
 | Cart merge | `apps/cart/signals.py`, `apps/cart/services.py::merge_guest_cart_to_user` |
