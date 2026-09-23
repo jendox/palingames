@@ -82,6 +82,8 @@ class PromoCodeLimitTests(TransactionTestCase):
                 results.append("limit")
             except Exception as exc:  # pragma: no cover - test harness
                 results.append(type(exc).__name__)
+            finally:
+                connection.close()
 
         threads = [
             threading.Thread(target=attempt, args=("one@example.com",)),
