@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest
 
+from apps.core.rate_limits import get_client_ip
 from apps.orders.models import Order
 from apps.users.models import PersonalDataProcessingConsentLog
 
@@ -29,12 +30,7 @@ def _normalize_email(email: str) -> str:
 
 
 def get_client_ip_and_ua(request: HttpRequest) -> tuple[str | None, str]:
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    client_ip: str | None = None
-    if x_forwarded_for:
-        client_ip = str(x_forwarded_for).split(",", maxsplit=1)[0].strip() or None
-    if not client_ip:
-        client_ip = request.META.get("REMOTE_ADDR") or None
+    client_ip = get_client_ip(request) or None
     ua = (request.META.get("HTTP_USER_AGENT") or "")[:256]
 
     return client_ip, ua

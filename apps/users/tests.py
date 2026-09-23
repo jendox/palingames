@@ -127,6 +127,16 @@ class PersonalDataConsentHeadlessTests(TestCase):
         self.assertEqual(ip, "203.0.113.1")
         self.assertEqual(ua, "")
 
+    def test_get_client_ip_prefers_cf_connecting_ip(self):
+        request = RequestFactory().get(
+            "/",
+            HTTP_CF_CONNECTING_IP="198.51.100.10",
+            HTTP_X_FORWARDED_FOR="203.0.113.1",
+        )
+        ip, ua = get_client_ip_and_ua(request)
+        self.assertEqual(ip, "198.51.100.10")
+        self.assertEqual(ua, "")
+
     def test_get_client_ip_falls_back_to_remote_addr(self):
         request = RequestFactory().get("/", REMOTE_ADDR="198.51.100.2")
         ip, ua = get_client_ip_and_ua(request)

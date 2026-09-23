@@ -16,7 +16,7 @@ from apps.core.metrics import (
     inc_promo_apply_failed,
     inc_promo_apply_succeeded,
 )
-from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.rate_limits import RateLimitScope, check_rate_limit, get_client_ip
 from apps.core.seo import build_breadcrumbs_json_ld, build_seo_context
 from apps.payments.jobs import enqueue_invoice_creation
 from apps.promocodes.services import PromoCodeError
@@ -60,13 +60,6 @@ def _redirect_to_created_order(order: Order):
     return redirect(checkout_url)
 
 
-def _get_client_ip(request: HttpRequest) -> str:
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return str(forwarded_for).split(",", maxsplit=1)[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
-
-
 def _check_checkout_create_rate_limit(*, request: HttpRequest, email: str):
     email_result = check_rate_limit(
         scope=RateLimitScope.CHECKOUT_CREATE,
@@ -77,7 +70,7 @@ def _check_checkout_create_rate_limit(*, request: HttpRequest, email: str):
     if not email_result.allowed:
         return email_result
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return email_result
 
@@ -101,7 +94,7 @@ def _check_checkout_promo_apply_rate_limit(*, request: HttpRequest, email: str):
         if not email_result.allowed:
             return email_result
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return None
 

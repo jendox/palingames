@@ -10,7 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from apps.core.logging import log_event
 from apps.core.metrics import inc_auth_rate_limit_triggered
-from apps.core.rate_limits import RateLimitResult, RateLimitScope, check_rate_limit
+from apps.core.rate_limits import RateLimitResult, RateLimitScope, check_rate_limit, get_client_ip
 
 AUTH_LOGIN_PATH = "/_allauth/browser/v1/auth/login"
 AUTH_LOGIN_RATE_LIMIT_MESSAGE = "Слишком много попыток входа. Попробуйте позже."
@@ -28,13 +28,6 @@ class AuthRateLimitConfig:
     checker: Callable[[HttpRequest], tuple[RateLimitResult | None, str | None]]
     message: str
     scope: str
-
-
-def _get_client_ip(request: HttpRequest) -> str:
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return str(forwarded_for).split(",", maxsplit=1)[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
 
 
 def _get_json_body(request: HttpRequest) -> dict:
@@ -85,7 +78,7 @@ def _check_auth_login_rate_limit(request: HttpRequest):
         if not email_result.allowed:
             return email_result, "email"
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return None, None
 
@@ -112,7 +105,7 @@ def _check_auth_signup_rate_limit(request: HttpRequest):
         if not email_result.allowed:
             return email_result, "email"
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return None, None
 
@@ -139,7 +132,7 @@ def _check_auth_password_reset_request_rate_limit(request: HttpRequest):
         if not email_result.allowed:
             return email_result, "email"
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return None, None
 
@@ -166,7 +159,7 @@ def _check_auth_password_reset_confirm_rate_limit(request: HttpRequest):
         if not key_result.allowed:
             return key_result, "key"
 
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
     if not ip:
         return None, None
 

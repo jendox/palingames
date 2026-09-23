@@ -7,6 +7,7 @@ from enum import StrEnum
 from django.core.cache import caches
 
 RATE_LIMIT_CACHE_ALIAS = "rate_limit"
+MAX_IP_LENGTH = 45
 
 
 class RateLimitScope(StrEnum):
@@ -21,11 +22,37 @@ class RateLimitScope(StrEnum):
     MANAGED_LINK_REDIRECT = "managed_link:redirect"
 
 
+def _normalize_ip(value: str | None) -> str:
+    if value is None:
+        return ""
+    candidate = str(value).strip()
+    if not candidate:
+        return ""
+    if len(candidate) > MAX_IP_LENGTH:
+        return ""
+    return candidate
+
+
+def _first_forwarded_for_hop(forwarded_for: str | None) -> str:
+    if not forwarded_for:
+        return ""
+    for part in forwarded_for.split(","):
+        hop = _normalize_ip(part)
+        if hop:
+            return hop
+    return ""
+
+
 def get_client_ip(request) -> str:
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
+    cf_ip = _normalize_ip(request.META.get("HTTP_CF_CONNECTING_IP"))
+    if cf_ip:
+        return cf_ip
+
+    xff_ip = _first_forwarded_for_hop(request.META.get("HTTP_X_FORWARDED_FOR"))
+    if xff_ip:
+        return xff_ip
+
+    return _normalize_ip(request.META.get("REMOTE_ADDR"))
 
 
 @dataclass(frozen=True)
