@@ -10,7 +10,7 @@ from django.views.generic import TemplateView
 
 from apps.access.services import get_user_product_access_ids
 from apps.core.analytics_events import build_account_download_analytics_payload, extract_file_extension
-from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.rate_limits import RateLimitScope, check_rate_limit, get_client_ip
 from apps.core.seo import build_absolute_url, build_breadcrumbs_json_ld, build_seo_context
 from apps.favorites.services import get_account_favorites_context
 from apps.orders.failure_reasons import format_order_failure_reason_label
@@ -43,13 +43,6 @@ def _redirect_account_away_from_password_tab(request) -> HttpResponseRedirect:
     query["tab"] = AccountTab.PERSONAL.value
     url = f"{reverse('account')}?{query.urlencode()}"
     return redirect(url)
-
-
-def _get_client_ip(request) -> str:
-    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded_for:
-        return str(forwarded_for).split(",", maxsplit=1)[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
 
 
 class HomePageView(TemplateView):
@@ -356,7 +349,7 @@ class AccountPageView(TemplateView):
         if not user_result.allowed:
             return user_result
 
-        ip = _get_client_ip(request)
+        ip = get_client_ip(request)
         if not ip:
             return None
 

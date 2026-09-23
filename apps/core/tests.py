@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.core.cache import caches
 from django.http import HttpRequest
-from django.test import Client, SimpleTestCase, TestCase, override_settings
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -28,7 +28,7 @@ from apps.core.logging import (
     set_logging_context,
 )
 from apps.core.periodic_tasks import DEFAULT_PERIODIC_TASKS, ensure_default_periodic_tasks
-from apps.core.rate_limits import RateLimitScope, check_rate_limit
+from apps.core.rate_limits import RateLimitScope, check_rate_limit, get_client_ip
 from apps.core.sentry import configure_sentry_scope, init_sentry
 from apps.core.tasks import clear_expired_sessions_task
 from apps.orders.models import Order, OrderItem
@@ -1081,6 +1081,31 @@ class HealthViewsTests(TestCase):
         },
     },
 )
+class GetClientIpTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_prefers_cf_connecting_ip_over_x_forwarded_for(self):
+        request = self.factory.get(
+            "/",
+            HTTP_CF_CONNECTING_IP="198.51.100.10",
+            HTTP_X_FORWARDED_FOR="203.0.113.1, 10.0.0.1",
+        )
+        self.assertEqual(get_client_ip(request), "198.51.100.10")
+
+    def test_uses_first_non_empty_x_forwarded_for_hop(self):
+        request = self.factory.get("/", HTTP_X_FORWARDED_FOR="203.0.113.1, 10.0.0.1")
+        self.assertEqual(get_client_ip(request), "203.0.113.1")
+
+    def test_skips_empty_x_forwarded_for_hop(self):
+        request = self.factory.get("/", HTTP_X_FORWARDED_FOR=", 203.0.113.2")
+        self.assertEqual(get_client_ip(request), "203.0.113.2")
+
+    def test_falls_back_to_remote_addr(self):
+        request = self.factory.get("/", REMOTE_ADDR="198.51.100.2")
+        self.assertEqual(get_client_ip(request), "198.51.100.2")
+
+
 class RateLimitTests(SimpleTestCase):
     def test_check_rate_limit_blocks_after_limit(self):
         first = check_rate_limit(
@@ -1280,6 +1305,31 @@ class AuthRateLimitMiddlewareTests(TestCase):
                 ],
             },
         )
+
+    @override_settings(
+        AUTH_LOGIN_EMAIL_RATE_LIMIT=100,
+        AUTH_LOGIN_EMAIL_RATE_LIMIT_WINDOW_SECONDS=600,
+        AUTH_LOGIN_IP_RATE_LIMIT=1,
+        AUTH_LOGIN_IP_RATE_LIMIT_WINDOW_SECONDS=600,
+    )
+    def test_auth_login_enforces_ip_rate_limit_with_cf_connecting_ip(self):
+        first = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "a@example.com", "password": "wrong"}),
+            content_type="application/json",
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+        )
+        second = self.client.post(
+            "/_allauth/browser/v1/auth/login",
+            data=json.dumps({"email": "b@example.com", "password": "wrong"}),
+            content_type="application/json",
+            HTTP_CF_CONNECTING_IP="203.0.113.50",
+            HTTP_X_FORWARDED_FOR="198.51.100.99",
+        )
+
+        self.assertNotEqual(first.status_code, 429)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second["Retry-After"], "600")
 
     def test_auth_password_reset_request_enforces_email_rate_limit(self):
         first = self.client.post(
