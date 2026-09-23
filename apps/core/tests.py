@@ -749,16 +749,23 @@ class SeoTemplateTests(TestCase):
         response = self.client.get(reverse("home"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<title>PalinGames — развивающие игры и материалы на липучках</title>", html=True)
+        self.assertContains(
+            response,
+            "<title>PalinGames — развивающие игры на липучках и материалы для родителей и педагогов</title>",
+            html=True,
+        )
         self.assertContains(response, '<link rel="canonical" href="https://example.com/" />', html=True)
         self.assertContains(
             response,
-            'property="og:title" content="PalinGames — развивающие игры и материалы на липучках"',
+            (
+                'property="og:title" content="PalinGames — развивающие игры на липучках '
+                'и материалы для родителей и педагогов"'
+            ),
             html=False,
         )
         self.assertContains(
             response,
-            "Игры на липучках и развивающие материалы для детей: PDF к печати",
+            "Печатные игры на липучках и дидактические материалы для занятий с детьми",
             html=False,
         )
 

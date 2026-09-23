@@ -52,10 +52,11 @@ class HomePageView(TemplateView):
         context = super().get_context_data(**kwargs)
         context.update(
             build_seo_context(
-                title="PalinGames — развивающие игры и материалы на липучках",
+                title="PalinGames — развивающие игры на липучках и материалы для родителей и педагогов",
                 description=(
-                    "Игры на липучках и развивающие материалы для детей: PDF к печати для родителей "
-                    "и педагогов. Игры на заказ на PalinGames."
+                    "Печатные игры на липучках и дидактические материалы для занятий с детьми — "
+                    "для родителей и педагогов. Цифровые файлы для скачивания и печати, "
+                    "игры на заказ на PalinGames."
                 ),
                 canonical_url=reverse("home"),
                 json_ld={
@@ -63,7 +64,9 @@ class HomePageView(TemplateView):
                     "@type": "WebSite",
                     "name": "PalinGames",
                     "url": build_absolute_url(reverse("home")),
-                    "description": "Игры на липучках и развивающие материалы для детей в формате PDF.",
+                    "description": (
+                        "Развивающие игры и цифровые материалы для печати — для педагогов и родителей."
+                    ),
                 },
             ),
         )
