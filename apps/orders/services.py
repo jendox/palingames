@@ -19,10 +19,14 @@ from apps.core.consent import (
     SESSION_KEY_CONSENT_POLICY_VERSION,
     read_analytics_storage_consent_from_cookie,
 )
-from apps.core.ga4_identity import normalize_ga4_client_id, normalize_ga4_session_id
+from apps.core.ga4_identity import (
+    normalize_ga4_client_id,
+    normalize_ga4_session_id,
+    read_ga4_client_id_from_request,
+)
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
-from apps.core.yandex_metrica import normalize_yandex_client_id
+from apps.core.yandex_metrica import normalize_yandex_client_id, read_yandex_client_id_from_request
 from apps.products.models import Product
 from apps.products.pricing import format_price, get_currency_code
 from apps.promocodes.models import PromoCodeRedemption
@@ -343,10 +347,35 @@ def _sync_session_analytics_consent_from_cookie(request, *, analytics_storage_co
         pass
 
 
+def _resolve_analytics_identity_value(
+    form_raw: str,
+    cookie_value: str,
+    *,
+    normalize,
+) -> tuple[str, str]:
+    from_form = normalize(form_raw)
+    if from_form:
+        return from_form, "form"
+    from_cookie = normalize(cookie_value) if cookie_value else ""
+    if from_cookie:
+        return from_cookie, "cookie"
+    return "", "empty"
+
+
+@dataclass(frozen=True)
+class CheckoutAnalyticsResolution:
+    analytics_storage_consent: bool
+    yandex_client_id: str
+    ga4_client_id: str
+    ga4_session_id: str
+    yandex_client_id_source: str
+    ga4_client_id_source: str
+
+
 def _resolve_checkout_analytics_context(
     request,
     order_ctx: OrderCreationContext,
-) -> tuple[bool, str, str, str]:
+) -> CheckoutAnalyticsResolution:
     analytics_storage_consent = bool(request.session.get(SESSION_KEY_ANALYTICS_STORAGE, False))
     if not analytics_storage_consent:
         cookie_consent = read_analytics_storage_consent_from_cookie(request)
@@ -356,11 +385,28 @@ def _resolve_checkout_analytics_context(
     yandex_client_id = ""
     ga4_client_id = ""
     ga4_session_id = ""
+    yandex_client_id_source = "empty"
+    ga4_client_id_source = "empty"
     if analytics_storage_consent:
-        yandex_client_id = normalize_yandex_client_id(order_ctx.yandex_client_id)
-        ga4_client_id = normalize_ga4_client_id(order_ctx.ga4_client_id)
+        yandex_client_id, yandex_client_id_source = _resolve_analytics_identity_value(
+            order_ctx.yandex_client_id,
+            read_yandex_client_id_from_request(request),
+            normalize=normalize_yandex_client_id,
+        )
+        ga4_client_id, ga4_client_id_source = _resolve_analytics_identity_value(
+            order_ctx.ga4_client_id,
+            read_ga4_client_id_from_request(request),
+            normalize=normalize_ga4_client_id,
+        )
         ga4_session_id = normalize_ga4_session_id(order_ctx.ga4_session_id)
-    return analytics_storage_consent, yandex_client_id, ga4_client_id, ga4_session_id
+    return CheckoutAnalyticsResolution(
+        analytics_storage_consent=analytics_storage_consent,
+        yandex_client_id=yandex_client_id,
+        ga4_client_id=ga4_client_id,
+        ga4_session_id=ga4_session_id,
+        yandex_client_id_source=yandex_client_id_source,
+        ga4_client_id_source=ga4_client_id_source,
+    )
 
 
 def _create_new_order_from_products(  # noqa: PLR0914
@@ -404,12 +450,7 @@ def _create_new_order_from_products(  # noqa: PLR0914
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
-        (
-            analytics_storage_consent,
-            yandex_client_id,
-            ga4_client_id,
-            ga4_session_id,
-        ) = _resolve_checkout_analytics_context(request, order_ctx)
+        analytics_resolution = _resolve_checkout_analytics_context(request, order_ctx)
         order = Order.objects.create(
             checkout_idempotency_key=order_ctx.checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
@@ -426,10 +467,20 @@ def _create_new_order_from_products(  # noqa: PLR0914
             total_amount=total_amount,
             currency=order_ctx.products[0].currency,
             items_count=len(order_ctx.products),
-            analytics_storage_consent=analytics_storage_consent,
-            yandex_client_id=yandex_client_id,
-            ga4_client_id=ga4_client_id,
-            ga4_session_id=ga4_session_id,
+            analytics_storage_consent=analytics_resolution.analytics_storage_consent,
+            yandex_client_id=analytics_resolution.yandex_client_id,
+            ga4_client_id=analytics_resolution.ga4_client_id,
+            ga4_session_id=analytics_resolution.ga4_session_id,
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "order.creation.analytics_identity",
+            order_id=order.id,
+            ga4_client_id_saved=bool(analytics_resolution.ga4_client_id),
+            yandex_client_id_saved=bool(analytics_resolution.yandex_client_id),
+            ga4_client_id_source=analytics_resolution.ga4_client_id_source,
+            yandex_client_id_source=analytics_resolution.yandex_client_id_source,
         )
         if order_ctx.checkout_type == Order.CheckoutType.GUEST and order_ctx.personal_data_consent:
             client_ip, ua = get_client_ip_and_ua(request)
