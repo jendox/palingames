@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from decimal import Decimal
 from unittest.mock import patch
@@ -30,10 +31,28 @@ from apps.core.logging import (
 from apps.core.periodic_tasks import DEFAULT_PERIODIC_TASKS, ensure_default_periodic_tasks
 from apps.core.rate_limits import RateLimitScope, check_rate_limit, get_client_ip
 from apps.core.sentry import configure_sentry_scope, init_sentry
+from apps.core.seo import normalize_seo_description
 from apps.core.tasks import clear_expired_sessions_task
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import Invoice
-from apps.products.models import Product
+from apps.products.models import Category, Product
+
+
+def _count_h1_tags(html: bytes) -> int:
+    return len(re.findall(rb"<h1\b", html, flags=re.IGNORECASE))
+
+
+class NormalizeSeoDescriptionTests(SimpleTestCase):
+    def test_strips_markdown_bold_and_code(self):
+        result = normalize_seo_description("**Жирный** и `код` в тексте.")
+        self.assertNotIn("**", result)
+        self.assertNotIn("`", result)
+        self.assertIn("Жирный", result)
+        self.assertIn("код", result)
+
+    def test_strips_markdown_links(self):
+        result = normalize_seo_description("Подробнее на [PalinGames](https://example.com).")
+        self.assertEqual(result, "Подробнее на PalinGames.")
 
 
 class StructuredLoggingTests(TestCase):
@@ -768,6 +787,11 @@ class SeoTemplateTests(TestCase):
             "Печатные игры на липучках и дидактические материалы для занятий с детьми",
             html=False,
         )
+        self.assertContains(
+            response,
+            'property="og:image" content="https://example.com/static/images/og/default.png"',
+            html=False,
+        )
 
     def test_catalog_renders_lipuchki_seo_meta_tags(self):
         response = self.client.get(reverse("catalog"))
@@ -794,6 +818,40 @@ class SeoTemplateTests(TestCase):
         self.assertContains(response, "<loc>https://example.com/catalog/</loc>", html=False)
         self.assertContains(response, "<loc>https://example.com/privacy/</loc>", html=False)
         self.assertContains(response, "<loc>https://example.com/cookies/</loc>", html=False)
+
+
+@override_settings(SITE_BASE_URL="https://example.com")
+class SingleH1TemplateTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(title="Липучки", slug="lipuchki-h1")
+        cls.product = Product.objects.create(
+            title="Игра для H1",
+            slug="h1-test-game",
+            price=Decimal("10.00"),
+            is_published=True,
+        )
+        cls.product.categories.add(cls.category)
+
+    def test_home_has_single_h1(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_count_h1_tags(response.content), 1)
+
+    def test_catalog_category_has_single_h1(self):
+        response = self.client.get(reverse("catalog"), {"category": self.category.slug})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_count_h1_tags(response.content), 1)
+
+    def test_custom_game_has_single_h1(self):
+        response = self.client.get(reverse("custom-game"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_count_h1_tags(response.content), 1)
+
+    def test_product_has_single_h1(self):
+        response = self.client.get(reverse("product-detail", kwargs={"slug": self.product.slug}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_count_h1_tags(response.content), 1)
 
 
 class PurchaseAnalyticsTests(TestCase):

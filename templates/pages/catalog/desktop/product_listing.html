@@ -1,13 +1,13 @@
 {% load static i18n %}
 
 <section class="relative mt-[70px] min-h-[1120px] overflow-hidden bg-[var(--color-white)]">
-  <h1 class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
+  <p class="text-center text-[40px] font-bold uppercase text-[var(--color-black)]">
     {% if selected_category %}
       {{ selected_category.title }}
     {% elif catalog_search_active %}
       {% trans "Поиск" %}
     {% endif %}
-  </h1>
+  </p>
   {% if catalog_search_active and not selected_category %}
     <p class="mx-auto mt-[12px] max-w-[900px] text-center text-[18px] font-semibold text-[var(--color-black-80)]">
       «{{ catalog_search_q }}»

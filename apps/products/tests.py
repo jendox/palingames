@@ -419,6 +419,20 @@ class ProductSeoTests(TestCase):
         )
         self.assertContains(response, '"@type":"Product"', html=False)
 
+    def test_product_seo_description_strips_markdown(self):
+        product = create_published_product(
+            title="Markdown SEO",
+            slug="markdown-seo",
+            price=Decimal("15.00"),
+            description="**Важно:** игра с [ссылкой](https://example.com).",
+        )
+        response = self.client.get(reverse("product-detail", kwargs={"slug": product.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="Важно: игра с ссылкой."', html=False)
+        self.assertContains(response, '"description":"Важно: игра с ссылкой."', html=False)
+        self.assertNotContains(response, "**", html=False)
+
     def test_sitemap_lists_product_urls(self):
         response = self.client.get(reverse("sitemap-xml"))
 

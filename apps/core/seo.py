@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from urllib.parse import urljoin
 
 from django.conf import settings
@@ -24,11 +25,27 @@ def build_absolute_url(path_or_url: str) -> str:
 
 
 def get_default_seo_image_url() -> str:
-    return build_absolute_url(staticfiles_storage.url("images/logo.svg"))
+    return build_absolute_url(staticfiles_storage.url("images/og/default.png"))
+
+
+_MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_MARKDOWN_EMPHASIS = (
+    re.compile(r"\*\*(.+?)\*\*"),
+    re.compile(r"__(.+?)__"),
+    re.compile(r"`([^`]+)`"),
+)
+
+
+def _strip_markdown_for_seo(text: str) -> str:
+    cleaned = _MARKDOWN_LINK.sub(r"\1", text)
+    for pattern in _MARKDOWN_EMPHASIS:
+        cleaned = pattern.sub(r"\1", cleaned)
+    return cleaned
 
 
 def normalize_seo_description(text: str, *, fallback: str = DEFAULT_SEO_DESCRIPTION, max_length: int = 160) -> str:
-    normalized = " ".join(strip_tags(text or "").split())
+    stripped_markdown = _strip_markdown_for_seo(text or "")
+    normalized = " ".join(strip_tags(stripped_markdown).split())
     if not normalized:
         normalized = fallback
     return Truncator(normalized).chars(max_length)
