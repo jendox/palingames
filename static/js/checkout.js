@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!settled) {
             settled = true;
             window.clearTimeout(timer);
-            resolve(typeof value === "string" ? value : "");
+            resolve(String(value ?? ""));
           }
         });
       } catch {
@@ -95,11 +95,15 @@ document.addEventListener("DOMContentLoaded", () => {
   async function resolveGa4Identity(config) {
     const timeoutMs = Number(config.gtagGetTimeoutMs) || 300;
     const measurementId = config.ga4MeasurementId;
-    let clientId = normalizeGa4ClientId(await gtagGet(measurementId, "client_id", timeoutMs));
+    const [rawClientId, rawSessionId] = await Promise.all([
+      gtagGet(measurementId, "client_id", timeoutMs),
+      gtagGet(measurementId, "session_id", timeoutMs),
+    ]);
+    let clientId = normalizeGa4ClientId(rawClientId);
     if (!clientId) {
       clientId = parseGaClientIdFromGaCookie(readCookieValue("_ga"));
     }
-    const sessionId = normalizeGa4SessionId(await gtagGet(measurementId, "session_id", timeoutMs));
+    const sessionId = normalizeGa4SessionId(rawSessionId);
     return { clientId, sessionId };
   }
 

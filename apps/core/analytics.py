@@ -5,6 +5,7 @@ import uuid
 
 import httpx
 from django.conf import settings
+from django.core.cache import caches
 from django.utils import timezone
 
 from apps.core.analytics_events import extract_file_extension
@@ -15,6 +16,25 @@ from apps.products.pricing import get_currency_code
 
 logger = logging.getLogger("apps.analytics")
 GA4_MEASUREMENT_PROTOCOL_URL = "https://www.google-analytics.com/mp/collect"
+GA4_PURCHASE_LOCK_CACHE_ALIAS = "default"
+GA4_PURCHASE_LOCK_TTL_SECONDS = 30
+GA4_PURCHASE_MP_TIMEOUT_SECONDS = 5.0
+
+
+def _ga4_purchase_lock_key(order_id: int) -> str:
+    return f"analytics:ga4-purchase:{order_id}"
+
+
+def _try_acquire_ga4_purchase_lock(order_id: int) -> str | None:
+    cache = caches[GA4_PURCHASE_LOCK_CACHE_ALIAS]
+    key = _ga4_purchase_lock_key(order_id)
+    if cache.add(key, "1", timeout=GA4_PURCHASE_LOCK_TTL_SECONDS):
+        return key
+    return None
+
+
+def _release_ga4_purchase_lock(lock_key: str) -> None:
+    caches[GA4_PURCHASE_LOCK_CACHE_ALIAS].delete(lock_key)
 
 
 def _ga4_measurement_protocol_enabled() -> bool:
@@ -74,7 +94,7 @@ def _post_ga4_measurement_protocol(
                 "api_secret": settings.GA4_API_SECRET,
             },
             json=payload,
-            timeout=5.0,
+            timeout=GA4_PURCHASE_MP_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
     except Exception as exc:
@@ -189,22 +209,52 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
         )
         return
 
-    payload = _build_ga4_purchase_payload(order)
-    sent = _post_ga4_measurement_protocol(
-        client_id=payload["client_id"],
-        events=payload["events"],
-        log_context={
-            "event_name": "purchase",
-            "order_id": order_id,
-            "order_public_id": str(order.public_id),
-            "source": source,
-        },
-        raise_on_failure=True,
-    )
-    if sent:
-        Order.objects.filter(pk=order_id, ga4_purchase_sent_at__isnull=True).update(
-            ga4_purchase_sent_at=timezone.now(),
+    lock_key = _try_acquire_ga4_purchase_lock(order_id)
+    if lock_key is None:
+        log_event(
+            logger,
+            logging.INFO,
+            "analytics.purchase.skipped",
+            order_id=order_id,
+            order_public_id=str(order.public_id),
+            source=source,
+            reason="lock_not_acquired",
         )
+        return
+
+    try:
+        order.refresh_from_db(fields=["ga4_purchase_sent_at", "status", "analytics_storage_consent"])
+        if order.ga4_purchase_sent_at is not None:
+            log_event(
+                logger,
+                logging.INFO,
+                "analytics.purchase.skipped",
+                order_id=order_id,
+                order_public_id=str(order.public_id),
+                source=source,
+                reason="already_sent",
+            )
+            return
+
+        payload = _build_ga4_purchase_payload(order)
+        sent = _post_ga4_measurement_protocol(
+            client_id=payload["client_id"],
+            events=payload["events"],
+            log_context={
+                "event_name": "purchase",
+                "order_id": order_id,
+                "order_public_id": str(order.public_id),
+                "source": source,
+            },
+            raise_on_failure=True,
+        )
+        # Effectively-at-least-once: crash after Google accepts MP and before UPDATE can still duplicate.
+        if sent:
+            Order.objects.filter(pk=order_id, ga4_purchase_sent_at__isnull=True).update(
+                ga4_purchase_sent_at=timezone.now(),
+            )
+    finally:
+        _release_ga4_purchase_lock(lock_key)
 
 
 def _build_file_download_event_params(*, event_name: str, download_type: str, payload: dict) -> dict:

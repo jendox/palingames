@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from django.core.cache import caches
 from django.http import HttpRequest
-from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -47,6 +47,11 @@ def _count_h1_tags(html: bytes) -> int:
 
 
 class Ga4IdentityTests(SimpleTestCase):
+    def test_normalize_ga4_session_id_from_coerced_numeric_string(self):
+        from apps.core.ga4_identity import normalize_ga4_session_id
+
+        self.assertEqual(normalize_ga4_session_id(str(1700000001)), "1700000001")
+
     def test_normalize_and_parse_ga_cookie(self):
         from apps.core.ga4_identity import (
             normalize_ga4_client_id,
@@ -1146,6 +1151,91 @@ class PurchaseAnalyticsTests(TestCase):
 
         ga4_mock.assert_called_once()
         yandex_mock.assert_called_once()
+
+
+_GA4_PURCHASE_TEST_CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ga4-purchase-concurrent-default",
+    },
+    "rate_limit": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ga4-purchase-concurrent-rate-limit",
+    },
+}
+
+
+@override_settings(
+    ANALYTICS_ENABLED=True,
+    GA4_MEASUREMENT_ID="G-TEST123",
+    GA4_API_SECRET="ga4-secret",
+    CACHES=_GA4_PURCHASE_TEST_CACHES,
+)
+class Ga4PurchaseLockConcurrencyTests(TransactionTestCase):
+    def setUp(self):
+        from django.core.cache import caches
+
+        caches["default"].clear()
+        self.product = Product.objects.create(
+            title="GA4 lock product",
+            slug="ga4-lock-product",
+            price=Decimal("25.00"),
+        )
+        self.order = Order.objects.create(
+            email="ga4-lock@example.com",
+            source=Order.Source.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=Order.OrderStatus.PAID,
+            subtotal_amount=Decimal("25.00"),
+            total_amount=Decimal("22.50"),
+            items_count=1,
+            currency=933,
+            analytics_storage_consent=True,
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            title_snapshot=self.product.title,
+            category_snapshot="Игры",
+            unit_price_amount=Decimal("25.00"),
+            quantity=1,
+            line_total_amount=Decimal("25.00"),
+            product_slug_snapshot=self.product.slug,
+        )
+
+    @patch("apps.core.analytics.httpx.post")
+    def test_concurrent_ga4_purchase_sends_single_http_request(self, httpx_post_mock):
+        import threading
+        import time
+
+        response_mock = httpx_post_mock.return_value
+        response_mock.raise_for_status.return_value = None
+
+        def slow_post(*args, **kwargs):
+            time.sleep(0.15)
+            return response_mock
+
+        httpx_post_mock.side_effect = slow_post
+        barrier = threading.Barrier(2)
+        errors: list[BaseException] = []
+
+        def worker() -> None:
+            barrier.wait()
+            try:
+                send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+            except BaseException as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(httpx_post_mock.call_count, 1)
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.ga4_purchase_sent_at)
 
 
 class YandexMetricaTests(TestCase):
