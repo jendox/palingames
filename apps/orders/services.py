@@ -19,9 +19,9 @@ from apps.core.consent import (
     SESSION_KEY_CONSENT_POLICY_VERSION,
     read_analytics_storage_consent_from_cookie,
 )
+from apps.core.ga4_identity import normalize_ga4_client_id, normalize_ga4_session_id
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
-from apps.core.ga4_identity import normalize_ga4_client_id, normalize_ga4_session_id
 from apps.core.yandex_metrica import normalize_yandex_client_id
 from apps.products.models import Product
 from apps.products.pricing import format_price, get_currency_code
@@ -363,7 +363,7 @@ def _resolve_checkout_analytics_context(
     return analytics_storage_consent, yandex_client_id, ga4_client_id, ga4_session_id
 
 
-def _create_new_order_from_products(
+def _create_new_order_from_products(  # noqa: PLR0914
     *,
     request,
     order_ctx: OrderCreationContext,
@@ -404,10 +404,12 @@ def _create_new_order_from_products(
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
-        analytics_storage_consent, yandex_client_id, ga4_client_id, ga4_session_id = _resolve_checkout_analytics_context(
-            request,
-            order_ctx,
-        )
+        (
+            analytics_storage_consent,
+            yandex_client_id,
+            ga4_client_id,
+            ga4_session_id,
+        ) = _resolve_checkout_analytics_context(request, order_ctx)
         order = Order.objects.create(
             checkout_idempotency_key=order_ctx.checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
@@ -448,7 +450,7 @@ def _create_new_order_from_products(
         return order
 
 
-def create_order_from_cart(
+def create_order_from_cart(  # noqa: PLR0913
     *,
     request,
     email: str,
