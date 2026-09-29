@@ -199,6 +199,12 @@ class CheckoutPageView(TemplateView):
             context["checkout_created_order"] = Order.objects.filter(public_id=created_public_id).first()
         elif context["cart_items"]:
             context["checkout_analytics_payload"] = _build_checkout_analytics_payload(context)
+        context["checkout_ga4_client_config"] = None
+        if settings.ANALYTICS_ENABLED and settings.GA4_MEASUREMENT_ID:
+            context["checkout_ga4_client_config"] = {
+                "ga4MeasurementId": settings.GA4_MEASUREMENT_ID,
+                "gtagGetTimeoutMs": 300,
+            }
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},
             {"title": "Выбранное", "url": reverse("cart")},
@@ -267,6 +273,8 @@ class CheckoutPageView(TemplateView):
                 checkout_idempotency_key=checkout_idempotency_key,
                 personal_data_consent=bool(form.cleaned_data.get("personal_data_consent")),
                 yandex_client_id=form.cleaned_data.get("yandex_client_id", ""),
+                ga4_client_id=form.cleaned_data.get("ga4_client_id", ""),
+                ga4_session_id=form.cleaned_data.get("ga4_session_id", ""),
             )
         except PromoCodeError as exc:
             context = self.get_context_data(

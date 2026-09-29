@@ -19,6 +19,7 @@ from apps.core.consent import (
     SESSION_KEY_CONSENT_POLICY_VERSION,
     read_analytics_storage_consent_from_cookie,
 )
+from apps.core.ga4_identity import normalize_ga4_client_id, normalize_ga4_session_id
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
 from apps.core.yandex_metrica import normalize_yandex_client_id
@@ -55,6 +56,8 @@ class OrderCreationContext:
     checkout_type: str
     personal_data_consent: bool = False
     yandex_client_id: str = ""
+    ga4_client_id: str = ""
+    ga4_session_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -340,7 +343,10 @@ def _sync_session_analytics_consent_from_cookie(request, *, analytics_storage_co
         pass
 
 
-def _resolve_checkout_analytics_context(request, order_ctx: OrderCreationContext) -> tuple[bool, str]:
+def _resolve_checkout_analytics_context(
+    request,
+    order_ctx: OrderCreationContext,
+) -> tuple[bool, str, str, str]:
     analytics_storage_consent = bool(request.session.get(SESSION_KEY_ANALYTICS_STORAGE, False))
     if not analytics_storage_consent:
         cookie_consent = read_analytics_storage_consent_from_cookie(request)
@@ -348,12 +354,16 @@ def _resolve_checkout_analytics_context(request, order_ctx: OrderCreationContext
             analytics_storage_consent = True
             _sync_session_analytics_consent_from_cookie(request, analytics_storage_consent=True)
     yandex_client_id = ""
+    ga4_client_id = ""
+    ga4_session_id = ""
     if analytics_storage_consent:
         yandex_client_id = normalize_yandex_client_id(order_ctx.yandex_client_id)
-    return analytics_storage_consent, yandex_client_id
+        ga4_client_id = normalize_ga4_client_id(order_ctx.ga4_client_id)
+        ga4_session_id = normalize_ga4_session_id(order_ctx.ga4_session_id)
+    return analytics_storage_consent, yandex_client_id, ga4_client_id, ga4_session_id
 
 
-def _create_new_order_from_products(
+def _create_new_order_from_products(  # noqa: PLR0914
     *,
     request,
     order_ctx: OrderCreationContext,
@@ -394,7 +404,12 @@ def _create_new_order_from_products(
         )
         discount_amount = promo_discount.discount_amount if promo_discount else Decimal("0.00")
         total_amount = subtotal_amount - discount_amount
-        analytics_storage_consent, yandex_client_id = _resolve_checkout_analytics_context(request, order_ctx)
+        (
+            analytics_storage_consent,
+            yandex_client_id,
+            ga4_client_id,
+            ga4_session_id,
+        ) = _resolve_checkout_analytics_context(request, order_ctx)
         order = Order.objects.create(
             checkout_idempotency_key=order_ctx.checkout_idempotency_key,
             user=request.user if request.user.is_authenticated else None,
@@ -413,6 +428,8 @@ def _create_new_order_from_products(
             items_count=len(order_ctx.products),
             analytics_storage_consent=analytics_storage_consent,
             yandex_client_id=yandex_client_id,
+            ga4_client_id=ga4_client_id,
+            ga4_session_id=ga4_session_id,
         )
         if order_ctx.checkout_type == Order.CheckoutType.GUEST and order_ctx.personal_data_consent:
             client_ip, ua = get_client_ip_and_ua(request)
@@ -433,7 +450,7 @@ def _create_new_order_from_products(
         return order
 
 
-def create_order_from_cart(
+def create_order_from_cart(  # noqa: PLR0913
     *,
     request,
     email: str,
@@ -441,6 +458,8 @@ def create_order_from_cart(
     checkout_idempotency_key=None,
     personal_data_consent: bool = False,
     yandex_client_id: str = "",
+    ga4_client_id: str = "",
+    ga4_session_id: str = "",
 ) -> OrderCreationResult:
     existing_order = get_order_by_checkout_idempotency_key(checkout_idempotency_key)
     if existing_order is not None:
@@ -472,6 +491,8 @@ def create_order_from_cart(
                     checkout_type=checkout_type,
                     personal_data_consent=personal_data_consent,
                     yandex_client_id=yandex_client_id,
+                    ga4_client_id=ga4_client_id,
+                    ga4_session_id=ga4_session_id,
                 ),
             )
         except IntegrityError:

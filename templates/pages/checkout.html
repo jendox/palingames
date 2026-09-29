@@ -17,6 +17,9 @@
   {% if checkout_analytics_payload %}
     {{ checkout_analytics_payload|json_script:"checkout-analytics-payload" }}
   {% endif %}
+  {% if checkout_ga4_client_config %}
+    {{ checkout_ga4_client_config|json_script:"checkout-ga4-client-config" }}
+  {% endif %}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
   <div class="min-[1024px]:hidden">
     {% include "pages/checkout/checkout_mobile.html" %}

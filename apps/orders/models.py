@@ -105,6 +105,19 @@ class Order(TimeStampedModel):
     failure_reason = models.CharField(_("Причина ошибки"), max_length=128, null=True, blank=True)
 
     analytics_storage_consent = models.BooleanField(_("Согласие на аналитику (GA4) при оформлении"), default=False)
+    ga4_client_id = models.CharField(
+        _("GA4 client_id (browser)"),
+        max_length=64,
+        blank=True,
+        default="",
+    )
+    ga4_session_id = models.CharField(
+        _("GA4 session_id (browser)"),
+        max_length=32,
+        blank=True,
+        default="",
+    )
+    ga4_purchase_sent_at = models.DateTimeField(_("GA4 purchase отправлен в"), null=True, blank=True)
     yandex_client_id = models.CharField(_("Yandex Metrika ClientID (_ym_uid)"), max_length=32, blank=True, default="")
     yandex_purchase_sent_at = models.DateTimeField(_("Yandex purchase отправлен в"), null=True, blank=True)
 
