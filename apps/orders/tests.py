@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from unittest.mock import Mock, call, patch
 
@@ -211,6 +212,76 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
         session.save()
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertFalse(order.analytics_storage_consent)
+
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=1)
+    def test_guest_checkout_uses_consent_cookie_when_session_consent_false(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = False
+        session.save()
+        self.client.cookies["palin_consent"] = json.dumps({"v": 1, "a": True})
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data("guest@example.com", yandex_client_id="1234567890123456789"),
+        )
+
+        order = Order.objects.get()
+        self.assertTrue(order.analytics_storage_consent)
+        self.assertEqual(order.yandex_client_id, "1234567890123456789")
+
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=1)
+    def test_guest_checkout_uses_consent_cookie_when_session_has_no_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        self.client.cookies["palin_consent"] = json.dumps({"v": 1, "a": True})
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data("guest@example.com", yandex_client_id="1234567890123456789"),
+        )
+
+        order = Order.objects.get()
+        self.assertTrue(order.analytics_storage_consent)
+        self.assertEqual(order.yandex_client_id, "1234567890123456789")
+        self.assertIs(self.client.session.get(SESSION_KEY_ANALYTICS_STORAGE), True)
+
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=1)
+    def test_guest_checkout_rejects_consent_cookie_with_false_analytics(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        self.client.cookies["palin_consent"] = json.dumps({"v": 1, "a": False})
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertFalse(order.analytics_storage_consent)
+
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=1)
+    def test_guest_checkout_ignores_consent_cookie_with_policy_version_mismatch(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        self.client.cookies["palin_consent"] = json.dumps({"v": 99, "a": True})
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertFalse(order.analytics_storage_consent)
+
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=1)
+    def test_guest_checkout_ignores_corrupt_consent_cookie(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        self.client.cookies["palin_consent"] = "{not-json"
 
         self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
 

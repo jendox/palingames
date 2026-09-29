@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from time import perf_counter
 
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -13,7 +14,11 @@ from django.templatetags.static import static
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
-from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE
+from apps.core.consent import (
+    SESSION_KEY_ANALYTICS_STORAGE,
+    SESSION_KEY_CONSENT_POLICY_VERSION,
+    read_analytics_storage_consent_from_cookie,
+)
 from apps.core.logging import log_event
 from apps.core.metrics import inc_order_created, observe_order_creation_duration
 from apps.core.yandex_metrica import normalize_yandex_client_id
@@ -322,8 +327,26 @@ def get_checkout_order_context(
     }
 
 
+def _sync_session_analytics_consent_from_cookie(request, *, analytics_storage_consent: bool) -> None:
+    if SESSION_KEY_ANALYTICS_STORAGE in request.session:
+        return
+    if not analytics_storage_consent:
+        return
+    request.session[SESSION_KEY_ANALYTICS_STORAGE] = True
+    request.session[SESSION_KEY_CONSENT_POLICY_VERSION] = settings.COOKIE_CONSENT_POLICY_VERSION
+    try:
+        request.session.save()
+    except Exception:
+        pass
+
+
 def _resolve_checkout_analytics_context(request, order_ctx: OrderCreationContext) -> tuple[bool, str]:
     analytics_storage_consent = bool(request.session.get(SESSION_KEY_ANALYTICS_STORAGE, False))
+    if not analytics_storage_consent:
+        cookie_consent = read_analytics_storage_consent_from_cookie(request)
+        if cookie_consent is True:
+            analytics_storage_consent = True
+            _sync_session_analytics_consent_from_cookie(request, analytics_storage_consent=True)
     yandex_client_id = ""
     if analytics_storage_consent:
         yandex_client_id = normalize_yandex_client_id(order_ctx.yandex_client_id)

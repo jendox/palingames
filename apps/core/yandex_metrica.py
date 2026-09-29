@@ -43,15 +43,7 @@ def _build_document_location(path: str) -> str:
     return f"{base}{normalized_path}"
 
 
-def _post_yandex_event(
-    *,
-    client_id: str,
-    event_action: str,
-    document_location: str,
-    log_context: dict,
-    event_value: float | None = None,
-    currency: str | None = None,
-) -> bool:
+def _post_yandex_collect(*, payload: dict, log_context: dict, raise_on_failure: bool = False) -> bool:
     if not _yandex_server_events_enabled():
         log_event(
             logger,
@@ -61,19 +53,6 @@ def _post_yandex_event(
             **log_context,
         )
         return False
-
-    payload = {
-        "tid": settings.YANDEX_METRIKA_ID,
-        "cid": client_id,
-        "t": "event",
-        "ea": event_action,
-        "ms": settings.YANDEX_METRIKA_MEASUREMENT_TOKEN,
-        "dl": document_location,
-    }
-    if event_value is not None:
-        payload["ev"] = str(event_value)
-    if currency:
-        payload["cu"] = currency
 
     try:
         response = httpx.post(YANDEX_MEASUREMENT_PROTOCOL_URL, data=payload, timeout=5.0)
@@ -87,6 +66,8 @@ def _post_yandex_event(
             error_type=type(exc).__name__,
             **log_context,
         )
+        if raise_on_failure:
+            raise
         return False
 
     log_event(
@@ -97,6 +78,59 @@ def _post_yandex_event(
         **log_context,
     )
     return True
+
+
+def _post_yandex_pageview(
+    *,
+    client_id: str,
+    document_location: str,
+    document_title: str,
+    log_context: dict,
+    raise_on_failure: bool = False,
+) -> bool:
+    payload = {
+        "tid": settings.YANDEX_METRIKA_ID,
+        "cid": client_id,
+        "t": "pageview",
+        "ms": settings.YANDEX_METRIKA_MEASUREMENT_TOKEN,
+        "dl": document_location,
+        "dt": document_title,
+    }
+    return _post_yandex_collect(
+        payload=payload,
+        log_context={**log_context, "hit_type": "pageview"},
+        raise_on_failure=raise_on_failure,
+    )
+
+
+def _post_yandex_event(  # noqa: PLR0913
+    *,
+    client_id: str,
+    event_action: str,
+    document_location: str,
+    log_context: dict,
+    event_value: float | None = None,
+    currency: str | None = None,
+    raise_on_failure: bool = False,
+) -> bool:
+    payload = {
+        "tid": settings.YANDEX_METRIKA_ID,
+        "cid": client_id,
+        "t": "event",
+        "ea": event_action,
+        "ms": settings.YANDEX_METRIKA_MEASUREMENT_TOKEN,
+        "dl": document_location,
+    }
+    if event_value is not None:
+        payload["ev"] = str(event_value)
+    if currency:
+        payload["cu"] = currency
+
+    return _post_yandex_collect(
+        payload=payload,
+        log_context={**log_context, "hit_type": "event", "event_action": event_action},
+        raise_on_failure=raise_on_failure,
+    )
 
 
 def _yandex_purchase_skip_reason(order: Order | None, *, order_id: int) -> str | None:
@@ -146,18 +180,30 @@ def send_yandex_purchase_event_for_order(*, order_id: int, source: str) -> None:
         return
 
     client_id = normalize_yandex_client_id(order.yandex_client_id)
+    document_location = _build_document_location("/checkout/")
+    document_title = "Оформление заказа — PalinGames"
+    purchase_log_context = {
+        "event_name": "purchase",
+        "order_id": order_id,
+        "order_public_id": str(order.public_id),
+        "source": source,
+    }
+
+    _post_yandex_pageview(
+        client_id=client_id,
+        document_location=document_location,
+        document_title=document_title,
+        log_context=purchase_log_context,
+        raise_on_failure=True,
+    )
     sent = _post_yandex_event(
         client_id=client_id,
         event_action="purchase",
-        document_location=_build_document_location("/checkout/"),
+        document_location=document_location,
         event_value=float(order.total_amount),
         currency=get_currency_code(order.currency),
-        log_context={
-            "event_name": "purchase",
-            "order_id": order_id,
-            "order_public_id": str(order.public_id),
-            "source": source,
-        },
+        log_context=purchase_log_context,
+        raise_on_failure=True,
     )
     if sent:
         Order.objects.filter(pk=order_id, yandex_purchase_sent_at__isnull=True).update(

@@ -27,7 +27,12 @@ def clear_expired_sessions_task(self) -> None:
     )
 
 
-@shared_task(bind=True)
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def send_order_purchase_analytics_task(self: Task, *, order_id: int, source: str) -> None:
     ctx = {"order_id": order_id, "source": source, "task_id": self.request.id}
     log_event(

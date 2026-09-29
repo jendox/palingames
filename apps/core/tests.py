@@ -19,7 +19,11 @@ from apps.core.alerts import (
     send_incident_recovery,
 )
 from apps.core.analytics import send_ga4_purchase_event_for_order
-from apps.core.consent import SESSION_KEY_ANALYTICS_STORAGE, SESSION_KEY_CONSENT_POLICY_VERSION
+from apps.core.consent import (
+    SESSION_KEY_ANALYTICS_STORAGE,
+    SESSION_KEY_CONSENT_POLICY_VERSION,
+    read_analytics_storage_consent_from_cookie,
+)
 from apps.core.context_processors import analytics, support_contact
 from apps.core.logging import (
     JsonFormatter,
@@ -40,6 +44,27 @@ from apps.products.models import Category, Product
 
 def _count_h1_tags(html: bytes) -> int:
     return len(re.findall(rb"<h1\b", html, flags=re.IGNORECASE))
+
+
+class ConsentCookieTests(SimpleTestCase):
+    @override_settings(COOKIE_CONSENT_POLICY_VERSION=3)
+    def test_read_analytics_storage_consent_from_cookie(self):
+        import json
+
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/")
+        request.COOKIES["palin_consent"] = json.dumps({"v": 3, "a": True})
+        self.assertIs(read_analytics_storage_consent_from_cookie(request), True)
+
+        request.COOKIES["palin_consent"] = json.dumps({"v": 3, "a": False})
+        self.assertIs(read_analytics_storage_consent_from_cookie(request), False)
+
+        request.COOKIES["palin_consent"] = json.dumps({"v": 2, "a": True})
+        self.assertIsNone(read_analytics_storage_consent_from_cookie(request))
+
+        request.COOKIES["palin_consent"] = "broken"
+        self.assertIsNone(read_analytics_storage_consent_from_cookie(request))
 
 
 class NormalizeSeoDescriptionTests(SimpleTestCase):
@@ -902,6 +927,25 @@ class PurchaseAnalyticsTests(TestCase):
         GA4_MEASUREMENT_ID="G-TEST123",
         GA4_API_SECRET="ga4-secret",
     )
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_event_raises_on_http_failure(self, httpx_post_mock):
+        import httpx
+
+        httpx_post_mock.side_effect = httpx.HTTPError("upstream failed")
+
+        with self.assertRaises(httpx.HTTPError):
+            send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
     @patch("apps.core.analytics.httpx.post")
     def test_send_ga4_purchase_event_for_order_posts_expected_payload(self, httpx_post_mock):
         response_mock = httpx_post_mock.return_value
@@ -959,6 +1003,45 @@ class PurchaseAnalyticsTests(TestCase):
 
         httpx_post_mock.assert_not_called()
 
+    @override_settings(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=False,
+    )
+    @patch("apps.core.tasks.send_yandex_purchase_event_for_order")
+    @patch("apps.core.tasks.send_ga4_purchase_event_for_order")
+    def test_send_order_purchase_analytics_task_retries_on_ga4_failure(
+        self,
+        ga4_mock,
+        yandex_mock,
+    ):
+        from apps.core.tasks import send_order_purchase_analytics_task
+
+        ga4_mock.side_effect = [RuntimeError("temporary"), None]
+
+        send_order_purchase_analytics_task.apply(
+            kwargs={"order_id": self.order.id, "source": "notification"},
+        )
+
+        self.assertEqual(ga4_mock.call_count, 2)
+        yandex_mock.assert_called_once()
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
+    @patch("apps.core.tasks.send_yandex_purchase_event_for_order")
+    @patch("apps.core.tasks.send_ga4_purchase_event_for_order")
+    def test_send_order_purchase_analytics_task_completes_without_retry_on_success(
+        self,
+        ga4_mock,
+        yandex_mock,
+    ):
+        from apps.core.tasks import send_order_purchase_analytics_task
+
+        send_order_purchase_analytics_task.apply(
+            kwargs={"order_id": self.order.id, "source": "notification"},
+        )
+
+        ga4_mock.assert_called_once()
+        yandex_mock.assert_called_once()
+
 
 class YandexMetricaTests(TestCase):
     @classmethod
@@ -997,17 +1080,43 @@ class YandexMetricaTests(TestCase):
 
         send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
 
-        httpx_post_mock.assert_called_once()
-        payload = httpx_post_mock.call_args.kwargs["data"]
-        self.assertEqual(payload["tid"], "110744096")
-        self.assertEqual(payload["cid"], "1234567890123456789")
-        self.assertEqual(payload["t"], "event")
-        self.assertEqual(payload["ea"], "purchase")
-        self.assertEqual(payload["ms"], "ym-secret")
-        self.assertEqual(payload["ev"], "22.5")
-        self.assertEqual(payload["cu"], "BYN")
+        self.assertEqual(httpx_post_mock.call_count, 2)
+        pageview_payload = httpx_post_mock.call_args_list[0].kwargs["data"]
+        event_payload = httpx_post_mock.call_args_list[1].kwargs["data"]
+        self.assertEqual(pageview_payload["t"], "pageview")
+        self.assertEqual(pageview_payload["cid"], "1234567890123456789")
+        self.assertEqual(pageview_payload["ms"], "ym-secret")
+        self.assertEqual(event_payload["t"], "event")
+        self.assertEqual(event_payload["ea"], "purchase")
+        self.assertEqual(event_payload["tid"], "110744096")
+        self.assertEqual(event_payload["cid"], "1234567890123456789")
+        self.assertEqual(event_payload["ms"], "ym-secret")
+        self.assertEqual(event_payload["ev"], "22.5")
+        self.assertEqual(event_payload["cu"], "BYN")
         self.order.refresh_from_db()
         self.assertIsNotNone(self.order.yandex_purchase_sent_at)
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        YANDEX_METRIKA_SERVER_EVENTS_ENABLED=True,
+        YANDEX_METRIKA_ID="110744096",
+        YANDEX_METRIKA_MEASUREMENT_TOKEN="ym-secret",
+        SITE_BASE_URL="http://127.0.0.1:8000",
+    )
+    @patch("apps.core.yandex_metrica.httpx.post")
+    def test_send_yandex_purchase_event_does_not_mark_sent_when_pageview_fails(self, httpx_post_mock):
+        import httpx
+
+        from apps.core.yandex_metrica import send_yandex_purchase_event_for_order
+
+        httpx_post_mock.side_effect = httpx.HTTPError("pageview failed")
+
+        with self.assertRaises(httpx.HTTPError):
+            send_yandex_purchase_event_for_order(order_id=self.order.id, source="webhook")
+
+        self.assertEqual(httpx_post_mock.call_count, 1)
+        self.order.refresh_from_db()
+        self.assertIsNone(self.order.yandex_purchase_sent_at)
 
     @override_settings(
         ANALYTICS_ENABLED=True,
