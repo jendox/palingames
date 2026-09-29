@@ -1,5 +1,5 @@
 {% extends "base/base.html" %}
-{% load static %}
+{% load static i18n %}
 
 {% block title %}{{ seo_title|default:"Игра на заказ — PalinGames" }}{% endblock %}
 
@@ -12,6 +12,7 @@
 
 {% block content %}
   {% include "components/dividers/clouds_with_breadcrumbs.html" %}
+  <h1 class="sr-only">{% trans "Игра на заказ" %}</h1>
   {% if messages or form.errors %}
     <div class="mx-auto max-w-[880px] px-5 pt-6">
       {% include "base/_messages.html" %}
