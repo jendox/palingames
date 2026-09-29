@@ -36,7 +36,13 @@ def _build_ga4_client_id(order: Order) -> str:
     return _build_ga4_client_id_from_key(f"order:{base}")
 
 
-def _post_ga4_measurement_protocol(*, client_id: str, events: list[dict], log_context: dict) -> bool:
+def _post_ga4_measurement_protocol(
+    *,
+    client_id: str,
+    events: list[dict],
+    log_context: dict,
+    raise_on_failure: bool = False,
+) -> bool:
     if not _ga4_measurement_protocol_enabled():
         log_event(
             logger,
@@ -71,6 +77,8 @@ def _post_ga4_measurement_protocol(*, client_id: str, events: list[dict], log_co
             error_type=type(exc).__name__,
             **log_context,
         )
+        if raise_on_failure:
+            raise
         return False
 
     log_event(
@@ -187,6 +195,7 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
             "order_public_id": str(order.public_id),
             "source": source,
         },
+        raise_on_failure=True,
     )
 
 
