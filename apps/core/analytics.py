@@ -5,8 +5,10 @@ import uuid
 
 import httpx
 from django.conf import settings
+from django.utils import timezone
 
 from apps.core.analytics_events import extract_file_extension
+from apps.core.ga4_identity import normalize_ga4_client_id, normalize_ga4_session_id
 from apps.core.logging import log_event
 from apps.orders.models import Order
 from apps.products.pricing import get_currency_code
@@ -34,6 +36,13 @@ def _build_ga4_client_id_from_key(key: str) -> str:
 def _build_ga4_client_id(order: Order) -> str:
     base = order.email.strip().lower() or str(order.public_id)
     return _build_ga4_client_id_from_key(f"order:{base}")
+
+
+def _resolve_ga4_client_id_for_order(order: Order) -> str:
+    stored = normalize_ga4_client_id(order.ga4_client_id)
+    if stored:
+        return stored
+    return _build_ga4_client_id(order)
 
 
 def _post_ga4_measurement_protocol(
@@ -117,9 +126,13 @@ def _build_ga4_purchase_payload(order: Order) -> dict:
         "coupon": order.promo_code_snapshot or None,
         "items": items,
     }
+    session_id = normalize_ga4_session_id(order.ga4_session_id)
+    if session_id:
+        event_params["session_id"] = int(session_id)
+        event_params["engagement_time_msec"] = 100
 
     payload = {
-        "client_id": _build_ga4_client_id(order),
+        "client_id": _resolve_ga4_client_id_for_order(order),
         "events": [
             {
                 "name": "purchase",
@@ -130,6 +143,18 @@ def _build_ga4_purchase_payload(order: Order) -> dict:
     if order.user_id:
         payload["user_id"] = str(order.user_id)
     return payload
+
+
+def _ga4_purchase_skip_reason(order: Order | None, *, order_id: int) -> str | None:
+    if order is None:
+        return "order_not_found"
+    if order.status != Order.OrderStatus.PAID:
+        return "order_not_paid"
+    if order.ga4_purchase_sent_at is not None:
+        return "already_sent"
+    if not order.analytics_storage_consent:
+        return "no_analytics_consent"
+    return None
 
 
 def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
@@ -150,43 +175,22 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
         .filter(pk=order_id)
         .first()
     )
-    if order is None:
+    skip_reason = _ga4_purchase_skip_reason(order, order_id=order_id)
+    if skip_reason:
+        log_level = logging.WARNING if skip_reason == "order_not_found" else logging.INFO
         log_event(
             logger,
-            logging.WARNING,
+            log_level,
             "analytics.purchase.skipped",
             order_id=order_id,
+            order_public_id=str(order.public_id) if order is not None else None,
             source=source,
-            reason="order_not_found",
-        )
-        return
-
-    if order.status != Order.OrderStatus.PAID:
-        log_event(
-            logger,
-            logging.INFO,
-            "analytics.purchase.skipped",
-            order_id=order_id,
-            order_public_id=str(order.public_id),
-            source=source,
-            reason="order_not_paid",
-        )
-        return
-
-    if not order.analytics_storage_consent:
-        log_event(
-            logger,
-            logging.INFO,
-            "analytics.purchase.skipped",
-            order_id=order_id,
-            order_public_id=str(order.public_id),
-            source=source,
-            reason="no_analytics_consent",
+            reason=skip_reason,
         )
         return
 
     payload = _build_ga4_purchase_payload(order)
-    _post_ga4_measurement_protocol(
+    sent = _post_ga4_measurement_protocol(
         client_id=payload["client_id"],
         events=payload["events"],
         log_context={
@@ -197,6 +201,10 @@ def send_ga4_purchase_event_for_order(*, order_id: int, source: str) -> None:
         },
         raise_on_failure=True,
     )
+    if sent:
+        Order.objects.filter(pk=order_id, ga4_purchase_sent_at__isnull=True).update(
+            ga4_purchase_sent_at=timezone.now(),
+        )
 
 
 def _build_file_download_event_params(*, event_name: str, download_type: str, payload: dict) -> dict:
@@ -249,7 +257,7 @@ def send_ga4_file_download_guest_event(
         },
     )
     _post_ga4_measurement_protocol(
-        client_id=_build_ga4_client_id(order),
+        client_id=_resolve_ga4_client_id_for_order(order),
         events=[event],
         log_context={
             "event_name": "file_download_guest",

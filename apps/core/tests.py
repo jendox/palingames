@@ -46,6 +46,26 @@ def _count_h1_tags(html: bytes) -> int:
     return len(re.findall(rb"<h1\b", html, flags=re.IGNORECASE))
 
 
+class Ga4IdentityTests(SimpleTestCase):
+    def test_normalize_and_parse_ga_cookie(self):
+        from apps.core.ga4_identity import (
+            normalize_ga4_client_id,
+            normalize_ga4_session_id,
+            parse_ga_client_id_from_ga_cookie,
+        )
+
+        self.assertEqual(normalize_ga4_client_id("123456789.9876543210"), "123456789.9876543210")
+        self.assertEqual(normalize_ga4_client_id("not-valid"), "")
+        self.assertEqual(normalize_ga4_session_id("1700000001"), "1700000001")
+        self.assertEqual(normalize_ga4_session_id("12.34"), "")
+        self.assertEqual(
+            parse_ga_client_id_from_ga_cookie("GA1.1.123456789.9876543210"),
+            "123456789.9876543210",
+        )
+        self.assertEqual(parse_ga_client_id_from_ga_cookie("GA1.2.111.222"), "111.222")
+        self.assertEqual(parse_ga_client_id_from_ga_cookie(""), "")
+
+
 class ConsentCookieTests(SimpleTestCase):
     @override_settings(COOKIE_CONSENT_POLICY_VERSION=3)
     def test_read_analytics_storage_consent_from_cookie(self):
@@ -927,11 +947,6 @@ class PurchaseAnalyticsTests(TestCase):
         GA4_MEASUREMENT_ID="G-TEST123",
         GA4_API_SECRET="ga4-secret",
     )
-    @override_settings(
-        ANALYTICS_ENABLED=True,
-        GA4_MEASUREMENT_ID="G-TEST123",
-        GA4_API_SECRET="ga4-secret",
-    )
     @patch("apps.core.analytics.httpx.post")
     def test_send_ga4_purchase_event_raises_on_http_failure(self, httpx_post_mock):
         import httpx
@@ -940,6 +955,9 @@ class PurchaseAnalyticsTests(TestCase):
 
         with self.assertRaises(httpx.HTTPError):
             send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        self.order.refresh_from_db()
+        self.assertIsNone(self.order.ga4_purchase_sent_at)
 
     @override_settings(
         ANALYTICS_ENABLED=True,
@@ -968,6 +986,93 @@ class PurchaseAnalyticsTests(TestCase):
         self.assertEqual(payload["events"][0]["params"]["currency"], "BYN")
         self.assertEqual(payload["events"][0]["params"]["coupon"], "WELCOME10")
         self.assertEqual(payload["events"][0]["params"]["items"][0]["item_name"], self.product.title)
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.ga4_purchase_sent_at)
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_uses_stored_browser_client_id(self, httpx_post_mock):
+        httpx_post_mock.return_value.raise_for_status.return_value = None
+        self.order.ga4_client_id = "123456789.9876543210"
+        self.order.save(update_fields=["ga4_client_id"])
+
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        payload = httpx_post_mock.call_args.kwargs["json"]
+        self.assertEqual(payload["client_id"], "123456789.9876543210")
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_falls_back_to_synthetic_client_id(self, httpx_post_mock):
+        httpx_post_mock.return_value.raise_for_status.return_value = None
+
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        payload = httpx_post_mock.call_args.kwargs["json"]
+        self.assertRegex(payload["client_id"], r"^[0-9a-f-]{36}$")
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_includes_session_id_when_stored(self, httpx_post_mock):
+        httpx_post_mock.return_value.raise_for_status.return_value = None
+        self.order.ga4_session_id = "1700000001"
+        self.order.save(update_fields=["ga4_session_id"])
+
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        params = httpx_post_mock.call_args.kwargs["json"]["events"][0]["params"]
+        self.assertEqual(params["session_id"], 1700000001)
+        self.assertEqual(params["engagement_time_msec"], 100)
+
+    @override_settings(
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.analytics.httpx.post")
+    def test_send_ga4_purchase_skips_when_already_sent(self, httpx_post_mock):
+        self.order.ga4_purchase_sent_at = timezone.now()
+        self.order.save(update_fields=["ga4_purchase_sent_at"])
+
+        send_ga4_purchase_event_for_order(order_id=self.order.id, source="notification")
+
+        httpx_post_mock.assert_not_called()
+
+    @override_settings(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=False,
+        ANALYTICS_ENABLED=True,
+        GA4_MEASUREMENT_ID="G-TEST123",
+        GA4_API_SECRET="ga4-secret",
+    )
+    @patch("apps.core.tasks.send_yandex_purchase_event_for_order")
+    @patch("apps.core.analytics.httpx.post")
+    def test_purchase_task_retry_after_ga4_success_does_not_resend_ga4(self, httpx_post_mock, yandex_mock):
+        from apps.core.tasks import send_order_purchase_analytics_task
+
+        httpx_post_mock.return_value.raise_for_status.return_value = None
+        yandex_mock.side_effect = [RuntimeError("ym down"), None]
+
+        send_order_purchase_analytics_task.apply(
+            kwargs={"order_id": self.order.id, "source": "notification"},
+        )
+
+        self.assertEqual(httpx_post_mock.call_count, 1)
+        self.assertEqual(yandex_mock.call_count, 2)
+        self.order.refresh_from_db()
+        self.assertIsNotNone(self.order.ga4_purchase_sent_at)
 
     @override_settings(
         ANALYTICS_ENABLED=False,

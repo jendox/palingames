@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const CONSENT_COOKIE_NAME = "palin_consent";
+  const GA4_CLIENT_ID_RE = /^\d{1,21}\.\d{1,21}$/;
+  const GA4_SESSION_ID_RE = /^\d{1,21}$/;
 
   function readCookieValue(name) {
     const parts = (document.cookie || "").split(";").map((cookiePart) => cookiePart.trim());
@@ -28,7 +30,81 @@ document.addEventListener("DOMContentLoaded", () => {
     return readCookieValue("_ym_uid");
   }
 
+  function normalizeGa4ClientId(value) {
+    const cleaned = String(value || "").trim();
+    return GA4_CLIENT_ID_RE.test(cleaned) ? cleaned : "";
+  }
+
+  function normalizeGa4SessionId(value) {
+    const cleaned = String(value || "").trim();
+    return GA4_SESSION_ID_RE.test(cleaned) ? cleaned : "";
+  }
+
+  function parseGaClientIdFromGaCookie(raw) {
+    const cleaned = String(raw || "").trim();
+    if (!cleaned) {
+      return "";
+    }
+    const parts = cleaned.split(".");
+    if (parts.length < 4 || parts[0] !== "GA1") {
+      return "";
+    }
+    return normalizeGa4ClientId(`${parts[2]}.${parts[3]}`);
+  }
+
+  function readCheckoutGa4Config() {
+    const configEl = document.getElementById("checkout-ga4-client-config");
+    if (!configEl) {
+      return null;
+    }
+    try {
+      return JSON.parse(configEl.textContent);
+    } catch {
+      return null;
+    }
+  }
+
+  function gtagGet(measurementId, field, timeoutMs) {
+    return new Promise((resolve) => {
+      if (typeof gtag !== "function") {
+        resolve("");
+        return;
+      }
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve("");
+        }
+      }, timeoutMs);
+      try {
+        gtag("get", measurementId, field, (value) => {
+          if (!settled) {
+            settled = true;
+            window.clearTimeout(timer);
+            resolve(typeof value === "string" ? value : "");
+          }
+        });
+      } catch {
+        window.clearTimeout(timer);
+        resolve("");
+      }
+    });
+  }
+
+  async function resolveGa4Identity(config) {
+    const timeoutMs = Number(config.gtagGetTimeoutMs) || 300;
+    const measurementId = config.ga4MeasurementId;
+    let clientId = normalizeGa4ClientId(await gtagGet(measurementId, "client_id", timeoutMs));
+    if (!clientId) {
+      clientId = parseGaClientIdFromGaCookie(readCookieValue("_ga"));
+    }
+    const sessionId = normalizeGa4SessionId(await gtagGet(measurementId, "session_id", timeoutMs));
+    return { clientId, sessionId };
+  }
+
   const checkoutScopes = Array.from(document.querySelectorAll("[data-checkout-scope]"));
+  const checkoutGa4Config = readCheckoutGa4Config();
 
   checkoutScopes.forEach((scope) => {
     const emailInput = scope.querySelector("[data-checkout-email]");
@@ -38,6 +114,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const submitButton = scope.querySelector("[data-checkout-submit]");
     const checkoutForm = scope.querySelector("form");
     const yandexClientIdInput = scope.querySelector("[data-checkout-yandex-client-id]");
+    const ga4ClientIdInput = scope.querySelector("[data-checkout-ga4-client-id]");
+    const ga4SessionIdInput = scope.querySelector("[data-checkout-ga4-session-id]");
     const stepOneIcon = scope.querySelector('[data-checkout-step-icon="1"]');
     const stepTwoIcon = scope.querySelector('[data-checkout-step-icon="2"]');
     const stepOneDigit = scope.querySelector('[data-checkout-step-digit="1"]');
@@ -126,11 +204,52 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (yandexClientIdInput) {
-        yandexClientIdInput.value = hasAnalyticsConsent() ? readYandexClientId() : "";
+      if (!hasAnalyticsConsent()) {
+        if (yandexClientIdInput) {
+          yandexClientIdInput.value = "";
+        }
+        if (ga4ClientIdInput) {
+          ga4ClientIdInput.value = "";
+        }
+        if (ga4SessionIdInput) {
+          ga4SessionIdInput.value = "";
+        }
+        submitButton.disabled = true;
+        return;
       }
 
+      if (!checkoutGa4Config || !ga4ClientIdInput) {
+        if (yandexClientIdInput) {
+          yandexClientIdInput.value = readYandexClientId();
+        }
+        submitButton.disabled = true;
+        return;
+      }
+
+      event.preventDefault();
       submitButton.disabled = true;
+
+      resolveGa4Identity(checkoutGa4Config)
+        .then(({ clientId, sessionId }) => {
+          if (yandexClientIdInput) {
+            yandexClientIdInput.value = readYandexClientId();
+          }
+          ga4ClientIdInput.value = clientId;
+          if (ga4SessionIdInput) {
+            ga4SessionIdInput.value = sessionId;
+          }
+          checkoutForm.submit();
+        })
+        .catch(() => {
+          if (yandexClientIdInput) {
+            yandexClientIdInput.value = readYandexClientId();
+          }
+          ga4ClientIdInput.value = parseGaClientIdFromGaCookie(readCookieValue("_ga"));
+          if (ga4SessionIdInput) {
+            ga4SessionIdInput.value = "";
+          }
+          checkoutForm.submit();
+        });
     });
 
     syncEmailState();

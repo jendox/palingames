@@ -288,6 +288,63 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         order = Order.objects.get()
         self.assertFalse(order.analytics_storage_consent)
 
+    def test_guest_checkout_stores_ga4_client_id_with_analytics_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+
+        response = self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data(
+                "guest@example.com",
+                ga4_client_id="123456789.9876543210",
+                ga4_session_id="1700000001",
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        order = Order.objects.get()
+        self.assertEqual(order.ga4_client_id, "123456789.9876543210")
+        self.assertEqual(order.ga4_session_id, "1700000001")
+
+    def test_guest_checkout_ignores_ga4_fields_without_analytics_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data(
+                "guest@example.com",
+                ga4_client_id="123456789.9876543210",
+                ga4_session_id="1700000001",
+            ),
+        )
+
+        order = Order.objects.get()
+        self.assertEqual(order.ga4_client_id, "")
+        self.assertEqual(order.ga4_session_id, "")
+
+    def test_guest_checkout_drops_malformed_ga4_identity_fields(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data(
+                "guest@example.com",
+                ga4_client_id="not-a-client-id",
+                ga4_session_id="bad.session",
+            ),
+        )
+
+        order = Order.objects.get()
+        self.assertEqual(order.ga4_client_id, "")
+        self.assertEqual(order.ga4_session_id, "")
+
     def test_guest_checkout_stores_yandex_client_id_with_analytics_consent(self):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
