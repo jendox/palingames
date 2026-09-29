@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const CONSENT_COOKIE_NAME = "palin_consent";
   const GA4_CLIENT_ID_RE = /^\d{1,21}\.\d{1,21}$/;
   const GA4_SESSION_ID_RE = /^\d{1,21}$/;
+  const YANDEX_CLIENT_ID_RE = /^\d{1,32}$/;
 
   function readCookieValue(name) {
     const parts = (document.cookie || "").split(";").map((cookiePart) => cookiePart.trim());
@@ -27,7 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function readYandexClientId() {
-    return readCookieValue("_ym_uid");
+    const cleaned = String(readCookieValue("_ym_uid") || "").trim();
+    return YANDEX_CLIENT_ID_RE.test(cleaned) ? cleaned : "";
   }
 
   function normalizeGa4ClientId(value) {
@@ -64,6 +66,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function sleep(ms) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
   function gtagGet(measurementId, field, timeoutMs) {
     return new Promise((resolve) => {
       if (typeof gtag !== "function") {
@@ -92,19 +100,88 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function resolveGa4Identity(config) {
-    const timeoutMs = Number(config.gtagGetTimeoutMs) || 300;
+  async function readGa4FromGtag(config) {
+    if (!config || !config.ga4MeasurementId) {
+      return { clientId: "", sessionId: "" };
+    }
+    const timeoutMs = Number(config.gtagGetTimeoutMs) || 200;
     const measurementId = config.ga4MeasurementId;
     const [rawClientId, rawSessionId] = await Promise.all([
       gtagGet(measurementId, "client_id", timeoutMs),
       gtagGet(measurementId, "session_id", timeoutMs),
     ]);
-    let clientId = normalizeGa4ClientId(rawClientId);
-    if (!clientId) {
-      clientId = parseGaClientIdFromGaCookie(readCookieValue("_ga"));
+    return {
+      clientId: normalizeGa4ClientId(rawClientId),
+      sessionId: normalizeGa4SessionId(rawSessionId),
+    };
+  }
+
+  function readGa4FromCookies() {
+    return {
+      clientId: parseGaClientIdFromGaCookie(readCookieValue("_ga")),
+      sessionId: "",
+    };
+  }
+
+  function mergeGa4Identity(current, next) {
+    return {
+      clientId: current.clientId || next.clientId,
+      sessionId: current.sessionId || next.sessionId,
+    };
+  }
+
+  function hasMinimumCheckoutIdentity(ga4Identity, yandexClientId) {
+    return Boolean(ga4Identity.clientId || yandexClientId);
+  }
+
+  function hasFullCheckoutIdentity(ga4Identity, yandexClientId) {
+    return Boolean(ga4Identity.clientId && yandexClientId);
+  }
+
+  async function waitForCheckoutIdentity(config) {
+    const budgetMs = Number(config?.identityWaitBudgetMs) || 2500;
+    const intervalMs = Number(config?.identityPollIntervalMs) || 100;
+    const deadline = Date.now() + budgetMs;
+    let ga4Identity = readGa4FromCookies();
+    let yandexClientId = readYandexClientId();
+
+    while (Date.now() < deadline) {
+      yandexClientId = readYandexClientId() || yandexClientId;
+      ga4Identity = mergeGa4Identity(ga4Identity, readGa4FromCookies());
+      if (config && (!ga4Identity.clientId || !ga4Identity.sessionId)) {
+        ga4Identity = mergeGa4Identity(ga4Identity, await readGa4FromGtag(config));
+      }
+      if (hasFullCheckoutIdentity(ga4Identity, yandexClientId)) {
+        break;
+      }
+      if (hasMinimumCheckoutIdentity(ga4Identity, yandexClientId) && Date.now() + intervalMs >= deadline) {
+        break;
+      }
+      await sleep(intervalMs);
     }
-    const sessionId = normalizeGa4SessionId(rawSessionId);
-    return { clientId, sessionId };
+
+    yandexClientId = readYandexClientId() || yandexClientId;
+    ga4Identity = mergeGa4Identity(ga4Identity, readGa4FromCookies());
+    return {
+      yandexClientId,
+      clientId: ga4Identity.clientId,
+      sessionId: ga4Identity.sessionId,
+    };
+  }
+
+  function applyCheckoutIdentityToForm(scope, identity) {
+    const yandexClientIdInput = scope.querySelector("[data-checkout-yandex-client-id]");
+    const ga4ClientIdInput = scope.querySelector("[data-checkout-ga4-client-id]");
+    const ga4SessionIdInput = scope.querySelector("[data-checkout-ga4-session-id]");
+    if (yandexClientIdInput) {
+      yandexClientIdInput.value = identity.yandexClientId || "";
+    }
+    if (ga4ClientIdInput) {
+      ga4ClientIdInput.value = identity.clientId || "";
+    }
+    if (ga4SessionIdInput) {
+      ga4SessionIdInput.value = identity.sessionId || "";
+    }
   }
 
   const checkoutScopes = Array.from(document.querySelectorAll("[data-checkout-scope]"));
@@ -117,9 +194,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const consentError = scope.querySelector("[data-checkout-personal-data-consent-error]");
     const submitButton = scope.querySelector("[data-checkout-submit]");
     const checkoutForm = scope.querySelector("form");
-    const yandexClientIdInput = scope.querySelector("[data-checkout-yandex-client-id]");
-    const ga4ClientIdInput = scope.querySelector("[data-checkout-ga4-client-id]");
-    const ga4SessionIdInput = scope.querySelector("[data-checkout-ga4-session-id]");
     const stepOneIcon = scope.querySelector('[data-checkout-step-icon="1"]');
     const stepTwoIcon = scope.querySelector('[data-checkout-step-icon="2"]');
     const stepOneDigit = scope.querySelector('[data-checkout-step-digit="1"]');
@@ -136,6 +210,25 @@ document.addEventListener("DOMContentLoaded", () => {
       || !stepTwoDigit
     ) {
       return;
+    }
+
+    let identityPrewarmPromise = null;
+
+    const prewarmCheckoutIdentity = () => {
+      if (!hasAnalyticsConsent()) {
+        return null;
+      }
+      if (!identityPrewarmPromise) {
+        identityPrewarmPromise = waitForCheckoutIdentity(checkoutGa4Config).then((identity) => {
+          applyCheckoutIdentityToForm(scope, identity);
+          return identity;
+        });
+      }
+      return identityPrewarmPromise;
+    };
+
+    if (hasAnalyticsConsent()) {
+      prewarmCheckoutIdentity();
     }
 
     const setStepActive = (step, isActive) => {
@@ -196,6 +289,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     checkoutForm.addEventListener("submit", (event) => {
+      if (checkoutForm.dataset.checkoutSubmitting === "1") {
+        return;
+      }
       if (!syncEmailState()) {
         event.preventDefault();
         emailInput.focus();
@@ -209,49 +305,27 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (!hasAnalyticsConsent()) {
-        if (yandexClientIdInput) {
-          yandexClientIdInput.value = "";
-        }
-        if (ga4ClientIdInput) {
-          ga4ClientIdInput.value = "";
-        }
-        if (ga4SessionIdInput) {
-          ga4SessionIdInput.value = "";
-        }
-        submitButton.disabled = true;
-        return;
-      }
-
-      if (!checkoutGa4Config || !ga4ClientIdInput) {
-        if (yandexClientIdInput) {
-          yandexClientIdInput.value = readYandexClientId();
-        }
+        applyCheckoutIdentityToForm(scope, { yandexClientId: "", clientId: "", sessionId: "" });
         submitButton.disabled = true;
         return;
       }
 
       event.preventDefault();
       submitButton.disabled = true;
+      checkoutForm.dataset.checkoutSubmitting = "1";
 
-      resolveGa4Identity(checkoutGa4Config)
-        .then(({ clientId, sessionId }) => {
-          if (yandexClientIdInput) {
-            yandexClientIdInput.value = readYandexClientId();
-          }
-          ga4ClientIdInput.value = clientId;
-          if (ga4SessionIdInput) {
-            ga4SessionIdInput.value = sessionId;
-          }
+      const identityReady = prewarmCheckoutIdentity() || waitForCheckoutIdentity(checkoutGa4Config);
+      identityReady
+        .then((identity) => {
+          applyCheckoutIdentityToForm(scope, identity);
           checkoutForm.submit();
         })
         .catch(() => {
-          if (yandexClientIdInput) {
-            yandexClientIdInput.value = readYandexClientId();
-          }
-          ga4ClientIdInput.value = parseGaClientIdFromGaCookie(readCookieValue("_ga"));
-          if (ga4SessionIdInput) {
-            ga4SessionIdInput.value = "";
-          }
+          applyCheckoutIdentityToForm(scope, {
+            yandexClientId: readYandexClientId(),
+            clientId: parseGaClientIdFromGaCookie(readCookieValue("_ga")),
+            sessionId: "",
+          });
           checkoutForm.submit();
         });
     });

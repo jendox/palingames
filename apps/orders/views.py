@@ -203,7 +203,9 @@ class CheckoutPageView(TemplateView):
         if settings.ANALYTICS_ENABLED and settings.GA4_MEASUREMENT_ID:
             context["checkout_ga4_client_config"] = {
                 "ga4MeasurementId": settings.GA4_MEASUREMENT_ID,
-                "gtagGetTimeoutMs": 300,
+                "gtagGetTimeoutMs": 200,
+                "identityPollIntervalMs": 100,
+                "identityWaitBudgetMs": 2500,
             }
         context["breadcrumbs"] = [
             {"title": "Главная", "url": reverse("home")},

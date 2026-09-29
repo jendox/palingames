@@ -225,7 +225,7 @@ Celery Beat: sync_waiting_invoice_statuses_task (каждые ~5 мин)
 
 - `issue_order_reward_after_payment` — промокод за заказ
 - GA4 / Yandex Metrica purchase events: `transaction.on_commit` → `send_order_purchase_analytics_task` (`apps/core/tasks.py`, Celery worker)
-  - **GA4 identity:** при checkout с analytics consent браузер передаёт `ga4_client_id` / `ga4_session_id` (gtag `get` + fallback `_ga`); на `Order` сохраняются после normalize. Server-side purchase MP использует browser `client_id`, иначе synthetic UUIDv5 (legacy/replay). `session_id` — только в event params, если валиден.
+  - **GA4 / YM identity:** при analytics consent checkout JS poll (~2.5s) заполняет hidden `ga4_client_id`, `ga4_session_id`, `yandex_client_id` (gtag `get`, `_ga`, `_ym_uid`); при submit server дочитывает `_ga` / `_ym_uid` из cookies, если POST пустой (POST приоритетнее). Без consent identity не сохраняется. Purchase MP использует browser `client_id`, иначе synthetic UUIDv5 (legacy). `session_id` — только event params, если валиден.
   - **GA4 idempotency:** `Order.ga4_purchase_sent_at` — marker после успешного MP HTTP; повтор Celery skip (`already_sent`). Короткий cache lock `analytics:ga4-purchase:{order_id}` сериализует concurrent duplicate task delivery. `transaction_id` = `order.public_id` для dedupe в GA4. Strict exactly-once недостижим (в т.ч. crash после accept MP до UPDATE); at-least-once с marker на GA4, YM — отдельно (`yandex_purchase_sent_at`).
 - Custom game flow — отдельная ветка через `mark_custom_game_request_paid`
 

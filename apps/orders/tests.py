@@ -345,6 +345,24 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
         self.assertEqual(order.ga4_client_id, "")
         self.assertEqual(order.ga4_session_id, "")
 
+    def test_guest_checkout_falls_back_to_ga_cookie_when_post_ga4_malformed(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+        self.client.cookies["_ga"] = "GA1.1.123456789.9876543210"
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data(
+                "guest@example.com",
+                ga4_client_id="not-a-client-id",
+            ),
+        )
+
+        order = Order.objects.get()
+        self.assertEqual(order.ga4_client_id, "123456789.9876543210")
+
     def test_guest_checkout_stores_yandex_client_id_with_analytics_consent(self):
         session = self.client.session
         session[SESSION_CART_KEY] = [self.product.id]
@@ -372,6 +390,64 @@ class CheckoutPageViewTests(CheckoutTestBase):  # noqa: PLR0904
 
         order = Order.objects.get()
         self.assertEqual(order.yandex_client_id, "")
+
+    def test_guest_checkout_fills_yandex_client_id_from_cookie_when_post_empty(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+        self.client.cookies["_ym_uid"] = "1234567890123456789"
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertEqual(order.yandex_client_id, "1234567890123456789")
+
+    def test_guest_checkout_fills_ga4_client_id_from_ga_cookie_when_post_empty(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+        self.client.cookies["_ga"] = "GA1.1.123456789.9876543210"
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertEqual(order.ga4_client_id, "123456789.9876543210")
+
+    def test_guest_checkout_form_identity_takes_priority_over_cookies(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session[SESSION_KEY_ANALYTICS_STORAGE] = True
+        session.save()
+        self.client.cookies["_ym_uid"] = "1111111111111111111"
+        self.client.cookies["_ga"] = "GA1.1.999999999.1111111111"
+
+        self.client.post(
+            reverse("checkout"),
+            _guest_checkout_post_data(
+                "guest@example.com",
+                yandex_client_id="1234567890123456789",
+                ga4_client_id="123456789.9876543210",
+            ),
+        )
+
+        order = Order.objects.get()
+        self.assertEqual(order.yandex_client_id, "1234567890123456789")
+        self.assertEqual(order.ga4_client_id, "123456789.9876543210")
+
+    def test_guest_checkout_does_not_read_identity_cookies_without_analytics_consent(self):
+        session = self.client.session
+        session[SESSION_CART_KEY] = [self.product.id]
+        session.save()
+        self.client.cookies["_ym_uid"] = "1234567890123456789"
+        self.client.cookies["_ga"] = "GA1.1.123456789.9876543210"
+
+        self.client.post(reverse("checkout"), _guest_checkout_post_data("guest@example.com"))
+
+        order = Order.objects.get()
+        self.assertEqual(order.yandex_client_id, "")
+        self.assertEqual(order.ga4_client_id, "")
 
     @override_settings(PERSONAL_DATA_POLICY_VERSION=42)
     def test_guest_checkout_without_personal_data_consent_returns_400(self):
