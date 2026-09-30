@@ -1,345 +1,109 @@
 # PalinGames
 
-Интернет-магазин цифровых развивающих игр для детей на Django.
+**Production e-commerce platform for selling and delivering digital educational materials.**
 
-Проект уже покрывает полный базовый цикл:
-- витрина и каталог;
-- карточка товара и корзина;
-- checkout и создание заказа;
-- интеграция с Express Pay;
-- выдача доступа к цифровым товарам после оплаты;
-- хранение архивов игр в S3-compatible storage;
-- скачивание купленных файлов для авторизованных пользователей;
-- гостевой сценарий с email-ссылками на скачивание.
-- operational incident alerts в Telegram с threshold/dedup/recovery semantics.
+PalinGames is a Django-based online store built for digital educational products. It covers the complete purchase lifecycle: product discovery, cart and checkout, online payment, secure fulfillment, customer access, guest downloads, notifications, and operational monitoring.
 
-## Что реализовано
+**Live:** https://palingames.by
 
-- server-rendered UI на Django templates;
-- `htmx` для частичных обновлений каталога и корзины;
-- каталог категорий и товаров;
-- карточка товара и отзывы;
-- корзина для гостя и авторизованного пользователя;
-- merge guest cart в пользовательскую корзину при логине;
-- checkout на основе реальной корзины;
-- кастомная модель пользователя и auth через `django-allauth headless`;
-- создание заказов и order items;
-- интеграция с Express Pay и webhook-обработка платежей;
-- выдача постоянного `UserProductAccess` для оплаченных товаров авторизованным пользователям;
-- выдача временного `GuestAccess` для guest checkout;
-- backend download endpoints с проверкой доступа;
-- приватное хранение product files в S3-compatible storage;
-- загрузка файлов из Django Admin напрямую в S3;
-- presigned download URLs для скачивания архивов;
-- unified `NotificationOutbox` (email/Telegram) с шифрованным payload и отправкой через Celery;
-- structured JSON logging.
-- incident alerts для payment, fulfillment, notification delivery и storage failures.
+## What the system does
 
-## Архитектура
+A customer can browse the catalog, purchase one or more digital products, pay through ExpressPay, and receive secure access to the purchased files. The platform supports both authenticated customers and guest checkout.
 
-Карта системы, payment/fulfillment flow и failure modes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The backend is responsible not only for commerce, but also for secure file delivery, background notifications, payment processing, incident reporting, and operational health checks.
 
-### Приложения
+## Key features
 
-- `apps/users` — пользователи и интеграция с allauth.
-- `apps/pages` — контентные страницы и личный кабинет.
-- `apps/products` — категории, товары, изображения, файлы, каталог, product detail, S3 upload/download services.
-- `apps/cart` — корзина для guest/user, merge, cart page.
-- `apps/orders` — checkout, заказы и order items.
-- `apps/payments` — инвойсы, webhook/payment processing, orchestration after successful payment.
-- `apps/access` — доступ к оплаченным продуктам и guest download grants.
-- `apps/managed_links` — постоянные QR-ссылки `/go/<token>/` для игровых материалов (S3 + external fallback).
-- `apps/notifications` — `NotificationOutbox`, handlers, Telegram/email delivery.
-- `apps/emails` — `EmailLog`, `EmailSuppression`, unified SMTP sender (`send_outbound_email`).
-- `apps/core` — logging, middleware, shared infra, incident alerts.
+- Product catalog, categories, product pages, reviews, cart, and checkout
+- Guest and authenticated-user purchase flows
+- Guest cart merge after login
+- ExpressPay payment integration and webhook processing
+- Persistent access to purchased products for registered users
+- Time- and download-limited guest access
+- Private S3-compatible storage for digital product files
+- Short-lived presigned download URLs
+- Direct product-file uploads from Django Admin
+- Managed permanent QR links for downloadable materials
+- Email and Telegram notifications through a unified outbox
+- Background processing with Celery
+- Structured JSON logging
+- Health/readiness endpoints and Prometheus metrics
+- Telegram incident alerts with threshold, deduplication, and recovery semantics
+- Optional Sentry integration
+- Docker-based development and production deployment
 
-### Основные доменные сущности
+## Purchase and fulfillment flow
 
-- `Product` — товар; флаг `is_published` управляет видимостью на витрине (каталог, карточка, sitemap, корзина, checkout). Новые товары по умолчанию **не опубликованы**; миграция `0009` выставляет `is_published=True` всем уже существующим записям.
-- `ProductFile` — архив игры в приватном S3 storage.
-- `Order` / `OrderItem` — заказ и состав заказа.
-- `Invoice` / `PaymentEvent` — платежная часть.
-- `UserProductAccess` — постоянный доступ авторизованного пользователя к продукту.
-- `GuestAccess` — ограниченный по времени и количеству скачиваний доступ для guest order.
-- `ManagedLink` — постоянная QR-ссылка `/go/<token>/` на материал в S3 (`qr-assets`) или внешний URL; вне commerce flow.
-- `NotificationOutbox` — зашифрованная очередь исходящих уведомлений (email, Telegram): auth, guest download links, invoice payment, custom game, admin/review alerts.
-- `EmailLog` / `EmailSuppression` — audit каждой SMTP-отправки и ручная блокировка адресов (bounce/complaint/manual).
-
-## Как работает выдача файлов
-
-### Авторизованный пользователь
-
-После успешной оплаты создаётся `UserProductAccess`.
-
-Скачать оплаченный архив можно из:
-- каталога;
-- страницы товара;
-- раздела заказов в личном кабинете.
-
-Все UI-точки ведут в backend endpoint, который:
-- требует логин;
-- проверяет `UserProductAccess`;
-- проверяет наличие активного `ProductFile`;
-- генерирует короткоживущую presigned URL;
-- делает redirect на S3 / MinIO.
-
-TTL для таких ссылок задаётся через `S3_PRESIGNED_EXPIRE_SECONDS`.
-
-### Гостевой заказ
-
-После успешной оплаты:
-- для каждого товара создаётся `GuestAccess`;
-- в `NotificationOutbox` ставится email-уведомление (`guest_order_download`) с зашифрованным payload;
-- Celery task отправляет письмо со списком ссылок.
-
-Письмо содержит не S3 URL, а backend links вида:
-- `/downloads/guest/<token>/`
-
-При открытии такой ссылки backend:
-- валидирует `GuestAccess`;
-- проверяет срок действия и лимит скачиваний;
-- ищет активный `ProductFile`;
-- генерирует короткую presigned URL;
-- увеличивает `downloads_count`;
-- делает redirect на storage.
-
-Параметры guest-доступа:
-- срок действия: `GUEST_ACCESS_EXPIRE_HOURS`
-- лимит скачиваний: `GUEST_ACCESS_MAX_DOWNLOADS`
-
-## Хранение файлов
-
-Product files хранятся в приватном S3-compatible object storage.
-
-Текущий dev-ориентированный сценарий:
-- локально используется `MinIO`;
-- в production предполагается `Contabo Object Storage`.
-
-Поддерживаемая схема ключей:
-- bucket: `products`
-- object key: `{product_slug}/{uuid4}.{ext}`
-
-`ProductFile` хранит только метаданные и `file_key`, а не локальный файл.
-
-### Что делает админка
-
-В Django Admin:
-- файл можно загрузить как `ProductFile`;
-- файл уходит напрямую в S3;
-- в БД сохраняются `file_key`, имя файла, MIME type, размер и checksum;
-- на продукт допускается только один активный архив;
-- у товара есть чекбокс **«Опубликован»** и bulk-actions «Опубликовать» / «Снять с публикации»;
-- «Посмотреть на сайте» (`/admin/r/...`) использует домен из **Sites** (`django.contrib.sites`, `SITE_ID=1`); на prod это `palingames.by`, локально — тот же хост, что и runserver (например `127.0.0.1:8000`);
-- staff может открыть неопубликованный товар на витрине (preview-баннер, `noindex`); гости получают 404.
-
-**Не фильтруется по `is_published`:** скачивание по уже выданному доступу (`UserProductAccess` / `GuestAccess`), история заказов, admin.
-
-### Managed links (QR materials)
-
-Отдельный поток для раздачи PDF/изображений по постоянным QR-ссылкам:
-
-- bucket: `S3_MANAGED_LINKS_BUCKET_NAME` (local dev: `qr-assets` via MinIO init);
-- object key: `{token}/{uuid4}.{ext}`;
-- admin: **Управляемые ссылки** → черновик (title) → upload в S3 → auto-activate;
-- публично: `GET /go/<token>/` → 302 на presigned S3 или `external_url`;
-- QR: PNG с `static/images/logo-qr-mark.png`, SVG без логотипа.
-
-Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [deploy/README.md](deploy/README.md#managed-links-qr-materials-bucket-qr-assets).
-
-## Стек
-
-- Python `3.13`
-- Django `5.2`
-- PostgreSQL `16`
-- Redis
-- Celery
-- `django-celery-beat`
-- Django Allauth (`headless`, `socialaccount`)
-- Django REST Framework
-- Tailwind CSS `v4`
-- `htmx`
-- Pydantic `v2`
-- `boto3`
-- Ruff
-- `uv`
-
-## Production (Docker / VPS)
-
-Контейнер приложения, production Compose (Caddy, Postgres, Redis, Celery, Prometheus), пример переменных и CI/CD — в **[deploy/README.md](deploy/README.md)**.
-
-## Локальный запуск
-
-### 1. Установить зависимости
-
-```bash
-uv sync
+```text
+Catalog
+  ↓
+Cart
+  ↓
+Checkout
+  ↓
+Order + Invoice
+  ↓
+ExpressPay
+  ↓
+Payment webhook / status sync
+  ↓
+Payment confirmed
+  ↓
+Access grant created
+  ↓
+Notification queued
+  ↓
+Secure download through backend
+  ↓
+Short-lived presigned S3 URL
 ```
 
-### 2. Поднять dev-инфраструктуру
+### Registered users
 
-```bash
-make up-develop
+After successful payment, the system creates a persistent `UserProductAccess` record. Download requests always pass through the backend, which verifies access before generating a short-lived storage URL.
+
+### Guest checkout
+
+For guest purchases, the application creates temporary `GuestAccess` grants with configurable expiration and download limits. Customers receive backend download links by email rather than direct object-storage URLs.
+
+## Architecture
+
+The project is split into focused Django applications:
+
+```text
+apps/
+├── users/           # custom users and authentication
+├── pages/           # content pages and customer account
+├── products/        # catalog, images, files, S3 services
+├── cart/            # guest/user cart and merge flow
+├── orders/          # checkout, orders and order items
+├── payments/        # invoices, payment processing, webhooks
+├── access/          # paid product access and guest grants
+├── managed_links/   # permanent QR-backed links
+├── notifications/   # notification outbox and delivery handlers
+├── emails/          # SMTP sending, logs and suppression
+└── core/            # shared infrastructure and observability
 ```
 
-Это поднимет:
-- PostgreSQL на `5433`;
-- Redis на `6379`;
-- `smtp4dev` для просмотра писем.
-- Prometheus на `9090`;
-- Grafana на `3000`.
+A more detailed system map, payment flow, fulfillment flow, and failure modes are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-### 3. Подготовить `.env`
+## Engineering highlights
 
-Скопировать `.env.example` в `.env` и скорректировать значения.
+### Secure digital delivery
 
-Ключевые переменные:
-- `DATABASE_URL`
-- `REDIS_URL`
-- `CELERY_BROKER_URL`
-- `CELERY_RESULT_BACKEND`
-- `PAYMENTS_STATUS_SYNC_BATCH_SIZE`
-- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`
-- `S3_ENDPOINT_URL`
-- `S3_ACCESS_KEY_ID`
-- `S3_SECRET_ACCESS_KEY`
-- `S3_BUCKET_NAME`
-- `S3_MANAGED_LINKS_BUCKET_NAME`
-- `MANAGED_LINK_DIRECT_S3_UPLOAD_ENABLED`
-- `S3_PRESIGNED_EXPIRE_SECONDS`
-- `SITE_BASE_URL`
-- `GUEST_ACCESS_EXPIRE_HOURS`
-- `GUEST_ACCESS_MAX_DOWNLOADS`
-- `APP_DATA_ENCRYPTION_KEY`
-- `SENTRY_DSN`
-- `SENTRY_ENVIRONMENT`
-- `SENTRY_RELEASE`
-- `SENTRY_TRACES_SAMPLE_RATE`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_FORUM_CHAT_ID`
-- `TELEGRAM_NOTIFICATIONS_THREAD_ID`
-- `TELEGRAM_SUPPORT_THREAD_ID`
-- `TELEGRAM_INCIDENTS_THREAD_ID`
-- `INCIDENT_ALERT_DEDUPE_TTL_SECONDS`
-- `PAYMENT_WEBHOOK_INCIDENT_THRESHOLD`
-- `PAYMENT_WEBHOOK_INCIDENT_WINDOW_SECONDS`
-- `PAYMENT_STATUS_SYNC_INCIDENT_THRESHOLD`
-- `PAYMENT_STATUS_SYNC_INCIDENT_WINDOW_SECONDS`
-- `DOWNLOAD_DELIVERY_INCIDENT_THRESHOLD`
-- `DOWNLOAD_DELIVERY_INCIDENT_WINDOW_SECONDS`
-- `NOTIFICATION_OUTBOX_INCIDENT_THRESHOLD`
-- `NOTIFICATION_OUTBOX_INCIDENT_WINDOW_SECONDS`
-- `STORAGE_INCIDENT_THRESHOLD`
-- `STORAGE_INCIDENT_WINDOW_SECONDS`
-- `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS`
+Product archives are stored in private S3-compatible object storage. The application stores metadata and object keys in PostgreSQL, while actual downloads are authorized by the backend and served through short-lived presigned URLs.
 
-`APP_DATA_ENCRYPTION_KEY` должен быть валидным `Fernet` key.
+### Reliable notifications
 
-Для фоновой синхронизации статусов инвойсов с ограничением нагрузки на Express Pay:
-- `PAYMENTS_STATUS_SYNC_BATCH_SIZE` — максимум инвойсов за один запуск задачи;
-- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS` — минимальный интервал между повторными проверками одного и того же `Invoice`.
+Outgoing email and Telegram messages use a database-backed `NotificationOutbox`. Background workers receive only the outbox ID; sensitive payload data remains encrypted in the database.
 
-Для базовой интеграции с Sentry:
-- `SENTRY_DSN` — DSN проекта в Sentry;
-- `SENTRY_ENVIRONMENT` — обычно `development`, `staging` или `production`;
-- `SENTRY_RELEASE` — идентификатор релиза или git SHA;
-- `SENTRY_TRACES_SAMPLE_RATE` — доля транзакций для performance tracing, например `0.0` или `0.1`.
+### Payment resilience
 
-Для Telegram incident alerts:
-- `TELEGRAM_INCIDENTS_THREAD_ID` — отдельный forum topic для production incidents;
-- `INCIDENT_ALERT_DEDUPE_TTL_SECONDS` — окно dedupe для повторных incident alerts;
-- `ORDER_DELIVERY_ALERT_DEDUPE_TTL_SECONDS` — dedupe для watchdog нарушений доставки оплаченных заказов (по умолчанию 7 дней);
-- thresholds per family управляют, после скольких ошибок за окно алерт считается incident-worthy.
+Payment confirmation is handled through webhook processing and background status synchronization. Fulfillment is separated from the payment provider itself, which makes access delivery easier to retry and observe.
 
-### 4. Применить миграции
+### Operational visibility
 
-```bash
-uv run python manage.py migrate
-```
-
-### 5. Создать суперпользователя
-
-```bash
-uv run python manage.py createsuperuser
-```
-
-### 6. Загрузить fixture для тегов
-
-Файл `tags_fixture.json` в корне проекта (в `.gitignore`, не в git). Содержит категории, подтипы, возрастные группы, области развития и темы.
-
-```bash
-uv run python manage.py loaddata tags_fixture.json
-```
-
-На **staging/prod (Docker на VPS)** — scp + `docker cp` + `loaddata` внутри контейнера `web`. Подробно: [deploy/README.md](deploy/README.md#справочник-каталога-tags_fixturejson).
-
-### 7. Запустить Django
-
-```bash
-uv run python manage.py runserver
-```
-
-### 8. Запустить Tailwind watcher
-
-```bash
-make tailwind
-```
-
-### 9. Запустить Celery worker
-
-```bash
-uv run celery -A config worker -l info
-```
-
-### 10. Запустить Celery beat
-
-```bash
-uv run celery -A config beat -l info
-```
-
-## Локальный запуск тестов
-
-Для этого проекта основной режим проверки тестов должен быть на PostgreSQL, а не на SQLite.
-
-Почему:
-- production-стек использует PostgreSQL;
-- часть поведения ORM, транзакций и блокировок отличается между SQLite и PostgreSQL;
-- платежный контур и синхронизация инвойсов используют сценарии, где важна именно postgres-совместимая семантика.
-
-Минимальный локальный сценарий:
-
-1. Поднять dev-инфраструктуру
-
-```bash
-make up-develop
-```
-
-2. Убедиться, что `DATABASE_URL` в `.env` указывает на локальный PostgreSQL, например:
-
-```env
-DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingames_dev
-```
-
-3. Запустить тесты:
-
-```bash
-./.venv/bin/python manage.py test
-```
-
-`manage.py test` автоматически использует `config.settings_test`: Telegram-переменные из `.env` **не** применяются, чтобы тесты не слали сообщения в prod-чат. Тесты Telegram-пути задают fake token через `override_settings` и мокают `send_telegram_message`.
-
-Для проверки только платежного контура:
-
-```bash
-./.venv/bin/python manage.py test apps.payments
-```
-
-Если нужен только быстрый smoke-check без гарантии postgres-совместимого поведения, можно использовать временную SQLite-конфигурацию, но это не должно заменять основной прогон тестов на PostgreSQL перед merge или релизом.
-
-## Observability
-
-### Health endpoints
-
-Для базовой operational-проверки доступны:
+The application exposes:
 
 ```text
 /health/live/
@@ -347,399 +111,79 @@ DATABASE_URL=postgres://palingames_user:palingames_pass@localhost:5433/palingame
 /metrics/
 ```
 
-- `live` отвечает только за то, что Django-процесс жив;
-- `ready` проверяет доступность PostgreSQL, Redis и S3-compatible storage.
-- `metrics` отдаёт Prometheus-метрики приложения.
+Readiness checks cover PostgreSQL, Redis, and object storage. Production incidents can be reported separately from normal business notifications.
 
-### Telegram Incident Alerts
+## Tech stack
 
-В проекте Telegram-сигналы разделены на два класса:
-- business/admin notifications;
-- production incidents.
+| Area | Technologies |
+|---|---|
+| Backend | Python 3.13, Django 5.2, Django REST Framework |
+| Database | PostgreSQL 16 |
+| Background jobs | Celery, django-celery-beat, Redis |
+| Authentication | django-allauth |
+| Frontend | Django Templates, HTMX, Tailwind CSS 4 |
+| Storage | S3-compatible object storage, boto3, MinIO for local development |
+| Payments | ExpressPay |
+| Validation / tooling | Pydantic 2, Ruff, uv |
+| Observability | structured JSON logging, Prometheus, Grafana, optional Sentry |
+| Deployment | Docker Compose, Caddy |
 
-Incident alerts отправляются в отдельный topic через отдельный operational layer, а не через business `NotificationType`.
+## Local development
 
-Текущие incident keys:
-- `payments.webhook.failures`
-- `payments.status_sync.failures`
-- `downloads.delivery.failures`
-- `notifications.outbox.failures`
-- `storage.s3.unavailable`
-- `orders.delivery.invariant`
+### Requirements
 
-Resolved alerts сейчас поддерживаются для:
-- `payments.status_sync.failures`
-- `downloads.delivery.failures`
-- `notifications.outbox.failures`
-- `storage.s3.unavailable`
+- Python 3.13
+- `uv`
+- Docker / Docker Compose
 
-`orders.delivery.invariant` — immediate alert при первом обнаружении нарушения (без threshold и без recovery).
-
-Подробнее:
-- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
-- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
-
-### Sentry
-
-Sentry подключается опционально:
-- если `SENTRY_DSN` пустой, приложение работает без Sentry;
-- если `sentry-sdk` еще не установлен локально, приложение не падает, а просто не активирует интеграцию.
-
-В Sentry scope автоматически передаются базовые поля observability-контекста:
-- `request_id`
-- `task_id`
-- `task_name`
-- `task_state`
-- `http_method`
-- `path`
-- `status_code`
-
-Это нужно для того, чтобы в ошибке или trace было проще понять:
-- к какому HTTP-запросу она относится;
-- из какой Celery-задачи пришла;
-- на каком endpoint или шаге пайплайна произошел сбой.
-
-### Prometheus metrics
-
-Для реального экспорта метрик нужен пакет `prometheus-client`.
-
-После изменений в зависимостях выполнить:
+### Setup
 
 ```bash
 uv sync
+cp .env.example .env
+make up-develop
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+uv run python manage.py runserver
 ```
 
-После этого endpoint `/metrics/` начнет отдавать реальные Prometheus-метрики приложения.
+In separate terminals:
 
-### Локальный Prometheus/Grafana
+```bash
+make tailwind
+uv run celery -A config worker -l info
+uv run celery -A config beat -l info
+```
 
-Для dev-окружения monitoring stack уже включён в `docker-compose.develop.yml`.
+The development stack provides PostgreSQL, Redis, SMTP testing, object storage, and optional monitoring services.
 
-После запуска:
+## Testing
 
-- Prometheus: `http://127.0.0.1:9090`
-- Grafana: `http://127.0.0.1:3000`
-- Django metrics endpoint: `http://127.0.0.1:8000/metrics/`
-
-Как это работает:
-- Django запускается у тебя на хосте;
-- контейнер Prometheus скрапит `http://host.docker.internal:8000/metrics/`;
-- Grafana получает готовый datasource на локальный Prometheus через provisioning.
-
-Что нужно сделать:
-
-1. Поднять dev stack:
+The primary test environment uses PostgreSQL rather than SQLite so that database behavior stays close to production.
 
 ```bash
 make up-develop
+./.venv/bin/python manage.py test
 ```
 
-2. Запустить Django локально на `127.0.0.1:8000`
+Payment-specific tests can be run separately:
 
 ```bash
-make runserver-observability
+./.venv/bin/python manage.py test apps.payments
 ```
 
-Это важно: Prometheus работает в контейнере и ходит на хост через `host.docker.internal:8000`. Поэтому для scrape в Linux dev-окружении Django должен слушать `0.0.0.0:8000`, а не только дефолтный loopback-интерфейс `127.0.0.1:8000`.
+## Deployment and operations
 
-3. Проверить, что `http://127.0.0.1:8000/metrics/` отвечает
+Production deployment assets and environment guidance are kept in [`deploy/README.md`](deploy/README.md).
 
-4. Открыть Grafana:
+Additional documentation:
 
-```text
-http://127.0.0.1:3000
-```
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architecture and core flows
+- [`docs/observability.md`](docs/observability.md) — metrics and incident model
+- [`docs/runbooks.md`](docs/runbooks.md) — operational runbooks
+- [`docs/metrics.md`](docs/metrics.md) — metrics plan
+- [`docs/monitoring-local.md`](docs/monitoring-local.md) — local monitoring setup
 
-Стандартный логин Grafana по умолчанию:
-- `admin`
-- `admin`
+## Project focus
 
-При первом входе Grafana попросит сменить пароль.
-
-Имеет ли смысл поднимать это локально:
-- `Да`, если ты отлаживаешь observability, метрики, фоновые задачи, платежный поток или хочешь собрать первый dashboard.
-- `Да`, если нужно быстро убедиться, что `/metrics/` реально экспортирует полезные сигналы.
-- `Не обязательно`, если ты просто верстаешь шаблоны или меняешь неинфраструктурный код и тебе не нужны графики в моменте.
-
-Практически:
-- для обычной feature-разработки Prometheus/Grafana на локалке не обязательны;
-- для платежей, Celery, readiness и operational work это вполне оправдано даже в dev.
-
-Подробный operational-гайд по event taxonomy и alert rules:
-- [docs/observability.md](/home/jendox/PycharmProjects/palingames/docs/observability.md)
-
-Практические runbooks для типовых инцидентов:
-- [docs/runbooks.md](/home/jendox/PycharmProjects/palingames/docs/runbooks.md)
-
-План метрик и дешбордов:
-- [docs/metrics.md](/home/jendox/PycharmProjects/palingames/docs/metrics.md)
-
-Отдельная инструкция по локальному использованию Prometheus и Grafana:
-- [docs/monitoring-local.md](/home/jendox/PycharmProjects/palingames/docs/monitoring-local.md)
-
-Готовые PromQL-запросы и панели для первого локального dashboard:
-- [docs/dashboard-local.md](/home/jendox/PycharmProjects/palingames/docs/dashboard-local.md)
-
-## Настройка MinIO для разработки
-
-`make up-develop` поднимает MinIO и one-shot контейнер `minio-init`, который:
-- создаёт bucket `products` (если ещё нет);
-- включает anonymous read только для `previews/*` (превью товаров).
-
-В `.env` можно использовать, например:
-
-```env
-S3_PRODUCT_IMAGES_ENABLED=true
-S3_ENDPOINT_URL=http://127.0.0.1:9000
-S3_ACCESS_KEY_ID=minioadmin
-S3_SECRET_ACCESS_KEY=minioadmin123
-S3_REGION_NAME=us-east-1
-S3_BUCKET_NAME=products
-S3_ADDRESSING_STYLE=path
-S3_USE_SSL=False
-```
-
-Важно:
-- download-файлы (`{slug}/{uuid}.zip`) остаются private — backend генерирует presigned URLs;
-- превью (`previews/{slug}/{uuid}.png`) открываются по public URL: `http://127.0.0.1:9000/products/previews/...`;
-- MinIO Console: http://127.0.0.1:9001 (`minioadmin` / `minioadmin123`).
-
-## Celery и периодические задачи
-
-### NotificationOutbox и email delivery
-
-Все исходящие email и Telegram идут через [`NotificationOutbox`](apps/notifications/models.py): auth, guest download links, branded invoice payment link (`invoice_created_user`), custom game, admin/review уведомления.
-
-Цепочка для email:
-
-```text
-NotificationOutbox → NOTIFICATION_HANDLERS → apps/*/emails.py
-  → send_outbound_email() [apps/emails/senders.py]
-    → EmailSuppression pre-check → EmailLog → Django SMTP
-```
-
-Единственная точка `message.send()` в проекте — [`apps/emails/senders.py`](apps/emails/senders.py). Admin: **Emails → Email logs**, **Emails → Email suppressions**.
-
-Task отправки outbox:
-
-```text
-apps.notifications.tasks.send_notification_outbox_task
-```
-
-В Celery broker уходит только `outbox_id`. Чувствительные данные (например guest tokens) — только внутри зашифрованного payload в БД (`APP_DATA_ENCRYPTION_KEY`).
-
-Legacy alias (тот же outbox-путь):
-
-```text
-apps.access.tasks.send_guest_access_email_outbox_task
-```
-
-Critical notification flows (Telegram incidents при repeated failures): `guest_order_download`, `custom_game_download`, `invoice_created_user`, `auth_account_email`. См. [`docs/runbooks.md`](docs/runbooks.md) §5.
-
-### Cleanup старых outbox-записей
-
-Task очистки (рекомендуется в Beat):
-
-```text
-apps.notifications.tasks.cleanup_notification_outbox_task
-```
-
-Legacy alias:
-
-```text
-apps.access.tasks.cleanup_guest_access_email_outbox_task
-```
-
-Retention настраивается через `GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS` и `GUEST_ACCESS_EMAIL_OUTBOX_FAILED_RETENTION_DAYS` (имена env сохранены для совместимости).
-
-### Периодическая синхронизация статусов инвойсов
-
-Task синхронизации:
-
-```text
-apps.payments.tasks.sync_waiting_invoice_statuses_task
-```
-
-Что делает задача:
-- выбирает только `PENDING` инвойсы, связанные с заказами в статусах `CREATED` или `WAITING_FOR_PAYMENT`;
-- не опрашивает один и тот же инвойс чаще, чем разрешено `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS`;
-- ограничивает число запросов к Express Pay через `PAYMENTS_STATUS_SYNC_BATCH_SIZE`;
-- обновляет локальные статусы заказа и инвойса тем же доменным кодом, что и webhook-обработка.
-
-### Как завести periodic tasks
-
-**Production (рекомендуется):** после `migrate` один раз и при каждом деплое:
-
-```bash
-python manage.py setup_periodic_tasks
-```
-
-Создаёт задачи в `django-celery-beat`: cleanup notification outbox (03:20), `clearsessions` (03:40), sync pending-инвойсов (каждые 5 мин), watchdog доставки оплаченных заказов (каждые 5 мин) и другие defaults. Подробнее — [deploy/README.md](deploy/README.md).
-
-**Вручную через Django Admin** (если нужно изменить расписание): Periodic tasks → Add periodic task.
-
-Рекомендуемые задачи:
-
-1. Очистка просроченных сессий
-
-```text
-Task (registered): apps.core.tasks.clear_expired_sessions_task
-Schedule: crontab, например каждый день в 03:40
-Enabled: yes
-```
-
-2. Очистка старых записей NotificationOutbox
-
-```text
-Task (registered): apps.notifications.tasks.cleanup_notification_outbox_task
-Schedule: crontab, например каждый день в 03:20
-Enabled: yes
-```
-
-3. Синхронизация статусов pending-инвойсов
-
-```text
-Task (registered): apps.payments.tasks.sync_waiting_invoice_statuses_task
-Schedule: interval, например каждые 5 минут
-Enabled: yes
-```
-
-4. Watchdog доставки оплаченных заказов
-
-```text
-Task (registered): apps.orders.tasks.check_paid_order_delivery_watchdog_task
-Schedule: interval, каждые 5 минут
-Enabled: yes
-```
-
-Проверяет оплаченные заказы в окне 48 часов (grace 10 минут после оплаты) и алертит при нарушении инвариантов invoice/access/guest email. Не исправляет данные автоматически.
-
-Рекомендуемый стартовый профиль для production:
-- `PAYMENTS_STATUS_SYNC_BATCH_SIZE=25`
-- `PAYMENTS_STATUS_SYNC_MIN_INTERVAL_SECONDS=300`
-- interval task: каждые 5 минут
-
-Такой режим даёт верхнюю границу около 25 запросов к Express Pay за один запуск beat-задачи и не позволяет бесконечно перепроверять один и тот же инвойс.
-
-Рекомендуется создать periodic task в Django Admin (или через `setup_periodic_tasks`):
-- task: `apps.notifications.tasks.cleanup_notification_outbox_task`
-- `Crontab`:
-  - `Minute`: `20`
-  - `Hour`: `3`
-  - `Day of week`: `*`
-  - `Day of month`: `*`
-  - `Month of year`: `*`
-
-Retention настраивается через:
-- `GUEST_ACCESS_EMAIL_OUTBOX_SENT_RETENTION_DAYS`
-- `GUEST_ACCESS_EMAIL_OUTBOX_FAILED_RETENTION_DAYS`
-
-Рекомендуемые значения по умолчанию:
-- `SENT`: `30` дней
-- `FAILED`: `90` дней
-
-### Очистка устаревших сессий
-
-Для guest cart и guest checkout имеет смысл также чистить просроченные Django sessions.
-
-Task:
-
-```text
-apps.core.tasks.clear_expired_sessions_task
-```
-
-Это нормальная практика. Альтернатива — системный cron с `manage.py clearsessions`, но раз в проекте уже есть Celery Beat, удобнее держать housekeeping-задачи в одном месте.
-
-Рекомендуемая periodic task в `django-celery-beat`:
-- task: `apps.core.tasks.clear_expired_sessions_task`
-- `Crontab`:
-  - `Minute`: `40`
-  - `Hour`: `3`
-  - `Day of week`: `*`
-  - `Day of month`: `*`
-  - `Month of year`: `*`
-
-### Рекомендуемый набор periodic tasks
-
-Минимально — четыре operational-задачи (создаёт `setup_periodic_tasks`):
-
-1. `apps.notifications.tasks.cleanup_notification_outbox_task` — `03:20` ежедневно  
-2. `apps.core.tasks.clear_expired_sessions_task` — `03:40` ежедневно  
-3. `apps.payments.tasks.sync_waiting_invoice_statuses_task` — каждые 5 минут  
-4. `apps.orders.tasks.check_paid_order_delivery_watchdog_task` — каждые 5 минут  
-
-Полный список defaults — в `apps/core/periodic_tasks.py` (Telegram feedback/reaper, monthly NPD report и др.).
-
-Housekeeping-задачи лучше разводить по времени на 10–30 минут.
-
-## Полезные команды
-
-### Линтинг
-
-```bash
-make lint
-```
-
-### Автоисправление
-
-```bash
-make fix
-```
-
-### Миграции
-
-```bash
-make makemigrations
-make migrate
-```
-
-### Запуск тестов
-
-Основной вариант:
-
-```bash
-uv run python manage.py test
-```
-
-Если в локальном окружении недоступен PostgreSQL test DB, для части тестов можно использовать временную SQLite-базу:
-
-```bash
-DATABASE_URL=sqlite:////tmp/palingames-test.sqlite3 uv run python manage.py test apps.access.tests apps.payments.tests
-```
-
-Это подходит для unit/integration тестов, которые не опираются на PostgreSQL-specific behaviour.
-
-### Остановка dev-инфраструктуры
-
-```bash
-make down-develop
-```
-
-### Остановка с удалением volumes
-
-```bash
-make down-v
-```
-
-## Логирование
-
-В проекте используется structured JSON logging.
-
-Что есть сейчас:
-- события пишутся в stdout;
-- используется событийная модель логов;
-- есть `request_id` для HTTP и Celery chains;
-- чувствительные поля редактируются автоматически.
-
-Примеры событий:
-- `order.paid`
-- `guest_access.granted`
-- `guest_access.email.sent`
-- `guest_access.email_outbox.created`
-- `guest_access.email_outbox.sent`
-- `guest_access.email_outbox.cleanup.completed`
-
-Ключевые файлы:
-- [apps/core/logging.py](/home/jendox/PycharmProjects/palingames/apps/core/logging.py)
-- [apps/core/middleware.py](/home/jendox/PycharmProjects/palingames/apps/core/middleware.py)
-- [apps/core/celery_logging.py](/home/jendox/PycharmProjects/palingames/apps/core/celery_logging.py)
+PalinGames is an example of a production backend where e-commerce, payments, background processing, secure digital delivery, and operational reliability need to work together as one system.
