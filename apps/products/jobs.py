@@ -53,8 +53,6 @@ def maybe_enqueue_product_smoke_check(product_id: int) -> None:
 
 
 def enqueue_product_image_thumbnails(product_image_id: int, *, force: bool = False) -> None:
-    from kombu.exceptions import OperationalError as KombuOperationalError
-
     log_event(
         logger,
         logging.INFO,
@@ -66,7 +64,8 @@ def enqueue_product_image_thumbnails(product_image_id: int, *, force: bool = Fal
     def _dispatch() -> None:
         try:
             generate_product_image_thumbnails_task.delay(product_image_id, force=force)
-        except KombuOperationalError as exc:
+        except Exception as exc:
+            # Commit succeeded; broker down, eager autoretry (Retry), or task failure must not break callers.
             log_event(
                 logger,
                 logging.WARNING,
