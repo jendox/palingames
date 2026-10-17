@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
+from django.db.models import Avg, Count
 from django.urls import reverse
 from django.utils.http import urlencode
 
@@ -13,6 +15,28 @@ from apps.core.metrics import inc_review_resubmitted, inc_review_submitted
 from apps.products.models import Product, Review, ReviewStatus
 
 logger = logging.getLogger("apps.products.reviews")
+
+
+@dataclass(frozen=True)
+class RatingSummary:
+    average: float
+    count: int
+
+
+def get_product_rating_summaries(product_ids: Iterable[int]) -> dict[int, RatingSummary]:
+    ids = list(product_ids)
+    if not ids:
+        return {}
+    rows = (
+        Review.objects.published_only()
+        .filter(product_id__in=ids)
+        .values("product_id")
+        .annotate(avg=Avg("rating"), count=Count("id"))
+    )
+    return {
+        row["product_id"]: RatingSummary(average=round(float(row["avg"]), 1), count=row["count"])
+        for row in rows
+    }
 
 
 @dataclass(frozen=True)

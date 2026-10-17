@@ -22,12 +22,14 @@
       </div>
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[175px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"></div>
 
-      <div class="absolute left-[15px] top-[15px]">
+      {% if product.has_rating %}
+      <div class="absolute left-[15px] top-[15px]" data-product-rating-badge>
         <div class="inline-flex items-center gap-[10px] rounded-[8px] bg-[rgba(31,31,31,0.3)] px-[15px] py-[8px] backdrop-blur-[8px]">
           <img src="{% static 'images/icons/star-bold.svg' %}" alt="" class="size-[24px]" aria-hidden="true">
           <span class="text-[20px] font-black leading-none text-[var(--color-white)]">{{ product.rating }}</span>
         </div>
       </div>
+      {% endif %}
 
       <div class="absolute inset-x-0 bottom-0 h-[175px] px-[20px] pb-[18px] text-[var(--color-white)]">
         <div class="pt-[28px]">

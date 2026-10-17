@@ -474,6 +474,11 @@ function fillCatalogMobileProduct(node, product) {
     price.textContent = product.price || "";
   }
 
+  const ratingBadge = node.querySelector("[data-product-rating-badge]");
+  if (ratingBadge instanceof HTMLElement) {
+    ratingBadge.classList.toggle("hidden", !product.has_rating);
+  }
+
   const rating = node.querySelector("[data-product-rating]");
   if (rating instanceof HTMLElement) {
     rating.textContent = product.rating || "";

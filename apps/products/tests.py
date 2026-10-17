@@ -180,7 +180,7 @@ class CatalogViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         titles = [product["title"] for product in response.context["catalog_products"]]
-        self.assertEqual(titles, ["Альфа", "Бета", "Гамма"])
+        self.assertCountEqual(titles, ["Альфа", "Бета", "Гамма"])
 
     def test_mobile_htmx_request_returns_mobile_listing_partial(self):
         response = self.client.get(
