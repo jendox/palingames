@@ -17,6 +17,8 @@ from apps.orders.failure_reasons import format_order_failure_reason_label
 from apps.orders.models import Order
 from apps.products.models import ProductFile
 from apps.products.pricing import format_price
+from apps.products.services.home_popular import get_popular_products
+from apps.products.services.product_cards import build_product_cards
 
 from .forms import AccountPasswordChangeForm, AccountPersonalDataForm
 
@@ -70,6 +72,8 @@ class HomePageView(TemplateView):
                 },
             ),
         )
+        products = get_popular_products()
+        context["home_popular_products"] = build_product_cards(self.request, products)
         return context
 
 
