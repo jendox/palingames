@@ -11,7 +11,13 @@
 
   <div id="catalog-mobile-products-grid" class="mt-[18px] grid grid-cols-[repeat(2,170px)] justify-center gap-x-[16px] gap-y-[16px]" data-catalog-mobile-products>
     {% for product in catalog_mobile_products %}
-      {% include "pages/catalog/mobile/_product_card.html" %}
+      {% if forloop.counter0 == 0 %}
+        {% include "pages/catalog/mobile/_product_card.html" with image_loading="eager" image_fetchpriority="high" %}
+      {% elif forloop.counter0 == 1 %}
+        {% include "pages/catalog/mobile/_product_card.html" with image_loading="eager" %}
+      {% else %}
+        {% include "pages/catalog/mobile/_product_card.html" %}
+      {% endif %}
     {% endfor %}
   </div>
 

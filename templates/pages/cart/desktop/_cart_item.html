@@ -24,9 +24,13 @@
   <div class="col-start-3 overflow-hidden rounded-[8px] bg-[var(--color-white)]">
     <a href="{{ item.product_url }}" class="block" aria-label="{{ item.title }}">
       <img
-        src="{{ item.image_url }}"
+        src="{{ item.image_thumb_url }}"
+        {% if item.image_srcset %}srcset="{{ item.image_srcset }}" sizes="(min-width: 1280px) 130px, 110px"{% endif %}
+        {% if item.image_width %}width="{{ item.image_width }}" height="{{ item.image_height }}"{% endif %}
         alt=""
         class="h-full w-full object-contain min-[1280px]:h-[200px]"
+        loading="lazy"
+        decoding="async"
         draggable="false"
       >
     </a>

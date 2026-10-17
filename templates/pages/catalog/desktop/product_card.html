@@ -13,12 +13,7 @@
   <div class="relative">
     <a href="{{ product.url }}" class="block">
       <div class="relative aspect-[436/510] w-full overflow-hidden bg-[var(--color-white)]">
-        <img
-          src="{{ product.image_url }}"
-          alt="{{ product.title }}"
-          class="h-full w-full object-contain object-center"
-          draggable="false"
-        >
+        {% include "components/listing/_product_image.html" with image_sizes="436px" image_loading="lazy" image_class="h-full w-full object-contain object-center" %}
       </div>
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[175px] bg-[rgba(31,31,31,0.3)] backdrop-blur-[8px]"></div>
 

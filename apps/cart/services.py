@@ -3,10 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import transaction
-from django.templatetags.static import static
 
 from apps.access.services import get_user_product_access_ids, has_user_product_access
 from apps.orders.purchase_guards import build_pending_purchase_message, get_user_pending_order_item_by_product_ids
+from apps.products.listing_images import build_listing_image_fields
 from apps.products.models import Product
 from apps.products.pricing import format_price
 
@@ -167,7 +167,7 @@ def _build_cart_item(product: Product, selected_category_by_id: dict[int, str]) 
         "title": product.title,
         "kind": category_label,
         "price": _format_price(product.price, product.currency),
-        "image_url": first_image.image.url if first_image else static("images/example-product-image-1.png"),
+        **build_listing_image_fields(first_image),
         "product_url": product.get_absolute_url(),
     }
 

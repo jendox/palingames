@@ -12,7 +12,13 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import TimeStampedModel
-from apps.products.storage import build_product_image_object_key, get_product_image_storage
+from apps.products.storage import (
+    build_product_image_object_key,
+    build_product_image_public_url,
+    get_product_image_storage,
+)
+
+LISTING_THUMB_WIDTH = 400
 
 
 class Currency(models.IntegerChoices):
@@ -175,11 +181,54 @@ class ProductImage(TimeStampedModel):
     )
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
     order = models.PositiveSmallIntegerField(default=0)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    thumb_400_key = models.CharField(max_length=512, blank=True, default="")
+    thumb_800_key = models.CharField(max_length=512, blank=True, default="")
+    thumb_400_display_width = models.PositiveIntegerField(default=0)
+    thumb_800_display_width = models.PositiveIntegerField(default=0)
+    thumbs_source_key = models.CharField(max_length=512, blank=True, default="")
 
     class Meta:
         ordering = ["order"]
         verbose_name = _("Изображение")
         verbose_name_plural = _("Изображения")
+
+    @property
+    def has_fresh_thumbs(self) -> bool:
+        source_key = self.image.name if self.image else ""
+        return bool(
+            self.thumb_400_key
+            and self.thumb_800_key
+            and source_key
+            and self.thumbs_source_key == source_key,
+        )
+
+    def thumb_url(self, width: int) -> str | None:
+        if not self.has_fresh_thumbs:
+            return None
+        key = self.thumb_400_key if width <= LISTING_THUMB_WIDTH else self.thumb_800_key
+        if not key:
+            return None
+        if settings.S3_PRODUCT_IMAGES_ENABLED:
+            return build_product_image_public_url(key)
+        return get_product_image_storage().url(key)
+
+    @property
+    def listing_srcset(self) -> str:
+        if not self.has_fresh_thumbs:
+            return ""
+        parts: list[str] = []
+        url400 = self.thumb_url(400)
+        if url400:
+            w400 = self.thumb_400_display_width or 400
+            parts.append(f"{url400} {w400}w")
+        if self.thumb_800_key and self.thumb_800_key != self.thumb_400_key:
+            url800 = self.thumb_url(800)
+            if url800:
+                w800 = self.thumb_800_display_width or 800
+                parts.append(f"{url800} {w800}w")
+        return ", ".join(parts)
 
 
 class ProductFile(TimeStampedModel):

@@ -8,6 +8,10 @@ from django.conf import settings
 from apps.core.logging import log_event
 from apps.products.alerts import alert_product_smoke_check_problem
 from apps.products.services.product_image_cleanup import ProductImageDeleteError, delete_product_image_object
+from apps.products.services.product_image_thumbnails import (
+    ProductImageThumbnailTransientError,
+    generate_product_image_thumbnails,
+)
 from apps.products.services.s3 import ProductStorageConfigurationError
 from apps.products.smoke_checks import run_product_smoke_check
 
@@ -73,6 +77,36 @@ def delete_product_image_task(
         reason=reason,
         result=result,
         attempt_number=attempt_number,
+        task_id=self.request.id,
+    )
+    return result
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(ProductImageThumbnailTransientError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 3},
+)
+def generate_product_image_thumbnails_task(self: Task, product_image_id: int, *, force: bool = False) -> str:
+    log_event(
+        logger,
+        logging.INFO,
+        "product_image.thumbnails.task.started",
+        product_image_id=product_image_id,
+        force=force,
+        task_id=self.request.id,
+        attempt_number=self.request.retries + 1,
+    )
+    result = generate_product_image_thumbnails(product_image_id, force=force)
+    log_event(
+        logger,
+        logging.INFO,
+        "product_image.thumbnails.task.finished",
+        product_image_id=product_image_id,
+        force=force,
+        result=result,
         task_id=self.request.id,
     )
     return result

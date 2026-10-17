@@ -16,9 +16,11 @@
         <div class="h-[198px] w-[170px] overflow-hidden bg-[var(--color-white)]">
           <img
             data-product-image
-            src="{% static 'images/example-product-image-1.png' %}"
+            src=""
             alt=""
             class="h-full w-full object-contain"
+            loading="lazy"
+            decoding="async"
             draggable="false"
           >
         </div>
@@ -116,12 +118,14 @@
     <a href="#" class="block h-[74px] w-[64px] shrink-0 overflow-hidden rounded-[5px]" data-product-link>
       <div class="h-full w-full overflow-hidden bg-[var(--color-lilac)]">
         <img
-        data-product-image
-        src="{% static 'images/example-product-image-1.png' %}"
-        alt=""
-        class="object-contain object-center"
-        draggable="false"
-      >
+          data-product-image
+          src=""
+          alt=""
+          class="object-contain object-center"
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+        >
       </div>
     </a>
 

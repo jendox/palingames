@@ -13,12 +13,7 @@
   <div class="relative">
     <a href="{{ product.url }}" class="block">
       <div class="h-[198px] w-[170px] overflow-hidden bg-[var(--color-white)]">
-        <img
-          src="{{ product.image_url }}"
-          alt="{{ product.title }}"
-          class="h-full w-full object-contain object-center"
-          draggable="false"
-        >
+        {% include "components/listing/_product_image.html" with image_sizes="170px" image_loading=image_loading|default:"lazy" image_fetchpriority=image_fetchpriority image_class="h-full w-full object-contain object-center" data_product_image=True %}
       </div>
 
       <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[74px] bg-[rgba(31,31,31,0.34)] backdrop-blur-[4px]"></div>

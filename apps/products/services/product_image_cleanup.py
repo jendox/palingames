@@ -7,6 +7,7 @@ from pathlib import Path
 from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from kombu.exceptions import OperationalError as KombuOperationalError
 
 from apps.core.logging import get_request_id, log_event
@@ -17,6 +18,7 @@ logger = logging.getLogger("apps.products.storage")
 
 DELETE_REASON_REPLACE = "replace"
 DELETE_REASON_ROW_DELETE = "row_delete"
+DELETE_REASON_THUMB_REGENERATE = "thumb_regenerate"
 
 
 class ProductImageDeleteError(Exception):
@@ -26,7 +28,9 @@ class ProductImageDeleteError(Exception):
 def is_product_image_key_referenced(object_key: str) -> bool:
     if not object_key:
         return False
-    return ProductImage.objects.filter(image=object_key).exists()
+    return ProductImage.objects.filter(
+        Q(image=object_key) | Q(thumb_400_key=object_key) | Q(thumb_800_key=object_key),
+    ).exists()
 
 
 def _storage_backend_label() -> str:
@@ -228,6 +232,7 @@ def enqueue_product_image_delete(
     product_id: int | None = None,
     product_image_id: int | None = None,
     reason: str,
+    delay_seconds: int | None = None,
 ) -> None:
     from apps.products.tasks import delete_product_image_task
 
@@ -239,15 +244,20 @@ def enqueue_product_image_delete(
         product_id=product_id,
         product_image_id=product_image_id,
         reason=reason,
+        delay_seconds=delay_seconds,
         request_id=get_request_id(),
     )
     try:
-        delete_product_image_task.delay(
-            object_key=object_key,
-            product_id=product_id,
-            product_image_id=product_image_id,
-            reason=reason,
-        )
+        task_kwargs = {
+            "object_key": object_key,
+            "product_id": product_id,
+            "product_image_id": product_image_id,
+            "reason": reason,
+        }
+        if delay_seconds and delay_seconds > 0:
+            delete_product_image_task.apply_async(kwargs=task_kwargs, countdown=delay_seconds)
+        else:
+            delete_product_image_task.delay(**task_kwargs)
     except KombuOperationalError as exc:
         # DB commit already succeeded; do not fail the HTTP response.
         log_event(
@@ -277,5 +287,24 @@ def schedule_product_image_delete_on_commit(
             product_id=product_id,
             product_image_id=product_image_id,
             reason=reason,
+        ),
+    )
+
+
+def schedule_product_image_delayed_delete_on_commit(
+    *,
+    object_key: str,
+    product_id: int | None = None,
+    product_image_id: int | None = None,
+    reason: str,
+    delay_seconds: int,
+) -> None:
+    transaction.on_commit(
+        lambda: enqueue_product_image_delete(
+            object_key=object_key,
+            product_id=product_id,
+            product_image_id=product_image_id,
+            reason=reason,
+            delay_seconds=delay_seconds,
         ),
     )

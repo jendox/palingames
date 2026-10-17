@@ -3,12 +3,12 @@ from __future__ import annotations
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch
-from django.templatetags.static import static
 from django.urls import reverse
 
 from apps.access.services import get_user_product_access_ids
 from apps.cart.services import get_cart_product_ids
 from apps.core.analytics_events import build_product_file_download_analytics_payload
+from apps.products.listing_images import build_listing_image_fields
 from apps.products.models import Product, ProductImage
 from apps.products.pricing import format_price, get_currency_code
 from apps.products.services.reviews import get_product_rating_summaries
@@ -194,7 +194,7 @@ def _build_favorite_card(
             if is_purchased
             else None
         ),
-        "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
+        **build_listing_image_fields(primary_image),
     }
 
 
