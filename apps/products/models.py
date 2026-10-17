@@ -42,14 +42,20 @@ class Category(TimeStampedModel):
 
 class AgeGroup(models.TextChoices):
     AGE_2_3 = "2-3", _("2-3 года")
+    AGE_3_4 = "3-4", _("3-4 года")
     AGE_4_5 = "4-5", _("4-5 лет")
+    AGE_5_6 = "5-6", _("5-6 лет")
     AGE_6_7 = "6-7", _("6-7 лет")
+
+
+AGE_GROUP_ORDER = [choice.value for choice in AgeGroup]
 
 
 class AgeGroupTag(TimeStampedModel):
     value = models.CharField("Значение", choices=AgeGroup.choices, max_length=10, unique=True)
 
     class Meta:
+        ordering = ("value",)
         verbose_name = _("Возрастная группа")
         verbose_name_plural = _("Возрастные группы")
 

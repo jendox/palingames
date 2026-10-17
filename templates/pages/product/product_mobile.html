@@ -46,6 +46,7 @@
       </p>
 
       <div class="mt-[20px] flex items-center justify-between gap-[16px]">
+        {% if product_reviews_count > 0 %}
         <div class="flex items-center gap-[5px]">
           {% for _ in "12345" %}
             {% if forloop.counter <= product_average_rating %}
@@ -54,8 +55,11 @@
               <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[15px]" aria-hidden="true">
             {% endif %}
           {% endfor %}
-          <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
+          <span class="ml-[4px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating_display }} ({{ product_reviews_count }})</span>
         </div>
+        {% else %}
+        <div></div>
+        {% endif %}
 
         <div class="flex items-center gap-[8px]">
           <button

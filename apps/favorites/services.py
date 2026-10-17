@@ -11,6 +11,7 @@ from apps.cart.services import get_cart_product_ids
 from apps.core.analytics_events import build_product_file_download_analytics_payload
 from apps.products.models import Product, ProductImage
 from apps.products.pricing import format_price, get_currency_code
+from apps.products.services.reviews import get_product_rating_summaries
 
 from .models import Favorite
 
@@ -149,13 +150,21 @@ def _get_active_product_file(product):
     return next((item for item in product.files.all() if item.is_active), None)
 
 
-def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]) -> dict:
+def _build_favorite_card(
+    product,
+    *,
+    cart_ids: set[int],
+    purchased_ids: set[int],
+    rating_summaries=None,
+) -> dict:
     primary_kind = product.subtypes.first() or product.categories.first()
     primary_category = product.categories.first()
     primary_image = next(iter(product.images.all()), None)
     is_purchased = product.id in purchased_ids
     category_label = _format_category_label(primary_category) if primary_category else ""
     active_file = _get_active_product_file(product) if is_purchased else None
+    summary = (rating_summaries or {}).get(product.id)
+    has_rating = summary is not None and summary.count > 0
     return {
         "id": product.id,
         "title": product.title,
@@ -166,7 +175,9 @@ def _build_favorite_card(product, *, cart_ids: set[int], purchased_ids: set[int]
         "kind": primary_kind.title if primary_kind else "",
         "category": category_label,
         "content": product.content,
-        "rating": f"{product.average_rating:.1f}".replace(".", ","),
+        "rating": f"{summary.average:.1f}".replace(".", ",") if has_rating else "",
+        "reviews_count": summary.count if summary else 0,
+        "has_rating": has_rating,
         "is_favorited": True,
         "is_in_cart": product.id in cart_ids and not is_purchased,
         "is_purchased": is_purchased,
@@ -210,7 +221,7 @@ def _sort_guest_favorite_products(
     return sorted(products, key=lambda p: by_index.get(p.id, 0), reverse=True)
 
 
-def get_favorites_page_context(request) -> dict:
+def get_favorites_page_context(request) -> dict:  # noqa: PLR0914
     """Гостевая страница /favorites/: сортировка и пагинация как в каталоге."""
     product_ids = get_favorite_product_ids(request)
 
@@ -259,9 +270,15 @@ def get_favorites_page_context(request) -> dict:
     page_product_ids = [p.id for p in page_obj.object_list]
     cart_ids = set(get_cart_product_ids(request))
     purchased_ids = get_user_product_access_ids(request.user, product_ids=page_product_ids)
+    rating_summaries = get_product_rating_summaries(page_product_ids)
 
     cards = [
-        _build_favorite_card(product, cart_ids=cart_ids, purchased_ids=purchased_ids)
+        _build_favorite_card(
+            product,
+            cart_ids=cart_ids,
+            purchased_ids=purchased_ids,
+            rating_summaries=rating_summaries,
+        )
         for product in page_obj.object_list
     ]
 
@@ -387,8 +404,17 @@ def get_account_favorites_context(request) -> dict:
     product_ids = [product.id for product in products]
     cart_ids = set(get_cart_product_ids(request))
     purchased_ids = get_user_product_access_ids(request.user, product_ids=product_ids)
+    rating_summaries = get_product_rating_summaries(product_ids)
 
-    cards = [_build_favorite_card(product, cart_ids=cart_ids, purchased_ids=purchased_ids) for product in products]
+    cards = [
+        _build_favorite_card(
+            product,
+            cart_ids=cart_ids,
+            purchased_ids=purchased_ids,
+            rating_summaries=rating_summaries,
+        )
+        for product in products
+    ]
 
     sort_options = [
         {"value": value, "label": label, "selected": value == sort_value}

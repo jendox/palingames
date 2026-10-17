@@ -80,6 +80,7 @@
               {{ product_kind }}
             </p>
 
+            {% if product_reviews_count > 0 %}
             <div class="mt-[30px] flex items-center gap-[9px]">
               {% for _ in "12345" %}
                 {% if forloop.counter <= product_average_rating %}
@@ -88,8 +89,9 @@
                   <img src="{% static 'images/icons/star-empty.svg' %}" alt="" class="size-[23px]" aria-hidden="true">
                 {% endif %}
               {% endfor %}
-              <span class="ml-[8px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating }} ({{ product_reviews_count }})</span>
+              <span class="ml-[8px] text-[14px] font-bold text-[var(--color-black-80)]">{{ product_average_rating_display }} ({{ product_reviews_count }})</span>
             </div>
+            {% endif %}
 
             {% comment %}
             <p class="mt-[30px] max-w-[486px] text-[16px] text-[var(--color-black-80)]">

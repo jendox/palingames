@@ -4,7 +4,7 @@ from enum import StrEnum
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
-from django.db.models import Count, Max, Min, Prefetch
+from django.db.models import Case, Count, IntegerField, Max, Min, Prefetch, When
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
@@ -33,6 +33,7 @@ from apps.products.alerts import (
 
 from .forms import ProductReviewForm
 from .models import (
+    AGE_GROUP_ORDER,
     AgeGroupTag,
     Category,
     DevelopmentAreaTag,
@@ -46,13 +47,14 @@ from .models import (
 from .pricing import format_price, get_currency_code
 from .review_notifications import schedule_review_submitted_notifications
 from .search import (
+    DEFAULT_CATALOG_SORT,
     MIN_QUERY_LEN,
     apply_product_search,
     normalize_catalog_search_q,
     order_catalog_queryset,
     suggest_product_hits,
 )
-from .services.reviews import get_review_panel_context, submit_or_resubmit_review
+from .services.reviews import get_product_rating_summaries, get_review_panel_context, submit_or_resubmit_review
 from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
 logger = logging.getLogger("apps.products")
@@ -74,6 +76,7 @@ class CatalogView(TemplateView):
     template_name = "pages/catalog.html"
     htmx_results_template_name = "pages/catalog/desktop/results_panel.html"
     htmx_mobile_template_name = "pages/catalog/mobile/product_listing.html"
+    default_sort = DEFAULT_CATALOG_SORT
     card_styles = (
         {
             "background_class": "bg-[var(--color-mint)]",
@@ -124,6 +127,17 @@ class CatalogView(TemplateView):
                 return title[: -len(source)] + target
         return title
 
+    @staticmethod
+    def _page_product_ids(*page_objects):
+        ids: list[int] = []
+        seen: set[int] = set()
+        for page_obj in page_objects:
+            for product in page_obj.object_list:
+                if product.id not in seen:
+                    seen.add(product.id)
+                    ids.append(product.id)
+        return ids
+
     def _build_product_card(
         self,
         product,
@@ -131,6 +145,7 @@ class CatalogView(TemplateView):
         cart_product_ids=None,
         purchased_product_ids=None,
         favorite_product_ids=None,
+        rating_summaries=None,
     ):
         primary_kind = product.subtypes.first() or product.categories.first()
         primary_image = next(iter(product.images.all()), None)
@@ -140,6 +155,8 @@ class CatalogView(TemplateView):
         is_purchased = product.id in purchased_ids
         primary_category = selected_category or product.categories.first()
         active_file = _get_active_product_file(product) if is_purchased else None
+        summary = (rating_summaries or {}).get(product.id)
+        has_rating = summary is not None and summary.count > 0
         return {
             "id": product.id,
             "title": product.title,
@@ -150,7 +167,9 @@ class CatalogView(TemplateView):
             "kind": primary_kind.title if primary_kind else "",
             "category": self._format_category_label(primary_category),
             "content": product.content,
-            "rating": f"{product.average_rating:.1f}".replace(".", ","),
+            "rating": f"{summary.average:.1f}".replace(".", ",") if has_rating else "",
+            "reviews_count": summary.count if summary else 0,
+            "has_rating": has_rating,
             "is_favorited": product.id in favorite_ids,
             "is_in_cart": product.id in cart_ids and not is_purchased,
             "is_purchased": is_purchased,
@@ -267,6 +286,7 @@ class CatalogView(TemplateView):
         return queryset.distinct()
 
     def _apply_sort(self, queryset, sort_value):
+        sort_value = (sort_value or "").strip() or self.default_sort
         sort_map = {
             "price_asc": ("price", "title"),
             "price_desc": ("-price", "title"),
@@ -274,16 +294,43 @@ class CatalogView(TemplateView):
             "newest": ("-created_at", "title"),
             "oldest": ("created_at", "title"),
         }
-        return queryset.order_by(*sort_map.get(sort_value, sort_map["title"]))
+        return queryset.order_by(*sort_map.get(sort_value, sort_map[self.default_sort]))
 
     def _filter_option_queryset(self, model, field_name, queryset, **filters):
-        return (
+        qs = (
             model.objects.filter(**filters)
             .filter(**{f"{field_name}__in": queryset})
             .annotate(product_count=Count(field_name, distinct=True))
-            .order_by("title" if hasattr(model, "title") else "value")
             .distinct()
         )
+        if model is AgeGroupTag:
+            order_case = Case(
+                *[When(value=value, then=index) for index, value in enumerate(AGE_GROUP_ORDER)],
+                default=len(AGE_GROUP_ORDER),
+                output_field=IntegerField(),
+            )
+            return qs.order_by(order_case, "value")
+        return qs.order_by("title" if hasattr(model, "title") else "value")
+
+    def _age_filter_options(self, scope_queryset, selected_ages):
+        options = list(self._filter_option_queryset(AgeGroupTag, "products", scope_queryset))
+        existing_ids = {option.pk for option in options}
+        missing_ids = []
+        for raw in selected_ages:
+            try:
+                age_id = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if age_id > 0 and age_id not in existing_ids:
+                missing_ids.append(age_id)
+                existing_ids.add(age_id)
+        if missing_ids:
+            for tag in AgeGroupTag.objects.filter(pk__in=missing_ids):
+                tag.product_count = 0
+                options.append(tag)
+        order_index = {value: index for index, value in enumerate(AGE_GROUP_ORDER)}
+        options.sort(key=lambda option: (order_index.get(option.value, len(AGE_GROUP_ORDER)), option.value))
+        return options
 
     def _build_catalog_filters_context(
         self,
@@ -295,7 +342,7 @@ class CatalogView(TemplateView):
         selected_themes,
     ):
         subtype_options = self._filter_option_queryset(SubType, "products", category_queryset)
-        age_options = self._filter_option_queryset(AgeGroupTag, "products", category_queryset)
+        age_options = self._age_filter_options(category_queryset, selected_ages)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", category_queryset)
         theme_options = self._filter_option_queryset(Theme, "products", category_queryset)
 
@@ -394,6 +441,10 @@ class CatalogView(TemplateView):
         mobile_paginator = Paginator(sorted_queryset, 8)
         mobile_page_obj = mobile_paginator.get_page(page_number)
 
+        rating_summaries = get_product_rating_summaries(
+            self._page_product_ids(desktop_page_obj, mobile_page_obj),
+        )
+
         catalog_products = [
             self._build_product_card(
                 product,
@@ -401,6 +452,7 @@ class CatalogView(TemplateView):
                 cart_product_ids=cart_product_ids,
                 purchased_product_ids=purchased_product_ids,
                 favorite_product_ids=favorite_product_ids,
+                rating_summaries=rating_summaries,
             )
             for product in desktop_page_obj.object_list
         ]
@@ -411,6 +463,7 @@ class CatalogView(TemplateView):
                 cart_product_ids=cart_product_ids,
                 purchased_product_ids=purchased_product_ids,
                 favorite_product_ids=favorite_product_ids,
+                rating_summaries=rating_summaries,
             )
             for product in mobile_page_obj.object_list
         ]
@@ -434,7 +487,7 @@ class CatalogView(TemplateView):
             "catalog_mobile_pagination_items": self._build_mobile_pagination(mobile_page_obj),
             "catalog_sort_value": sort_value,
             "catalog_sort_options": [
-                {"value": value, "label": label, "selected": value == sort_value}
+                {"value": value, "label": label, "selected": value == (sort_value or self.default_sort)}
                 for value, label in self.sort_options
             ],
             "catalog_selected_filters": {
@@ -585,6 +638,7 @@ class AlphabetNavigatorView(CatalogView):
     template_name = "pages/alphabet_navigator.html"
     htmx_results_template_name = "pages/alphabet_navigator/desktop/results_panel.html"
     htmx_mobile_template_name = "pages/alphabet_navigator/mobile/product_listing.html"
+    default_sort = "title"
     alphabet_letters = (
         "А", "Б", "В", "Г", "Д", "Е", "Ж", "З", "И", "К", "Л", "М", "Н",
         "О", "П", "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Э", "Ю", "Я",
@@ -646,7 +700,7 @@ class AlphabetNavigatorView(CatalogView):
         selected_themes,
     ):
         subtype_options = self._filter_option_queryset(SubType, "products", queryset)
-        age_options = self._filter_option_queryset(AgeGroupTag, "products", queryset)
+        age_options = self._age_filter_options(queryset, selected_ages)
         area_options = self._filter_option_queryset(DevelopmentAreaTag, "products", queryset)
         theme_options = self._filter_option_queryset(Theme, "products", queryset)
 
@@ -724,6 +778,10 @@ class AlphabetNavigatorView(CatalogView):
         mobile_paginator = Paginator(sorted_queryset, 8)
         mobile_page_obj = mobile_paginator.get_page(page_number)
 
+        rating_summaries = get_product_rating_summaries(
+            self._page_product_ids(desktop_page_obj, mobile_page_obj),
+        )
+
         return {
             "alphabet_letters": self._build_alphabet_letters_context(selected_letter),
             "alphabet_desktop_letter_rows": self._build_alphabet_desktop_letter_rows_context(selected_letter),
@@ -735,6 +793,7 @@ class AlphabetNavigatorView(CatalogView):
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
                     favorite_product_ids=favorite_product_ids,
+                    rating_summaries=rating_summaries,
                 )
                 for product in desktop_page_obj.object_list
             ],
@@ -746,6 +805,7 @@ class AlphabetNavigatorView(CatalogView):
                     cart_product_ids=cart_product_ids,
                     purchased_product_ids=purchased_product_ids,
                     favorite_product_ids=favorite_product_ids,
+                    rating_summaries=rating_summaries,
                 )
                 for product in mobile_page_obj.object_list
             ],
@@ -754,7 +814,7 @@ class AlphabetNavigatorView(CatalogView):
             "alphabet_mobile_pagination_items": self._build_mobile_pagination(mobile_page_obj),
             "alphabet_sort_value": sort_value,
             "alphabet_sort_options": [
-                {"value": value, "label": label, "selected": value == sort_value}
+                {"value": value, "label": label, "selected": value == (sort_value or self.default_sort)}
                 for value, label in self.sort_options
             ],
             "alphabet_filters": alphabet_filters,
@@ -867,7 +927,7 @@ class ProductDetailView(DetailView):
         ctx["review_rating_initial"] = int(form_initial.get("rating", 5) or 5)
         return ctx
 
-    def get_context_data(self, **kwargs):  # noqa: PLR0914
+    def get_context_data(self, **kwargs):  # noqa: PLR0914, PLR0915
         context = super().get_context_data(**kwargs)
         if self.request.headers.get("HX-Request") != "true":
             inc_product_page_view(user_type=_metrics_user_type(self.request.user))
@@ -921,7 +981,13 @@ class ProductDetailView(DetailView):
             else None
         )
         context["product_reviews_count"] = len(reviews)
-        context["product_average_rating"] = product.average_rating
+        if reviews:
+            average_rating = product.average_rating
+            context["product_average_rating"] = average_rating
+            context["product_average_rating_display"] = f"{average_rating:.1f}".replace(".", ",")
+        else:
+            context["product_average_rating"] = 0
+            context["product_average_rating_display"] = ""
         context["product_description_html"] = product.description_as_html()
         context["product_content_html"] = product.content_as_html()
         context["product_analytics_item"] = {

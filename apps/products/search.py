@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 MIN_QUERY_LEN = 2
 TRIGRAM_THRESHOLD = 0.22
+DEFAULT_CATALOG_SORT = "newest"
 
 
 def normalize_catalog_search_q(raw: str | None) -> str:
@@ -56,7 +57,7 @@ def order_catalog_queryset(
     sort_value = (sort_value or "").strip()
     if search_active and order_by_similarity and not sort_value:
         return queryset.order_by("-_search_sim", "title")
-    return _apply_sort_map(queryset, sort_value or "title")
+    return _apply_sort_map(queryset, sort_value or DEFAULT_CATALOG_SORT)
 
 
 def _apply_sort_map(queryset: QuerySet, sort_value: str) -> QuerySet:
@@ -64,10 +65,10 @@ def _apply_sort_map(queryset: QuerySet, sort_value: str) -> QuerySet:
         "price_asc": ("price", "title"),
         "price_desc": ("-price", "title"),
         "title": ("title",),
-        "newest": ("-created_at", "title"),
-        "oldest": ("created_at", "title"),
+        "newest": ("-created_at", "-id"),
+        "oldest": ("created_at", "id"),
     }
-    return queryset.order_by(*sort_map.get(sort_value, sort_map["title"]))
+    return queryset.order_by(*sort_map.get(sort_value, sort_map[DEFAULT_CATALOG_SORT]))
 
 
 def suggest_product_hits(q: str, *, limit: int = 10) -> list[dict[str, str]]:
