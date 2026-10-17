@@ -11,14 +11,33 @@ function initProductGallery(root) {
     return;
   }
 
-  const imageSources = dotButtons.length
-    ? dotButtons.map((button) => button.dataset.galleryImageUrl).filter(Boolean)
+  const pairSources = dotButtons.length
+    ? dotButtons.map((button) => ({
+        full: button.dataset.galleryImageUrl,
+        thumb: button.dataset.galleryThumbUrl || button.dataset.galleryImageUrl,
+      }))
     : [
-        mainImage.currentSrc || mainImage.src,
-        ...thumbButtons.map((button) => button.dataset.galleryImageUrl).filter(Boolean),
-      ];
+        {
+          full: mainImage.currentSrc || mainImage.src,
+          thumb: mainImage.currentSrc || mainImage.src,
+        },
+        ...thumbButtons.map((button) => ({
+          full: button.dataset.galleryImageUrl,
+          thumb: button.dataset.galleryThumbUrl || button.dataset.galleryImageUrl,
+        })),
+      ].filter((entry) => entry.full);
 
-  const images = Array.from(new Set(imageSources));
+  const seen = new Set();
+  const images = [];
+  const thumbSources = [];
+  for (const entry of pairSources) {
+    if (seen.has(entry.full)) {
+      continue;
+    }
+    seen.add(entry.full);
+    images.push(entry.full);
+    thumbSources.push(entry.thumb || entry.full);
+  }
 
   if (!images.length) {
     return;
@@ -47,7 +66,14 @@ function initProductGallery(root) {
       button.dataset.galleryImageUrl = images[imageIndex];
 
       if (thumbImage) {
-        thumbImage.src = images[imageIndex];
+        thumbImage.src = thumbSources[imageIndex] || images[imageIndex];
+        const thumbButton = button;
+        const srcset = thumbButton.dataset.galleryThumbSrcset;
+        if (srcset) {
+          thumbImage.srcset = srcset;
+        } else {
+          thumbImage.removeAttribute("srcset");
+        }
       }
     });
 

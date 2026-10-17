@@ -25,9 +25,13 @@
     <div class="col-start-3 w-[100px] shrink-0 overflow-hidden rounded-[3px]">
       <a href="{{ item.product_url }}" class="block" aria-label="{{ item.title }}">
         <img
-          src="{{ item.image_url }}"
+          src="{{ item.image_thumb_url }}"
+          {% if item.image_srcset %}srcset="{{ item.image_srcset }}" sizes="100px"{% endif %}
+          {% if item.image_width %}width="{{ item.image_width }}" height="{{ item.image_height }}"{% endif %}
           alt=""
           class="h-[100px] w-full object-contain"
+          loading="lazy"
+          decoding="async"
           draggable="false"
         >
       </a>

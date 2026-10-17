@@ -32,6 +32,7 @@ from apps.products.alerts import (
 )
 
 from .forms import ProductReviewForm
+from .listing_images import build_listing_image_fields
 from .models import (
     AGE_GROUP_ORDER,
     AgeGroupTag,
@@ -184,7 +185,7 @@ class CatalogView(TemplateView):
                 if is_purchased
                 else None
             ),
-            "image_url": primary_image.image.url if primary_image else static("images/example-product-image-1.png"),
+            **build_listing_image_fields(primary_image),
         }
 
     def _format_price_value(self, value):
@@ -939,7 +940,18 @@ class ProductDetailView(DetailView):
         )
         context["product_is_staff_preview"] = is_staff_preview
         active_tab = _get_active_product_tab(self.request)
-        images = [image.image.url for image in product.images.all()]
+        product_images = list(product.images.all())
+        images = [image.image.url for image in product_images]
+        context["product_gallery_images"] = [
+            {
+                "url": image.image.url,
+                "thumb_url": image.thumb_url(400) or image.image.url,
+                "srcset": image.listing_srcset,
+                "width": image.width,
+                "height": image.height,
+            }
+            for image in product_images
+        ]
         reviews = getattr(product, "published_reviews_list", [])
         primary_kind = product.subtypes.first() or product.categories.first()
         cart_product_ids = set(get_cart_product_ids(self.request))

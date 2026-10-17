@@ -1,0 +1,12 @@
+<img
+  src="{{ product.image_thumb_url }}"
+  {% if product.image_srcset %}srcset="{{ product.image_srcset }}" sizes="{{ image_sizes }}"{% endif %}
+  {% if product.image_width %}width="{{ product.image_width }}" height="{{ product.image_height }}"{% endif %}
+  alt="{{ product.title }}"
+  class="{{ image_class }}"
+  loading="{{ image_loading|default:'lazy' }}"
+  {% if image_fetchpriority %}fetchpriority="{{ image_fetchpriority }}"{% endif %}
+  decoding="async"
+  {% if data_product_image %}data-product-image{% endif %}
+  draggable="false"
+>

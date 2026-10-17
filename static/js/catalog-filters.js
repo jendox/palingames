@@ -433,7 +433,38 @@ function updateCatalogMobileViewButtons(root, view) {
   });
 }
 
-function fillCatalogMobileProduct(node, product) {
+const CATALOG_MOBILE_IMAGE_SIZES = {
+  grid: "170px",
+  list: "64px",
+};
+
+function applyListingProductImage(image, product, { sizes, index }) {
+  if (!(image instanceof HTMLImageElement)) {
+    return;
+  }
+  const eager = index < 2;
+  image.decoding = "async";
+  image.loading = eager ? "eager" : "lazy";
+  if (index === 0 && eager) {
+    image.setAttribute("fetchpriority", "high");
+  } else {
+    image.removeAttribute("fetchpriority");
+  }
+  image.sizes = sizes;
+  if (product.image_srcset) {
+    image.srcset = product.image_srcset;
+  } else {
+    image.removeAttribute("srcset");
+  }
+  image.src = product.image_thumb_url || product.image_url || "";
+  image.alt = product.title || "";
+  if (product.image_width) {
+    image.width = product.image_width;
+    image.height = product.image_height;
+  }
+}
+
+function fillCatalogMobileProduct(node, product, { index = 0, view = "grid" } = {}) {
   node.dataset.analyticsItemId = String(product.id || "");
   node.dataset.analyticsItemName = product.title || "";
   node.dataset.analyticsItemCategory = product.category || "";
@@ -448,10 +479,10 @@ function fillCatalogMobileProduct(node, product) {
   });
 
   const image = node.querySelector("[data-product-image]");
-  if (image instanceof HTMLImageElement) {
-    image.src = product.image_url || "";
-    image.alt = product.title || "";
-  }
+  applyListingProductImage(image, product, {
+    sizes: CATALOG_MOBILE_IMAGE_SIZES[view] || CATALOG_MOBILE_IMAGE_SIZES.grid,
+    index,
+  });
 
   const title = node.querySelector("[data-product-title]");
   if (title instanceof HTMLElement) {
@@ -564,11 +595,11 @@ function initCatalogMobileListing(root = document) {
       }
 
       const template = state.view === "grid" ? gridTemplate : listTemplate;
-      for (const product of state.products) {
+      state.products.forEach((product, index) => {
         const node = template.content.firstElementChild.cloneNode(true);
-        fillCatalogMobileProduct(node, product);
+        fillCatalogMobileProduct(node, product, { index, view: state.view });
         listWrap.appendChild(node);
-      }
+      });
 
       initCatalogProductCards(listWrap);
     };

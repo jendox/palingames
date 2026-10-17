@@ -15,6 +15,10 @@
           alt="{{ product.title }}"
           class="w-full rounded-[14px] object-contain shadow-[0_18px_36px_rgba(0,0,0,0.08)]"
           draggable="false"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          {% if product_gallery_images.0.width %}width="{{ product_gallery_images.0.width }}" height="{{ product_gallery_images.0.height }}"{% endif %}
           data-gallery-main-image
         >
 
