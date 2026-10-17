@@ -32,7 +32,6 @@ from apps.products.alerts import (
 )
 
 from .forms import ProductReviewForm
-from .listing_images import build_listing_image_fields
 from .models import (
     AGE_GROUP_ORDER,
     AgeGroupTag,
@@ -55,6 +54,7 @@ from .search import (
     order_catalog_queryset,
     suggest_product_hits,
 )
+from .services.product_cards import build_product_card, format_category_label, get_active_product_file
 from .services.reviews import get_product_rating_summaries, get_review_panel_context, submit_or_resubmit_review
 from .services.s3 import ProductFileDownloadUrlError, generate_presigned_download_url
 
@@ -69,8 +69,7 @@ def _metrics_user_type(user) -> str:
     return "authenticated" if getattr(user, "is_authenticated", False) else "guest"
 
 
-def _get_active_product_file(product):
-    return next((item for item in product.files.all() if item.is_active), None)
+_get_active_product_file = get_active_product_file
 
 
 class CatalogView(TemplateView):
@@ -110,23 +109,7 @@ class CatalogView(TemplateView):
         )
 
     def _format_category_label(self, category):
-        if category is None:
-            return ""
-
-        replacements = (
-            ("ческие игры", "ческая игра"),
-            ("тивные игры", "тивная игра"),
-            ("ные игры", "ная игра"),
-            ("ые игры", "ая игра"),
-            ("ие игры", "ая игра"),
-            ("ги", "га"),
-        )
-
-        title = category.title
-        for source, target in replacements:
-            if title.endswith(source):
-                return title[: -len(source)] + target
-        return title
+        return format_category_label(category)
 
     @staticmethod
     def _page_product_ids(*page_objects):
@@ -148,45 +131,14 @@ class CatalogView(TemplateView):
         favorite_product_ids=None,
         rating_summaries=None,
     ):
-        primary_kind = product.subtypes.first() or product.categories.first()
-        primary_image = next(iter(product.images.all()), None)
-        cart_ids = cart_product_ids or set()
-        purchased_ids = purchased_product_ids or set()
-        favorite_ids = favorite_product_ids or set()
-        is_purchased = product.id in purchased_ids
-        primary_category = selected_category or product.categories.first()
-        active_file = _get_active_product_file(product) if is_purchased else None
-        summary = (rating_summaries or {}).get(product.id)
-        has_rating = summary is not None and summary.count > 0
-        return {
-            "id": product.id,
-            "title": product.title,
-            "url": product.get_absolute_url(),
-            "price": format_price(product.price, product.currency),
-            "price_value": float(product.price),
-            "currency": get_currency_code(product.currency),
-            "kind": primary_kind.title if primary_kind else "",
-            "category": self._format_category_label(primary_category),
-            "content": product.content,
-            "rating": f"{summary.average:.1f}".replace(".", ",") if has_rating else "",
-            "reviews_count": summary.count if summary else 0,
-            "has_rating": has_rating,
-            "is_favorited": product.id in favorite_ids,
-            "is_in_cart": product.id in cart_ids and not is_purchased,
-            "is_purchased": is_purchased,
-            "download_url": reverse("product-download", kwargs={"product_id": product.id}) if is_purchased else "",
-            "download_analytics": (
-                build_product_file_download_analytics_payload(
-                    product=product,
-                    product_file=active_file,
-                    primary_category=primary_category,
-                    primary_kind=primary_kind,
-                )
-                if is_purchased
-                else None
-            ),
-            **build_listing_image_fields(primary_image),
-        }
+        return build_product_card(
+            product,
+            selected_category=selected_category,
+            cart_product_ids=cart_product_ids,
+            purchased_product_ids=purchased_product_ids,
+            favorite_product_ids=favorite_product_ids,
+            rating_summaries=rating_summaries,
+        )
 
     def _format_price_value(self, value):
         if value is None:

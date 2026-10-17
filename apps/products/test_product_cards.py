@@ -13,6 +13,7 @@ from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
 from apps.favorites.models import Favorite
 from apps.products.models import Category, Product, ProductFile, ProductImage, Review, ReviewStatus, SubType
+from apps.products.services.product_cards import build_product_card, format_category_label
 from apps.products.services.reviews import get_product_rating_summaries
 from apps.products.views import AlphabetNavigatorView, CatalogView
 
@@ -367,6 +368,31 @@ class CatalogCardRegressionTests(ProductCardFixtureMixin, TestCase):
                     view._build_product_card(product, selected_category=self.category, **kwargs),
                     self.expected_card(product, category_label="Дидактическая игра"),
                 )
+
+    def test_build_product_card_matches_catalog_snapshot(self):
+        view = self._view_for_user()
+        kwargs = self._card_kwargs()
+        for product in self._loaded_products().values():
+            for selected_category in (None, self.category):
+                with self.subTest(product=product.title, selected_category=selected_category):
+                    card = build_product_card(product, selected_category=selected_category, **kwargs)
+                    self.assertEqual(card, self.expected_card(product, category_label="Дидактическая игра"))
+                    self.assertEqual(
+                        card,
+                        view._build_product_card(product, selected_category=selected_category, **kwargs),
+                    )
+                    self.assertEqual(
+                        list(card),
+                        list(view._build_product_card(product, selected_category=selected_category, **kwargs)),
+                    )
+
+    def test_format_category_label_matches_view_wrapper(self):
+        view = CatalogView()
+        for title in ("Дидактические игры", "Развивающие игры", "Книги", "Раскраски"):
+            category = Category(title=title)
+            with self.subTest(title=title):
+                self.assertEqual(format_category_label(category), view._format_category_label(category))
+        self.assertEqual(format_category_label(None), "")
 
     def test_card_dict_key_order_is_stable(self):
         view = self._view_for_user()
