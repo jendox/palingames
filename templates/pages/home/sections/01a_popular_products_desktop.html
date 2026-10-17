@@ -1,0 +1,15 @@
+{% load i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto w-full max-w-[1440px] px-4 py-[100px]">
+    <div class="mx-auto grid max-w-[1356px] grid-cols-[1fr_auto_1fr] items-baseline gap-x-[24px]">
+      <h2 class="col-start-2 text-center text-[40px] font-bold uppercase leading-[32px] text-[var(--color-black)]">{% trans "Популярные материалы" %}</h2>
+      <a href="{% url 'catalog' %}" class="col-start-3 justify-self-end whitespace-nowrap text-[16px] font-bold uppercase leading-[14px] text-[var(--color-black)] underline underline-offset-[3px]">{% trans "Весь каталог" %}</a>
+    </div>
+    <div class="mx-auto mt-[70px] grid max-w-[1356px] grid-cols-2 justify-items-center gap-x-[24px] gap-y-[46px] min-[1280px]:grid-cols-3">
+      {% for product in home_popular_products %}
+        {% include "pages/catalog/desktop/product_card.html" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>

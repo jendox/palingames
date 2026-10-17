@@ -11,9 +11,11 @@ from django.utils import timezone
 
 from apps.access.models import UserProductAccess
 from apps.cart.models import Cart, CartItem
+from apps.cart.services import SESSION_CART_KEY
 from apps.favorites.models import Favorite
+from apps.favorites.services import SESSION_FAVORITES_KEY
 from apps.products.models import Category, Product, ProductFile, ProductImage, Review, ReviewStatus, SubType
-from apps.products.services.product_cards import build_product_card, format_category_label
+from apps.products.services.product_cards import build_product_card, build_product_cards, format_category_label
 from apps.products.services.reviews import get_product_rating_summaries
 from apps.products.views import AlphabetNavigatorView, CatalogView
 
@@ -464,3 +466,58 @@ class CatalogCardRegressionTests(ProductCardFixtureMixin, TestCase):
 
     def test_alphabet_navigator_view_uses_catalog_card_builder(self):
         self.assertIs(AlphabetNavigatorView._build_product_card, CatalogView._build_product_card)
+
+
+class BuildProductCardsTests(ProductCardFixtureMixin, TestCase):
+    def _request(self, user=None, session=None):
+        from django.contrib.auth.models import AnonymousUser
+
+        request = RequestFactory().get("/")
+        request.user = user or AnonymousUser()
+        request.session = session or {}
+        return request
+
+    def _products(self):
+        return list(
+            CatalogView()._base_products_queryset()
+            .filter(pk__in=[self.azbuka.pk, self.arbuz.pk, self.aist.pk])
+            .order_by("title"),
+        )
+
+    def test_build_product_cards_collects_user_state(self):
+        products = self._products()
+
+        cards = build_product_cards(self._request(self.user), products)
+
+        self.assertEqual(
+            cards,
+            [self.expected_card(product, category_label="Дидактическая игра") for product in products],
+        )
+
+    def test_purchased_product_in_cart_is_not_marked_in_cart(self):
+        cards = {card["id"]: card for card in build_product_cards(self._request(self.user), self._products())}
+
+        self.assertTrue(cards[self.azbuka.pk]["is_purchased"])
+        self.assertFalse(cards[self.azbuka.pk]["is_in_cart"])
+        self.assertTrue(cards[self.arbuz.pk]["is_in_cart"])
+
+    def test_other_user_and_guest_get_own_state(self):
+        other = get_user_model().objects.create_user(email="cards-b@example.com", password="test-pass-123")
+        guest_session = {SESSION_FAVORITES_KEY: [], SESSION_CART_KEY: [self.aist.pk]}
+
+        for label, request in (
+            ("other_user", self._request(other)),
+            ("guest", self._request(session=guest_session)),
+        ):
+            with self.subTest(viewer=label):
+                cards = {card["id"]: card for card in build_product_cards(request, self._products())}
+                for card in cards.values():
+                    self.assertFalse(card["is_purchased"])
+                    self.assertFalse(card["is_favorited"])
+                    self.assertEqual(card["download_url"], "")
+                self.assertEqual(cards[self.aist.pk]["is_in_cart"], label == "guest")
+                self.assertFalse(cards[self.azbuka.pk]["is_in_cart"])
+
+    def test_empty_products_return_empty_list_without_queries(self):
+        with self.assertNumQueries(0):
+            self.assertEqual(build_product_cards(self._request(self.user), []), [])

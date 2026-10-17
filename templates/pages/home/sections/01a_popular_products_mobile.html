@@ -1,0 +1,17 @@
+{% load i18n %}
+
+<section class="relative overflow-hidden bg-[var(--color-white)]">
+  <div class="mx-auto max-w-[420px] px-4 py-[50px]">
+    <h2 class="text-center text-[24px] font-bold uppercase leading-[24px] text-[var(--color-black)]">
+      {% trans "Популярные материалы" %}
+    </h2>
+    <div class="mt-[12px] flex justify-center">
+      <a href="{% url 'catalog' %}" class="text-[14px] font-bold uppercase leading-none text-[var(--color-black)] underline underline-offset-[3px]">{% trans "Весь каталог" %}</a>
+    </div>
+    <div class="mt-[30px] grid grid-cols-1 justify-items-center justify-center gap-x-[16px] gap-y-[16px] min-[388px]:grid-cols-[repeat(2,170px)]">
+      {% for product in home_popular_products %}
+        {% include "pages/catalog/mobile/_product_card.html" with image_loading="lazy" %}
+      {% endfor %}
+    </div>
+  </div>
+</section>
