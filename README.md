@@ -183,6 +183,7 @@ Additional documentation:
 - [`docs/runbooks.md`](docs/runbooks.md) — operational runbooks
 - [`docs/metrics.md`](docs/metrics.md) — metrics plan
 - [`docs/monitoring-local.md`](docs/monitoring-local.md) — local monitoring setup
+- [`docs/archived-branches.md`](docs/archived-branches.md) — archived Git branches (not merged into `main`)
 
 ## Project focus
 
