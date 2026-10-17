@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from apps.cart.services import SESSION_CART_KEY
@@ -16,20 +16,36 @@ from apps.favorites.services import SESSION_FAVORITES_KEY
 from apps.orders.models import Order
 from apps.orders.services import _prepare_order_items
 from apps.products.models import Category, Product, ProductImage
-from apps.products.tests import create_published_product
+from apps.products.tests import create_published_product, mock_product_image_s3_client
 
 
-@override_settings(S3_PRODUCT_IMAGES_ENABLED=False)
+def _start_product_image_s3_mocks(cls) -> None:
+    cls._enqueue_patcher = patch("apps.products.jobs.enqueue_product_image_thumbnails")
+    cls._enqueue_patcher.start()
+    cls._storage_s3_patcher = patch("apps.products.storage.get_s3_client")
+    cls._cleanup_s3_patcher = patch("apps.products.services.product_image_cleanup.get_s3_client")
+    mock_storage = cls._storage_s3_patcher.start()
+    mock_cleanup = cls._cleanup_s3_patcher.start()
+    client = mock_product_image_s3_client()
+    mock_storage.return_value = client
+    mock_cleanup.return_value = client
+
+
+def _stop_product_image_s3_mocks(cls) -> None:
+    cls._cleanup_s3_patcher.stop()
+    cls._storage_s3_patcher.stop()
+    cls._enqueue_patcher.stop()
+
+
 class ProductImageOrderingIntegrationTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._enqueue_patcher = patch("apps.products.jobs.enqueue_product_image_thumbnails")
-        cls._enqueue_patcher.start()
+        _start_product_image_s3_mocks(cls)
 
     @classmethod
     def tearDownClass(cls):
-        cls._enqueue_patcher.stop()
+        _stop_product_image_s3_mocks(cls)
         super().tearDownClass()
 
     @classmethod
@@ -129,17 +145,15 @@ class ProductImageOrderingIntegrationTests(TestCase):
         self.assertEqual(items[0].product_image_snapshot, self._primary_url())
 
 
-@override_settings(S3_PRODUCT_IMAGES_ENABLED=False)
 class ProductImageOrderFieldPrecedenceTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls._enqueue_patcher = patch("apps.products.jobs.enqueue_product_image_thumbnails")
-        cls._enqueue_patcher.start()
+        _start_product_image_s3_mocks(cls)
 
     @classmethod
     def tearDownClass(cls):
-        cls._enqueue_patcher.stop()
+        _stop_product_image_s3_mocks(cls)
         super().tearDownClass()
 
     def test_lower_order_wins_over_smaller_id(self):
