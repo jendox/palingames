@@ -256,7 +256,7 @@ def get_favorites_page_context(request) -> dict:  # noqa: PLR0914
             "categories",
             "subtypes",
             "files",
-            Prefetch("images", queryset=ProductImage.objects.order_by("order")),
+            Prefetch("images", queryset=ProductImage.objects.order_by("order", "id")),
         )
         .in_bulk(product_ids)
     )
@@ -390,7 +390,7 @@ def get_account_favorites_context(request) -> dict:
             "product__categories",
             "product__subtypes",
             "product__files",
-            Prefetch("product__images", queryset=ProductImage.objects.order_by("order")),
+            Prefetch("product__images", queryset=ProductImage.objects.order_by("order", "id")),
         )
     )
     base_qs = _apply_favorite_sort(base_qs, sort_value)

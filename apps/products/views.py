@@ -106,7 +106,7 @@ class CatalogView(TemplateView):
             "development_areas",
             "themes",
             "files",
-            Prefetch("images", queryset=ProductImage.objects.order_by("order")),
+            Prefetch("images", queryset=ProductImage.objects.order_by("order", "id")),
         )
 
     def _format_category_label(self, category):
@@ -868,7 +868,7 @@ def _product_detail_prefetch_queryset():
         "subtypes",
         "age_groups",
         "files",
-        Prefetch("images", queryset=ProductImage.objects.order_by("order")),
+        Prefetch("images", queryset=ProductImage.objects.order_by("order", "id")),
         Prefetch(
             "reviews",
             queryset=Review.objects.filter(status=ReviewStatus.PUBLISHED).select_related("user"),

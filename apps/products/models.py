@@ -190,7 +190,7 @@ class ProductImage(TimeStampedModel):
     thumbs_source_key = models.CharField(max_length=512, blank=True, default="")
 
     class Meta:
-        ordering = ["order"]
+        ordering = ["order", "id"]
         verbose_name = _("Изображение")
         verbose_name_plural = _("Изображения")
 
