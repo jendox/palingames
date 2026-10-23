@@ -1,7 +1,8 @@
 /* Airfool */
 @font-face {
   font-family: "Airfool";
-  src: url("/static/fonts/airfool.ttf") format("truetype");
+  src: url("/static/fonts/airfool-be.woff2") format("woff2"),
+       url("/static/fonts/airfool-be.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

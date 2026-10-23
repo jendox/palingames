@@ -10,6 +10,7 @@ exclude = [
     "env",
     "migrations",
     "alembic",
+    "scripts/fonts",
 ]
 
 line-length = 120
