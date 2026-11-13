@@ -56,7 +56,7 @@ def grant_user_product_accesses(order: Order) -> None:
 
 
 def grant_guest_product_accesses(order: Order) -> list[dict]:
-    if order.user_id or order.checkout_type != Order.CheckoutType.GUEST:
+    if order.checkout_type != Order.CheckoutType.GUEST:
         return []
 
     guest_access_payloads: list[dict] = []

@@ -174,6 +174,23 @@ class CheckPaidOrderDeliveryTests(OrderDeliveryWatchdogTestBase):
 
         self.assertEqual(problems, [])
 
+    @override_settings(**ENCRYPTION_TEST_SETTINGS)
+    def test_healthy_guest_order_with_linked_user_has_no_problems(self):
+        order = self._create_order(
+            checkout_type=Order.CheckoutType.GUEST,
+            user=self.user,
+            email=self.user.email,
+        )
+        self._add_order_item(order, self.product)
+        self._create_invoice(order)
+        self._create_guest_access(order, self.product)
+        self._create_guest_download_outbox(order)
+        UserProductAccess.objects.create(user=self.user, product=self.product, order=order)
+
+        problems = check_paid_order_delivery(order)
+
+        self.assertEqual(problems, [])
+
     def test_guest_missing_access_reports_problem(self):
         order = self._create_order(checkout_type=Order.CheckoutType.GUEST)
         self._add_order_item(order, self.product)
