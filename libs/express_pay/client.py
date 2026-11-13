@@ -34,6 +34,7 @@ from .models import (
     ExpressPayWebhookNotification,
     ExpressPayWebhookRequest,
 )
+from .redaction import mask_secret_query
 
 
 class ExpressPayClient(PaymentProvider):
@@ -200,8 +201,22 @@ class ExpressPayClient(PaymentProvider):
         else:
             request_kwargs["data"] = params
 
-        response = self._client.request(method, path, **request_kwargs)
-        response.raise_for_status()
+        try:
+            response = self._client.request(method, path, **request_kwargs)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise httpx.HTTPStatusError(
+                mask_secret_query(str(exc)),
+                request=exc.request,
+                response=exc.response,
+            ) from None
+        except httpx.TransportError as exc:
+            masked = mask_secret_query(str(exc))
+            request = getattr(exc, "request", None)
+            exc_type = type(exc)
+            if request is not None:
+                raise exc_type(masked, request=request) from None
+            raise exc_type(masked) from None
         parsed = response.json()
         if "Error" in parsed:
             error = ExpressPayErrorEnvelope.model_validate(parsed).error

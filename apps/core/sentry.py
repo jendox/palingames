@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from libs.express_pay.redaction import mask_secret_query
+
 from .logging import get_logging_context, redact_value
 
 logger = logging.getLogger("apps.observability.sentry")
@@ -29,6 +31,60 @@ def _sentry_available() -> bool:
     return sentry_sdk is not None and DjangoIntegration is not None and CeleryIntegration is not None
 
 
+def _mask_sentry_exception_values(exception: dict[str, Any]) -> None:
+    for entry in exception.get("values", []):
+        value = entry.get("value")
+        if isinstance(value, str):
+            entry["value"] = mask_secret_query(value)
+
+
+def _mask_sentry_event_message(event: dict[str, Any]) -> None:
+    message = event.get("message")
+    if isinstance(message, str):
+        event["message"] = mask_secret_query(message)
+        return
+    if isinstance(message, dict):
+        formatted = message.get("formatted")
+        if isinstance(formatted, str):
+            message["formatted"] = mask_secret_query(formatted)
+
+
+def _mask_sentry_event(event: dict[str, Any]) -> dict[str, Any]:
+    exception = event.get("exception")
+    if isinstance(exception, dict):
+        _mask_sentry_exception_values(exception)
+    _mask_sentry_event_message(event)
+    logentry = event.get("logentry")
+    if isinstance(logentry, dict):
+        log_message = logentry.get("message")
+        if isinstance(log_message, str):
+            logentry["message"] = mask_secret_query(log_message)
+    return event
+
+
+def _mask_sentry_breadcrumb(crumb: dict[str, Any]) -> dict[str, Any]:
+    data = crumb.get("data")
+    if isinstance(data, dict):
+        for key in ("url", "http.query"):
+            value = data.get(key)
+            if isinstance(value, str):
+                data[key] = mask_secret_query(value)
+
+    message = crumb.get("message")
+    if isinstance(message, str):
+        crumb["message"] = mask_secret_query(message)
+
+    return crumb
+
+
+def _before_send(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+    return _mask_sentry_event(event)
+
+
+def _before_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+    return _mask_sentry_breadcrumb(crumb)
+
+
 def init_sentry(
     *,
     dsn: str,
@@ -49,6 +105,8 @@ def init_sentry(
         release=release,
         traces_sample_rate=traces_sample_rate,
         send_default_pii=False,
+        before_send=_before_send,
+        before_breadcrumb=_before_breadcrumb,
         integrations=[
             DjangoIntegration(),
             CeleryIntegration(),

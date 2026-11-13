@@ -18,4 +18,5 @@ class PalingamesDiscoverRunner(DiscoverRunner):
                 if app.name.startswith("apps.")
             ]
             test_labels.append("tests.test_express_pay_client")
+            test_labels.append("tests.test_express_pay_redaction")
         return super().build_suite(test_labels, **kwargs)

@@ -34,7 +34,12 @@ from apps.core.logging import (
 )
 from apps.core.periodic_tasks import DEFAULT_PERIODIC_TASKS, ensure_default_periodic_tasks
 from apps.core.rate_limits import RateLimitScope, check_rate_limit, get_client_ip
-from apps.core.sentry import configure_sentry_scope, init_sentry
+from apps.core.sentry import (
+    _before_breadcrumb,
+    _before_send,
+    configure_sentry_scope,
+    init_sentry,
+)
 from apps.core.seo import normalize_seo_description
 from apps.core.tasks import clear_expired_sessions_task
 from apps.orders.models import Order, OrderItem
@@ -222,6 +227,43 @@ class SentryIntegrationTests(TestCase):
         self.assertEqual(tags["task_id"], "task-1")
         self.assertEqual(contexts["logging_context"]["order_id"], 42)
         self.assertEqual(contexts["logging_context"]["email"], "***")
+
+    def test_before_send_masks_token_in_exception_value(self):
+        secret = "sentry-exposed-token"
+        event = {
+            "exception": {
+                "values": [
+                    {
+                        "type": "HTTPStatusError",
+                        "value": f"401 Unauthorized for url 'https://api.express-pay.by/v1/invoices?token={secret}'",
+                    },
+                ],
+            },
+            "logentry": {"message": f"failed request token={secret}"},
+        }
+
+        masked = _before_send(event, {})
+
+        self.assertNotIn(secret, masked["exception"]["values"][0]["value"])
+        self.assertIn("token=***", masked["exception"]["values"][0]["value"])
+        self.assertNotIn(secret, masked["logentry"]["message"])
+
+    def test_before_breadcrumb_masks_token_in_url_and_message(self):
+        secret = "breadcrumb-token"
+        crumb = {
+            "message": f"GET https://api.express-pay.by/v1/invoices?token={secret}",
+            "data": {
+                "url": f"https://api.express-pay.by/v1/invoices?token={secret}",
+                "http.query": f"token={secret}&foo=1",
+            },
+        }
+
+        masked = _before_breadcrumb(crumb, {})
+
+        self.assertNotIn(secret, masked["message"])
+        self.assertNotIn(secret, masked["data"]["url"])
+        self.assertNotIn(secret, masked["data"]["http.query"])
+        self.assertIn("token=***", masked["data"]["url"])
 
 
 class CoreTasksTests(TestCase):

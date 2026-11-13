@@ -39,6 +39,7 @@ TEST_INVOICE_NO_MAX = 99_999_999
 INVOICE_STATUS_SYNC_DEFAULT_BATCH_SIZE = 50
 INVOICE_STATUS_SYNC_DEFAULT_MIN_INTERVAL_SECONDS = 300
 INVOICE_CREATION_MAX_RETRIES = 5
+INVOICE_CREATION_UNAUTHORIZED_MAX_RETRIES = 2
 PAYMENT_TARGET_ORDER = "order"
 PAYMENT_TARGET_CUSTOM_GAME_REQUEST = "custom_game_request"
 
@@ -67,13 +68,28 @@ def _is_retryable_invoice_creation_error(exc: BaseException) -> bool:
     if isinstance(exc, httpx.TransportError):
         return True
     if isinstance(exc, httpx.HTTPStatusError):
+        status_code = exc.response.status_code
         return (
-            exc.response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR
-            or exc.response.status_code == httpx.codes.TOO_MANY_REQUESTS
+            status_code == httpx.codes.UNAUTHORIZED
+            or status_code >= httpx.codes.INTERNAL_SERVER_ERROR
+            or status_code == httpx.codes.TOO_MANY_REQUESTS
         )
     if isinstance(exc, ExpressPayAPIError):
         return False
     return False
+
+
+def _should_retry_invoice_creation(
+    exc: BaseException,
+    *,
+    retry_count: int,
+    max_retries: int,
+) -> bool:
+    if not _is_retryable_invoice_creation_error(exc):
+        return False
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == httpx.codes.UNAUTHORIZED:
+        return retry_count < INVOICE_CREATION_UNAUTHORIZED_MAX_RETRIES
+    return retry_count < max_retries
 
 
 class InvoiceCreationSkipped(Exception):
@@ -408,7 +424,11 @@ def create_invoice_task(self: Task, target_id: int, payment_target: str = PAYMEN
         )
         return
     except Exception as exc:
-        if _is_retryable_invoice_creation_error(exc) and self.request.retries < self.max_retries:
+        if _should_retry_invoice_creation(
+            exc,
+            retry_count=self.request.retries,
+            max_retries=self.max_retries,
+        ):
             log_event(
                 logger,
                 logging.INFO,

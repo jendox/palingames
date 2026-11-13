@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from libs.express_pay.client import ExpressPayClient
 from libs.express_pay.models import MINSK_TZ, ExpressPayConfig, ExpressPayPaymentsResponse, ExpressPayWebhookRequest
-from libs.payments.models import CreateInvoiceRequest, WebhookSignatureVerification
+from libs.payments.models import CreateInvoiceRequest, InvoiceStatusRequest, WebhookSignatureVerification
 
 
 class ExpressPayClientTests(unittest.TestCase):
@@ -224,6 +224,58 @@ class ExpressPayClientTests(unittest.TestCase):
         self.assertEqual(payments[0].payment_no, 2)
         self.assertEqual(payments[0].created_at, datetime(2026, 7, 13, 12, 0, tzinfo=MINSK_TZ))
         self.assertEqual(payments[0].document_date, datetime(2026, 7, 13, tzinfo=MINSK_TZ))
+
+
+class ExpressPayClientErrorMaskingTests(unittest.TestCase):
+    SECRET_TOKEN = "super-express-pay-token-value"
+
+    def _build_client(self, handler) -> ExpressPayClient:
+        http_client = httpx.Client(
+            transport=httpx.MockTransport(handler),
+            base_url="https://api.express-pay.by/v1",
+        )
+        return ExpressPayClient(
+            ExpressPayConfig(
+                token=self.SECRET_TOKEN,
+                secret_word="secret",
+                use_signature=False,
+                is_test=False,
+            ),
+            client=http_client,
+        )
+
+    def test_http_status_error_masks_token_in_message(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, request=request)
+
+        client = self._build_client(handler)
+        with self.assertRaises(httpx.HTTPStatusError) as ctx:
+            client.create_invoice(
+                CreateInvoiceRequest(
+                    account_no="PG250326ABCDEFGH",
+                    amount=Decimal("10.00"),
+                    currency=933,
+                    info="test payment",
+                ),
+            )
+
+        exc = ctx.exception
+        self.assertEqual(exc.response.status_code, 401)
+        self.assertNotIn(self.SECRET_TOKEN, str(exc))
+        self.assertIn("token=***", str(exc))
+        self.assertIsNone(exc.__cause__)
+        self.assertTrue(exc.__suppress_context__)
+
+    def test_connect_error_masks_token_in_message(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError(f"Connection failed for {request.url}")
+
+        client = self._build_client(handler)
+        with self.assertRaises(httpx.ConnectError) as ctx:
+            client.get_invoice_status(InvoiceStatusRequest(invoice_no=12345678))
+
+        self.assertNotIn(self.SECRET_TOKEN, str(ctx.exception))
+        self.assertIn("token=***", str(ctx.exception))
 
 
 if __name__ == "__main__":
