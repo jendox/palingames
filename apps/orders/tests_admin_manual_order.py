@@ -1,14 +1,19 @@
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.core.models import OrderSource
+from apps.orders.admin import OrderAdmin
 from apps.orders.models import Order, OrderItem
 from apps.orders.services import recalculate_manual_order_from_items
+from apps.orders.watchdog import WATCHDOG_GRACE_PERIOD
 from apps.payments.models import Invoice
 from apps.products.models import Category, Product
 from apps.promocodes.models import PromoCode
@@ -169,6 +174,41 @@ class OrderAdminCreateInvoiceViewTests(TestCase):
         )
         cls.product = Product.objects.create(title="IG item", slug="ig-item", price=Decimal("15.00"))
 
+    def _create_site_order(
+        self,
+        *,
+        status=Order.OrderStatus.CREATED,
+        total=Decimal("15.00"),
+        items_count=1,
+        created_age: timedelta | None = None,
+    ) -> Order:
+        order = Order.objects.create(
+            email="buyer@example.com",
+            source=OrderSource.PALINGAMES,
+            checkout_type=Order.CheckoutType.GUEST,
+            status=status,
+            subtotal_amount=total,
+            total_amount=total,
+            items_count=items_count,
+        )
+        if items_count > 0:
+            OrderItem.objects.create(
+                order=order,
+                product=self.product,
+                title_snapshot=self.product.title,
+                category_snapshot="",
+                unit_price_amount=self.product.price,
+                quantity=1,
+                line_total_amount=self.product.price,
+            )
+        if created_age is not None:
+            Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - created_age)
+            order.refresh_from_db()
+        return order
+
+    def _site_order_ready_age(self) -> timedelta:
+        return WATCHDOG_GRACE_PERIOD + timedelta(minutes=1)
+
     def test_create_invoice_enqueues_task(self):
         order = Order.objects.create(
             email="buyer@example.com",
@@ -197,30 +237,87 @@ class OrderAdminCreateInvoiceViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_create_invoice_forbidden_for_site_source(self):
-        order = Order.objects.create(
-            email="buyer@example.com",
-            source=OrderSource.PALINGAMES,
-            checkout_type=Order.CheckoutType.GUEST,
-            status=Order.OrderStatus.CREATED,
-            subtotal_amount=Decimal("15.00"),
-            total_amount=Decimal("15.00"),
-            items_count=1,
-        )
-        OrderItem.objects.create(
+        order = self._create_site_order()
+
+        self.assertFalse(OrderAdmin._can_create_invoice_from_admin(order))
+
+        self.client.force_login(self.staff)
+        with patch("apps.orders.admin.enqueue_invoice_creation") as enqueue:
+            response = self.client.get(reverse("admin:orders_order_create_invoice", args=[order.pk]), follow=True)
+
+        enqueue.assert_not_called()
+        messages = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("недоступно" in m.lower() for m in messages))
+
+    def test_create_invoice_allowed_for_aged_site_order_without_invoice(self):
+        order = self._create_site_order(created_age=self._site_order_ready_age())
+
+        self.assertTrue(OrderAdmin._can_create_invoice_from_admin(order))
+
+        self.client.force_login(self.staff)
+        with patch("apps.orders.admin.enqueue_invoice_creation") as enqueue:
+            response = self.client.get(reverse("admin:orders_order_create_invoice", args=[order.pk]))
+
+        enqueue.assert_called_once_with(order.id, payment_target="order")
+        self.assertEqual(response.status_code, 302)
+        change = self.client.get(reverse("admin:orders_order_change", args=[order.pk]))
+        self.assertContains(change, "Создать инвойс")
+
+    def test_create_invoice_blocked_for_site_order_with_pending_invoice(self):
+        order = self._create_site_order(created_age=self._site_order_ready_age())
+        Invoice.objects.create(
             order=order,
-            product=self.product,
-            title_snapshot=self.product.title,
-            category_snapshot="",
-            unit_price_amount=self.product.price,
-            quantity=1,
-            line_total_amount=self.product.price,
+            provider_invoice_no="87654321",
+            status=Invoice.InvoiceStatus.PENDING,
+            amount=order.total_amount,
+            currency=order.currency,
         )
+
+        self.assertFalse(OrderAdmin._can_create_invoice_from_admin(order))
 
         self.client.force_login(self.staff)
         with patch("apps.orders.admin.enqueue_invoice_creation") as enqueue:
             self.client.get(reverse("admin:orders_order_create_invoice", args=[order.pk]))
 
         enqueue.assert_not_called()
+
+    def test_create_invoice_allowed_for_site_order_with_expired_invoice(self):
+        order = self._create_site_order(created_age=self._site_order_ready_age())
+        Invoice.objects.create(
+            order=order,
+            provider_invoice_no="87654322",
+            status=Invoice.InvoiceStatus.EXPIRED,
+            amount=order.total_amount,
+            currency=order.currency,
+        )
+
+        self.assertTrue(OrderAdmin._can_create_invoice_from_admin(order))
+
+    def test_create_invoice_blocked_for_site_order_with_paid_invoice(self):
+        order = self._create_site_order(created_age=self._site_order_ready_age())
+        Invoice.objects.create(
+            order=order,
+            provider_invoice_no="87654323",
+            status=Invoice.InvoiceStatus.PAID,
+            amount=order.total_amount,
+            currency=order.currency,
+            paid_at=timezone.now(),
+        )
+
+        self.assertFalse(OrderAdmin._can_create_invoice_from_admin(order))
+
+    def test_create_invoice_blocked_for_site_order_waiting_for_payment(self):
+        order = self._create_site_order(
+            status=Order.OrderStatus.WAITING_FOR_PAYMENT,
+            created_age=self._site_order_ready_age(),
+        )
+
+        self.assertFalse(OrderAdmin._can_create_invoice_from_admin(order))
+
+    def test_create_invoice_blocked_for_site_order_zero_total_and_no_items(self):
+        order = self._create_site_order(total=Decimal("0.00"), items_count=0, created_age=self._site_order_ready_age())
+
+        self.assertFalse(OrderAdmin._can_create_invoice_from_admin(order))
 
     def test_create_invoice_blocked_when_pending_invoice_exists(self):
         order = Order.objects.create(

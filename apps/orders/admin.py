@@ -5,6 +5,7 @@ from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
@@ -17,6 +18,7 @@ from apps.payments.models import Invoice
 
 from .models import Order, OrderItem
 from .services import recalculate_manual_order_from_items
+from .watchdog import WATCHDOG_GRACE_PERIOD
 
 _OFFSITE_ORDER_SOURCES = frozenset({OrderSource.TELEGRAM, OrderSource.INSTAGRAM})
 
@@ -212,26 +214,26 @@ class OrderAdmin(admin.ModelAdmin):
         if not obj.pk:
             return _("Сохраните заказ перед созданием инвойса.")
 
-        if self._can_create_offsite_invoice(obj):
+        if self._can_create_invoice_from_admin(obj):
             url = reverse("admin:orders_order_create_invoice", args=[obj.pk])
             return format_html('<a class="button" href="{}">{}</a>', url, _("Создать инвойс"))
 
         return "—"
 
     @staticmethod
-    def _can_create_offsite_invoice(obj: Order) -> bool:
-        if obj.source not in _OFFSITE_ORDER_SOURCES:
-            return False
+    def _can_create_invoice_from_admin(obj: Order) -> bool:
         if obj.status != Order.OrderStatus.CREATED:
             return False
         if obj.total_amount <= Decimal("0.00"):
             return False
         if not obj.items.exists():
             return False
-        return not Invoice.objects.filter(
-            order=obj,
-            status=Invoice.InvoiceStatus.PENDING,
-        ).exists()
+        invoice = Invoice.objects.filter(order=obj).first()
+        if invoice and invoice.status in {Invoice.InvoiceStatus.PENDING, Invoice.InvoiceStatus.PAID}:
+            return False
+        if obj.source in _OFFSITE_ORDER_SOURCES:
+            return True
+        return obj.created_at <= timezone.now() - WATCHDOG_GRACE_PERIOD
 
     def create_invoice_view(self, request, object_id: int):
         order = self.get_object(request, object_id)
@@ -241,7 +243,7 @@ class OrderAdmin(admin.ModelAdmin):
         if not self.has_change_permission(request, order):
             raise PermissionDenied
 
-        if not self._can_create_offsite_invoice(order):
+        if not self._can_create_invoice_from_admin(order):
             self.message_user(
                 request,
                 _("Создание инвойса недоступно для этого заказа."),
