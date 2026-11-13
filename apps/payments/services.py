@@ -119,6 +119,8 @@ def mark_order_paid(
             if guest_access_email_outbox:
                 guest_access_payloads = [{}] * order.items_count
                 enqueue_notification_outbox(guest_access_email_outbox)
+            if order.user_id:
+                grant_user_product_accesses(order)
         log_event(
             logger,
             logging.INFO,

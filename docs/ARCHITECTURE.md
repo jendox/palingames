@@ -219,7 +219,7 @@ Celery Beat: sync_waiting_invoice_statuses_task (каждые ~5 мин)
 | checkout_type | Действие |
 |---------------|----------|
 | `AUTHENTICATED` | `grant_user_product_accesses(order)` — `UserProductAccess` |
-| `GUEST` | `create_guest_access_notification_for_order(order)` — `GuestAccess` + email outbox |
+| `GUEST` | `create_guest_access_notification_for_order(order)` — `GuestAccess` + email outbox (только `checkout_type`, не `user_id`); при привязанном `user` дополнительно `grant_user_product_accesses` |
 
 Дополнительно (один раз на первый переход в PAID):
 
