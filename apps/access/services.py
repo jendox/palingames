@@ -10,6 +10,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.logging import log_event
+from apps.notifications.services import enqueue_notification_outbox
 from apps.orders.models import Order
 
 from .email_outbox import create_guest_access_email_outbox
@@ -17,6 +18,10 @@ from .models import GuestAccess, UserProductAccess
 
 GUEST_ACCESS_TOKEN_BYTES = 32
 logger = logging.getLogger("apps.access")
+
+
+class GuestAccessGrantError(ValueError):
+    """The order cannot receive guest access through the admin grant flow."""
 
 
 def hash_guest_access_token(token: str) -> str:
@@ -105,6 +110,33 @@ def create_guest_access_notification_for_order(order: Order):
 
 def create_guest_access_email_outbox_for_order(order: Order):
     return create_guest_access_notification_for_order(order)
+
+
+def grant_guest_access_and_notify(order: Order, *, requested_by=None):
+    if order.status != Order.OrderStatus.PAID:
+        raise GuestAccessGrantError("Заказ должен быть в статусе «Оплачен».")
+    if order.checkout_type != Order.CheckoutType.GUEST:
+        raise GuestAccessGrantError("Доступ можно выдать только для гостевого оформления.")
+    if not order.items.exists():
+        raise GuestAccessGrantError("У заказа нет позиций.")
+    if not (order.email or "").strip():
+        raise GuestAccessGrantError("У заказа не указан email.")
+
+    outbox = create_guest_access_notification_for_order(order)
+    if outbox is None:
+        return None
+
+    enqueue_notification_outbox(outbox)
+    log_event(
+        logger,
+        logging.INFO,
+        "guest_access.admin_granted",
+        order_id=order.id,
+        order_public_id=str(order.public_id),
+        admin_user_id=getattr(requested_by, "pk", None),
+        outbox_id=outbox.id,
+    )
+    return outbox
 
 
 def create_guest_access(

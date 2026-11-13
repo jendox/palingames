@@ -4,11 +4,13 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
+from apps.access.services import GuestAccessGrantError, grant_guest_access_and_notify
 from apps.core.admin_site import admin_site
 from apps.core.models import OrderSource
 from apps.orders.forms import OrderAdminForm
@@ -202,6 +204,11 @@ class OrderAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.create_invoice_view),
                 name="orders_order_create_invoice",
             ),
+            path(
+                "<int:object_id>/grant-guest-access/",
+                self.admin_site.admin_view(self.grant_guest_access_view),
+                name="orders_order_grant_guest_access",
+            ),
         ]
         return custom_urls + super().get_urls()
 
@@ -214,10 +221,21 @@ class OrderAdmin(admin.ModelAdmin):
         if not obj.pk:
             return _("Сохраните заказ перед созданием инвойса.")
 
+        actions = []
         if self._can_create_invoice_from_admin(obj):
             url = reverse("admin:orders_order_create_invoice", args=[obj.pk])
-            return format_html('<a class="button" href="{}">{}</a>', url, _("Создать инвойс"))
-
+            actions.append(format_html('<a class="button" href="{}">{}</a>', url, _("Создать инвойс")))
+        if self._can_grant_guest_access_from_admin(obj):
+            url = reverse("admin:orders_order_grant_guest_access", args=[obj.pk])
+            actions.append(
+                format_html(
+                    '<a class="button" href="{}">{}</a>',
+                    url,
+                    _("Выдать гостевой доступ и отправить письмо"),
+                ),
+            )
+        if actions:
+            return format_html_join(" ", "{}", ((action,) for action in actions))
         return "—"
 
     @staticmethod
@@ -234,6 +252,16 @@ class OrderAdmin(admin.ModelAdmin):
         if obj.source in _OFFSITE_ORDER_SOURCES:
             return True
         return obj.created_at <= timezone.now() - WATCHDOG_GRACE_PERIOD
+
+    @staticmethod
+    def _can_grant_guest_access_from_admin(obj: Order) -> bool:
+        if obj.status != Order.OrderStatus.PAID:
+            return False
+        if obj.checkout_type != Order.CheckoutType.GUEST:
+            return False
+        if not obj.items.exists():
+            return False
+        return bool((obj.email or "").strip())
 
     def create_invoice_view(self, request, object_id: int):
         order = self.get_object(request, object_id)
@@ -254,6 +282,64 @@ class OrderAdmin(admin.ModelAdmin):
             self.message_user(request, _("Создание инвойса поставлено в очередь."), messages.SUCCESS)
 
         return HttpResponseRedirect(reverse("admin:orders_order_change", args=[order.pk]))
+
+    def _order_admin_change_url(self, order: Order | None) -> str:
+        if order is None:
+            return reverse("admin:orders_order_changelist")
+        return reverse("admin:orders_order_change", args=[order.pk])
+
+    def _redirect_grant_guest_access_error(self, request, redirect_url: str, message: str):
+        self.message_user(request, message, messages.ERROR)
+        return HttpResponseRedirect(redirect_url)
+
+    def _grant_guest_access_confirm_context(self, request, order: Order, *, cancel_url: str) -> dict:
+        return {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "order": order,
+            "items": order.items.select_related("product").all(),
+            "title": _("Выдать гостевой доступ и отправить письмо"),
+            "cancel_url": cancel_url,
+        }
+
+    def grant_guest_access_view(self, request, object_id: int):
+        order = self.get_object(request, object_id)
+        change_url = self._order_admin_change_url(order)
+        if order is None:
+            return self._redirect_grant_guest_access_error(request, change_url, _("Заказ не найден."))
+        if not self.has_change_permission(request, order):
+            raise PermissionDenied
+
+        unavailable_message = _("Выдача гостевого доступа недоступна для этого заказа.")
+        if not self._can_grant_guest_access_from_admin(order):
+            return self._redirect_grant_guest_access_error(request, change_url, unavailable_message)
+
+        if request.method == "GET":
+            context = self._grant_guest_access_confirm_context(request, order, cancel_url=change_url)
+            return TemplateResponse(
+                request,
+                "admin/orders/order/grant_guest_access_confirm.html",
+                context,
+            )
+
+        try:
+            outbox = grant_guest_access_and_notify(order, requested_by=request.user)
+        except GuestAccessGrantError as exc:
+            return self._redirect_grant_guest_access_error(request, change_url, str(exc))
+
+        if outbox is None:
+            return self._redirect_grant_guest_access_error(
+                request,
+                change_url,
+                _("Не удалось выдать доступ: проверьте позиции заказа."),
+            )
+
+        self.message_user(
+            request,
+            _("Гостевой доступ выдан, письмо поставлено в очередь."),
+            messages.SUCCESS,
+        )
+        return HttpResponseRedirect(change_url)
 
     def save_model(self, request, obj, form, change):
         if not change:

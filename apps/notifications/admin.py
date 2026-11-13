@@ -5,7 +5,6 @@ from apps.core.admin_site import admin_site
 from apps.orders.models import Order
 
 from .models import NotificationOutbox
-from .services import enqueue_notification_outbox
 from .tasks import send_notification_outbox_task
 from .types import NotificationType
 
@@ -87,7 +86,7 @@ class NotificationOutboxAdmin(admin.ModelAdmin):
 
     @admin.action(description="Повторно отправить письма с новыми ссылками")
     def resend_guest_download_emails(self, request, queryset):
-        from apps.access.services import create_guest_access_notification_for_order
+        from apps.access.services import grant_guest_access_and_notify
 
         queued = 0
         skipped = 0
@@ -103,11 +102,10 @@ class NotificationOutboxAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
 
-            new_outbox = create_guest_access_notification_for_order(order)
+            new_outbox = grant_guest_access_and_notify(order, requested_by=request.user)
             if new_outbox is None:
                 skipped += 1
                 continue
-            enqueue_notification_outbox(new_outbox)
             queued += 1
 
         self._message_action_result(request, queued=queued, skipped=skipped)
