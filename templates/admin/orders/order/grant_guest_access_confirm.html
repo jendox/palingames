@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url 'admin:orders_order_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; <a href="{% url 'admin:orders_order_change' order.pk %}">{{ order }}</a>
+    &rsaquo; {% translate "Выдать гостевой доступ и отправить письмо" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{% translate "Выдать гостевой доступ и отправить письмо" %}</h1>
+
+<p><strong>{% translate "Заказ" %}:</strong> №{{ order.id }} ({{ order.public_id }})</p>
+<p><strong>{% translate "Email клиента" %}:</strong> {{ order.email }}</p>
+
+<h2>{% translate "Позиции" %}</h2>
+<ul>
+    {% for item in items %}
+        <li>{{ item.title_snapshot }} × {{ item.quantity }} — {{ item.line_total_amount }}</li>
+    {% endfor %}
+</ul>
+
+<p>
+    <strong>{% translate "Внимание" %}:</strong>
+    {% translate "Если доступ уже выдан, прежние ссылки перестанут работать, счётчик скачиваний сбросится, клиент получит новое письмо." %}
+</p>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="submit-row">
+        <input type="submit" value="{% translate 'Выдать и отправить' %}" class="default">
+        <a href="{{ cancel_url }}" class="button cancel-link">{% translate "Отмена" %}</a>
+    </div>
+</form>
+{% endblock %}
