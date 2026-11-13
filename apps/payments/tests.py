@@ -35,6 +35,7 @@ from apps.payments.reports import build_npd_monthly_report
 from apps.payments.services import map_invoice_status, mark_custom_game_request_paid
 from apps.payments.tasks import (
     _is_retryable_invoice_creation_error,
+    _should_retry_invoice_creation,
     create_invoice_task,
     send_invoice_payment_reminders_task,
     send_previous_month_payments_report_task,
@@ -91,6 +92,27 @@ class InvoiceCreationRetryTests(TestCase):
         bad_request = httpx.HTTPStatusError("bad request", request=request, response=response)
         self.assertFalse(_is_retryable_invoice_creation_error(bad_request))
         self.assertFalse(_is_retryable_invoice_creation_error(ExpressPayAPIError(100, "invalid request")))
+
+    def test_is_retryable_for_unauthorized(self):
+        request = httpx.Request("POST", "https://api.express-pay.by/v1/invoices")
+        response = httpx.Response(401, request=request)
+        error = httpx.HTTPStatusError("unauthorized", request=request, response=response)
+        self.assertTrue(_is_retryable_invoice_creation_error(error))
+
+    def test_should_retry_unauthorized_only_twice(self):
+        request = httpx.Request("POST", "https://api.express-pay.by/v1/invoices")
+        response = httpx.Response(401, request=request)
+        error = httpx.HTTPStatusError("unauthorized", request=request, response=response)
+        self.assertTrue(_should_retry_invoice_creation(error, retry_count=0, max_retries=5))
+        self.assertTrue(_should_retry_invoice_creation(error, retry_count=1, max_retries=5))
+        self.assertFalse(_should_retry_invoice_creation(error, retry_count=2, max_retries=5))
+
+    def test_should_retry_server_errors_until_max_retries(self):
+        request = httpx.Request("POST", "https://api.express-pay.by/v1/invoices")
+        response = httpx.Response(503, request=request)
+        error = httpx.HTTPStatusError("upstream error", request=request, response=response)
+        self.assertTrue(_should_retry_invoice_creation(error, retry_count=4, max_retries=5))
+        self.assertFalse(_should_retry_invoice_creation(error, retry_count=5, max_retries=5))
 
     @patch("apps.payments.tasks.get_express_pay_request_client")
     def test_create_invoice_task_schedules_retry_on_connect_error(self, mock_get_client):
