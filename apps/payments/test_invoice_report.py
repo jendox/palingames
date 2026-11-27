@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
@@ -10,7 +11,7 @@ from django.test import TestCase, override_settings
 from apps.custom_games.models import CustomGameRequest
 from apps.notifications.models import NotificationOutbox
 from apps.notifications.services import decrypt_outbox_payload
-from apps.notifications.telegram_commands import process_telegram_command_stream
+from apps.notifications.telegram_commands import PENDING_MAX_AGE_SEC, process_telegram_command_stream
 from apps.notifications.types import NotificationType
 from apps.orders.models import Order
 from apps.payments.invoice_report import (
@@ -362,6 +363,16 @@ class NotifyTests(TestCase):
         self.assertFalse(NotificationOutbox.objects.exists())
 
 
+def fresh_id(age_sec: float = 0) -> str:
+    return f"{int((time.time() - age_sec) * 1000)}-0"
+
+
+def outbox_count() -> int:
+    return NotificationOutbox.objects.filter(
+        notification_type=NotificationType.PAYMENTS_INVOICE_PERIOD_REPORT_ADMIN,
+    ).count()
+
+
 @override_settings(**TELEGRAM_SETTINGS)
 class CommandStreamTests(TestCase):
     def _run(self, new_entries, pending_entries=()):
@@ -379,20 +390,21 @@ class CommandStreamTests(TestCase):
 
     def test_valid_command_is_processed_and_acked(self):
         fields = {"command": "invoice_report", "period": "last_month", "requested_by_id": "999"}
-        client, request_mock, result = self._run([("1-0", fields)])
+        stream_id = fresh_id()
+        client, request_mock, result = self._run([(stream_id, fields)])
 
-        request_mock.assert_called_once_with(ReportPeriod.LAST_MONTH)
-        client.xack.assert_called_once_with("telegram:commands", "django-telegram-commands", "1-0")
-        self.assertEqual(result, {"processed": 1, "failed": 0})
+        request_mock.assert_called_once_with(ReportPeriod.LAST_MONTH, correlation_id="")
+        client.xack.assert_called_once_with("telegram:commands", "django-telegram-commands", stream_id)
+        self.assertEqual(result, {"processed": 1, "failed": 0, "locked": 0})
 
     def test_unknown_command_is_acked_without_processing(self):
-        client, request_mock, _ = self._run([("1-0", {"command": "nope"})])
+        client, request_mock, _ = self._run([(fresh_id(), {"command": "nope"})])
 
         request_mock.assert_not_called()
         client.xack.assert_called_once()
 
     def test_invalid_period_is_acked(self):
-        client, request_mock, _ = self._run([("1-0", {"command": "invoice_report", "period": "year"})])
+        client, request_mock, _ = self._run([(fresh_id(), {"command": "invoice_report", "period": "year"})])
 
         request_mock.assert_not_called()
         client.xack.assert_called_once()
@@ -400,7 +412,7 @@ class CommandStreamTests(TestCase):
     def test_handler_failure_is_not_acked(self):
         fields = {"command": "invoice_report", "period": "today", "requested_by_id": "1"}
         client = MagicMock()
-        client.xreadgroup.side_effect = [[], [("telegram:commands", [("9999999999999-0", fields)])]]
+        client.xreadgroup.side_effect = [[], [("telegram:commands", [(fresh_id(), fields)])]]
         with (
             patch("apps.notifications.telegram_commands.get_telegram_redis_client", return_value=client),
             patch("apps.payments.invoice_report.request_invoice_period_report", side_effect=RuntimeError("boom")),
@@ -408,7 +420,7 @@ class CommandStreamTests(TestCase):
             result = process_telegram_command_stream()
 
         client.xack.assert_not_called()
-        self.assertEqual(result, {"processed": 0, "failed": 1})
+        self.assertEqual(result, {"processed": 0, "failed": 1, "locked": 0})
 
 
 @override_settings(**TELEGRAM_SETTINGS)
@@ -428,3 +440,104 @@ class OutboxHandlerTests(TestCase):
         self.assertEqual(kwargs["parse_mode"], "HTML")
         self.assertEqual(kwargs["correlation_id"], str(outbox.id))
         self.assertIn("Счетов за период нет.", kwargs["text"])
+
+
+@override_settings(**TELEGRAM_SETTINGS)
+class CommandStreamReliabilityTests(TestCase):
+    FIELDS = {
+        "command": "invoice_report",
+        "period": "today",
+        "requested_by_id": "999",
+        "correlation_id": "cb-1",
+    }
+
+    def _client(self, *, pending=(), new=()):
+        """Fake Redis client: pending entries are re-delivered on every run (never acknowledged)."""
+        client = MagicMock()
+        client.set.return_value = True
+
+        def xreadgroup(**kwargs):
+            start_id = next(iter(kwargs["streams"].values()))
+            entries = list(pending) if start_id == "0" else list(new)
+            return [("telegram:commands", entries)] if entries else []
+
+        client.xreadgroup.side_effect = xreadgroup
+        return client
+
+    def _run(self, client):
+        with patch("apps.notifications.telegram_commands.get_telegram_redis_client", return_value=client):
+            return process_telegram_command_stream()
+
+    def test_two_runs_with_unacked_entry_create_one_outbox(self):
+        entry = (fresh_id(), self.FIELDS)
+        client = self._client(pending=[entry])
+
+        self._run(client)
+        self._run(client)
+
+        self.assertEqual(outbox_count(), 1)
+        self.assertEqual(client.xack.call_count, 2)  # redelivery is acknowledged as well
+
+    def test_same_correlation_id_creates_no_second_outbox_but_is_acked(self):
+        self._run(self._client(new=[(fresh_id(), self.FIELDS)]))
+        client = self._client(new=[(fresh_id(), self.FIELDS)])
+
+        result = self._run(client)
+
+        self.assertEqual(outbox_count(), 1)
+        client.xack.assert_called_once()
+        self.assertEqual(result["processed"], 1)
+
+    def test_different_correlation_ids_create_separate_outboxes(self):
+        other = {**self.FIELDS, "correlation_id": "cb-2"}
+        self._run(self._client(new=[(fresh_id(), self.FIELDS), (fresh_id(), other)]))
+
+        self.assertEqual(outbox_count(), 2)
+
+    def test_busy_lock_skips_processing(self):
+        client = self._client(new=[(fresh_id(), self.FIELDS)])
+        client.set.return_value = None
+
+        result = self._run(client)
+
+        self.assertEqual(result, {"processed": 0, "failed": 0, "locked": 1})
+        client.xreadgroup.assert_not_called()
+        client.xack.assert_not_called()
+        client.eval.assert_not_called()
+        self.assertEqual(outbox_count(), 0)
+
+    def test_lock_is_acquired_with_ttl_and_released_with_own_token(self):
+        client = self._client()
+
+        self._run(client)
+
+        key, token = client.set.call_args.args[:2]
+        self.assertEqual(key, "telegram:commands:lock")
+        self.assertEqual(client.set.call_args.kwargs, {"nx": True, "ex": 60})
+        self.assertEqual(client.eval.call_args.args[1:], (1, "telegram:commands:lock", token))
+
+    def test_lock_is_released_when_processing_raises(self):
+        client = self._client()
+        client.xgroup_create.side_effect = RuntimeError("redis down")
+
+        with self.assertRaises(RuntimeError):
+            self._run(client)
+
+        client.eval.assert_called_once()
+
+    def test_stale_entry_is_acked_and_dropped_without_outbox(self):
+        client = self._client(new=[(fresh_id(age_sec=PENDING_MAX_AGE_SEC + 5), self.FIELDS)])
+
+        result = self._run(client)
+
+        self.assertEqual(outbox_count(), 0)
+        client.xack.assert_called_once()
+        self.assertEqual(result["processed"], 1)
+
+    def test_entry_just_below_threshold_is_processed(self):
+        client = self._client(new=[(fresh_id(age_sec=PENDING_MAX_AGE_SEC - 30), self.FIELDS)])
+
+        self._run(client)
+
+        self.assertEqual(outbox_count(), 1)
+        client.xack.assert_called_once()

@@ -260,14 +260,22 @@ def request_invoice_period_report(
     period: ReportPeriod | str,
     *,
     now: datetime | None = None,
+    correlation_id: str = "",
 ) -> bool:
     """Build the report and enqueue it to the Telegram notifications topic.
 
     Returns True when a notification was enqueued, False when it was skipped.
     """
-    from apps.payments.notifications import notify_payments_invoice_period_report_admin_telegram
+    from apps.payments.notifications import (
+        has_invoice_period_report_for_correlation_id,
+        notify_payments_invoice_period_report_admin_telegram,
+    )
 
     now = now or timezone.now()
+    period_value = ReportPeriod(period).value
+    # Cheap early exit for a redelivered stream entry: skip the aggregation too.
+    if has_invoice_period_report_for_correlation_id(period=period_value, correlation_id=correlation_id):
+        return False
     report = build_invoice_report(period, now=now)
     return notify_payments_invoice_period_report_admin_telegram(
         period=report.period.period.value,
@@ -275,4 +283,5 @@ def request_invoice_period_report(
         period_end=report.period.end,
         report_text=format_invoice_report_html(report, now=now),
         now=now,
+        correlation_id=correlation_id,
     )

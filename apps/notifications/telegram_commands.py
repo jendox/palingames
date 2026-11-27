@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 
 from django.conf import settings
 from redis.exceptions import ResponseError
@@ -14,6 +15,14 @@ from apps.notifications.telegram import get_telegram_redis_client
 logger = logging.getLogger("apps.notifications.telegram_commands")
 
 CONSUMER_NAME = "django-celery"
+LOCK_KEY = "telegram:commands:lock"
+LOCK_TTL_SEC = 60
+_RELEASE_LOCK_SCRIPT = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+end
+return 0
+"""
 COMMAND_INVOICE_REPORT = "invoice_report"
 # Pending (failed) entries are retried until they are older than this, then dropped.
 PENDING_MAX_AGE_SEC = 600
@@ -64,6 +73,18 @@ def _entry_age_sec(stream_id: str) -> float:
 
 def _handle_entry(*, stream_id: str, fields: dict[str, str]) -> bool:
     """Returns True when the entry may be acknowledged."""
+    if _entry_age_sec(stream_id) > PENDING_MAX_AGE_SEC:
+        log_event(
+            logger,
+            logging.WARNING,
+            "telegram.command.stale_dropped",
+            stream_id=stream_id,
+            command=fields.get("command", ""),
+            period=fields.get("period", ""),
+            requested_by_id=fields.get("requested_by_id", ""),
+        )
+        return True
+
     command = fields.get("command", "")
     period = fields.get("period", "")
     requested_by_id = fields.get("requested_by_id", "")
@@ -96,7 +117,7 @@ def _handle_entry(*, stream_id: str, fields: dict[str, str]) -> bool:
         return True
 
     try:
-        request_invoice_period_report(report_period)
+        request_invoice_period_report(report_period, correlation_id=correlation_id)
     except Exception:
         log_event(
             logger,
@@ -108,16 +129,7 @@ def _handle_entry(*, stream_id: str, fields: dict[str, str]) -> bool:
             requested_by_id=requested_by_id,
             correlation_id=correlation_id,
         )
-        if _entry_age_sec(stream_id) > PENDING_MAX_AGE_SEC:
-            log_event(
-                logger,
-                logging.ERROR,
-                "telegram.command.invoice_report.dropped",
-                stream_id=stream_id,
-                period=period,
-                requested_by_id=requested_by_id,
-            )
-            return True
+        # Not acknowledged: retried on the next run until the entry becomes stale.
         return False
 
     log_event(
@@ -132,7 +144,31 @@ def _handle_entry(*, stream_id: str, fields: dict[str, str]) -> bool:
     return True
 
 
+def _acquire_lock(token: str) -> bool:
+    return bool(get_telegram_redis_client().set(LOCK_KEY, token, nx=True, ex=LOCK_TTL_SEC))
+
+
+def _release_lock(token: str) -> None:
+    try:
+        get_telegram_redis_client().eval(_RELEASE_LOCK_SCRIPT, 1, LOCK_KEY, token)
+    except Exception:
+        log_event(logger, logging.WARNING, "telegram.command.lock_release_failed", exc_info=True)
+
+
 def process_telegram_command_stream(*, batch_size: int = 20) -> dict[str, int]:
+    token = uuid.uuid4().hex
+    if not _acquire_lock(token):
+        log_event(logger, logging.INFO, "telegram.command.lock_busy")
+        return {"processed": 0, "failed": 0, "locked": 1}
+
+    try:
+        result = _process_entries(batch_size=batch_size)
+    finally:
+        _release_lock(token)
+    return {**result, "locked": 0}
+
+
+def _process_entries(*, batch_size: int) -> dict[str, int]:
     ensure_telegram_command_consumer_group()
 
     processed = 0

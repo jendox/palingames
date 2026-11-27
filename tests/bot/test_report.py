@@ -121,12 +121,34 @@ class ReportBotTests(unittest.IsolatedAsyncioTestCase):
     async def test_callback_outside_forum_is_ignored(self) -> None:
         answer = await self._feed_callback(chat_id=-100555, chat_type="supergroup")
 
-        answer.assert_not_awaited()
+        answer.assert_awaited_once_with("Недоступно", show_alert=False)
         self.redis.set.assert_not_awaited()
         self.redis.xadd.assert_not_awaited()
 
-    async def test_unknown_period_is_ignored(self) -> None:
+    async def test_unknown_period_is_rejected_with_answer(self) -> None:
         answer = await self._feed_callback(chat_id=FORUM_ID, chat_type="supergroup", period="year")
 
-        answer.assert_not_awaited()
+        answer.assert_awaited_once_with("Недоступно", show_alert=False)
         self.redis.xadd.assert_not_awaited()
+
+    async def test_callback_without_message_is_rejected_with_answer(self) -> None:
+        callback = CallbackQuery(id="cb1", from_user=STAFF, chat_instance="x", data="inv_report:today")
+        answer = AsyncMock()
+        with patch.object(CallbackQuery, "answer", answer):
+            await self.dp.feed_update(self.bot, Update(update_id=3, callback_query=callback))
+
+        answer.assert_awaited_once_with("Недоступно", show_alert=False)
+        self.redis.xadd.assert_not_awaited()
+
+    async def test_xadd_failure_resets_rate_limit_and_next_request_passes(self) -> None:
+        self.redis.xadd.side_effect = [ConnectionError("redis down"), "1-0"]
+
+        first = await self._feed_callback(chat_id=FORUM_ID, chat_type="supergroup")
+
+        first.assert_awaited_once_with("Не удалось запросить отчёт, попробуйте ещё раз")
+        self.redis.delete.assert_awaited_once_with("telegram:invoice_report:999:today")
+
+        second = await self._feed_callback(chat_id=FORUM_ID, chat_type="supergroup")
+
+        second.assert_awaited_once_with("Отчёт отправляется в «Уведомления»")
+        self.assertEqual(self.redis.xadd.await_count, 2)

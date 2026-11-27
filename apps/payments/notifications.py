@@ -344,6 +344,21 @@ def notify_payments_monthly_report_admin_telegram(
     return result
 
 
+def _invoice_period_report_recipient(*, period: str, correlation_id: str) -> str:
+    return f"invoice_period_report:{period}:cid:{correlation_id}"
+
+
+def has_invoice_period_report_for_correlation_id(*, period: str, correlation_id: str) -> bool:
+    """True if a report outbox was already created for this request (recipient is stored unencrypted)."""
+    if not correlation_id:
+        return False
+    return NotificationOutbox.objects.filter(
+        notification_type=NotificationType.PAYMENTS_INVOICE_PERIOD_REPORT_ADMIN,
+        channel=NotificationOutbox.Channel.TELEGRAM,
+        recipient=_invoice_period_report_recipient(period=period, correlation_id=correlation_id),
+    ).exists()
+
+
 def notify_payments_invoice_period_report_admin_telegram(
     *,
     period: str,
@@ -351,8 +366,13 @@ def notify_payments_invoice_period_report_admin_telegram(
     period_end: datetime | None,
     report_text: str,
     now: datetime | None = None,
+    correlation_id: str = "",
 ) -> bool:
-    """Enqueue an on-demand invoice report. Intentionally has no "already sent" dedupe."""
+    """Enqueue an on-demand invoice report.
+
+    There is no "already sent for this period" dedupe; only a repeated bot request
+    (same non-empty ``correlation_id``) is idempotent.
+    """
     reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
     if reason is not None:
         log_event(
@@ -364,14 +384,30 @@ def notify_payments_invoice_period_report_admin_telegram(
         )
         return False
 
+    if has_invoice_period_report_for_correlation_id(period=period, correlation_id=correlation_id):
+        log_event(
+            logger,
+            logging.INFO,
+            "payments_invoice_period_report_admin_telegram.enqueue_skipped",
+            reason="already_enqueued_for_correlation_id",
+            period=period,
+            correlation_id=correlation_id,
+        )
+        return False
+
     now = now or timezone.now()
+    if correlation_id:
+        recipient = _invoice_period_report_recipient(period=period, correlation_id=correlation_id)
+    else:
+        recipient = f"invoice_period_report:{period}:{int(now.timestamp())}:{uuid.uuid4().hex[:8]}"
     try:
         enqueue_telegram_notification(
             notification_type=NotificationType.PAYMENTS_INVOICE_PERIOD_REPORT_ADMIN,
             destination=TelegramDestination.NOTIFICATIONS,
-            recipient=f"invoice_period_report:{period}:{int(now.timestamp())}:{uuid.uuid4().hex[:8]}",
+            recipient=recipient,
             payload={
                 "report_text": report_text,
+                "correlation_id": correlation_id,
                 "period": period,
                 "period_start": period_start.isoformat() if period_start else None,
                 "period_end": period_end.isoformat() if period_end else None,
