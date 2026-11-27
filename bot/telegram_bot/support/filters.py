@@ -25,3 +25,20 @@ class SupportStaffFilter(BaseFilter):
             return False
 
         return message.chat.id == int(settings.telegram_forum_chat_id)
+
+
+def is_service_forum_chat(chat_id: int, chat_type: str) -> bool:
+    settings = get_settings()
+    if not settings.telegram_forum_chat_id or chat_type not in {"supergroup", "group"}:
+        return False
+    try:
+        return chat_id == int(settings.telegram_forum_chat_id)
+    except ValueError:
+        return False
+
+
+class ServiceForumFilter(BaseFilter):
+    """Passes only for messages sent in the staff forum chat (any topic)."""
+
+    async def __call__(self, message: Message) -> bool:
+        return is_service_forum_chat(message.chat.id, message.chat.type)

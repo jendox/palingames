@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     telegram_outbound_ack_stream: str = "telegram:outbound:ack"
     telegram_outbound_failed_stream: str = "telegram:outbound:failed"
     telegram_consumer_group: str = "telegram-bot"
+    # bot -> Django command channel (consumed by Celery)
+    telegram_command_stream: str = "telegram:commands"
+    telegram_command_consumer_group: str = "django-telegram-commands"
 
     telegram_outbound_enabled: bool = False
     telegram_support_enabled: bool = False

@@ -9,6 +9,7 @@ from .services import (
     process_notification_outbox,
     reap_stuck_notification_outbox_processing,
 )
+from .telegram_commands import process_telegram_command_stream
 from .telegram_delivery import process_telegram_outbound_feedback, reap_stuck_telegram_outbox_deliveries
 
 logger = logging.getLogger("apps.notifications.tasks")
@@ -76,3 +77,8 @@ def reap_stuck_notification_outbox_processing_task(self: Task) -> int:
         task_id=self.request.id,
     )
     return reap_stuck_notification_outbox_processing()
+
+
+@shared_task(bind=True)
+def process_telegram_command_stream_task(self: Task) -> dict[str, int]:
+    return process_telegram_command_stream()

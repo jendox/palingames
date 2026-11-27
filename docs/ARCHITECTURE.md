@@ -324,6 +324,23 @@ Django/Celery → Redis Stream (TELEGRAM_OUTBOUND_STREAM)
   → ACK stream / failed stream + feedback consumer (Beat)
 ```
 
+### Ондеманд-отчёт по счетам (`/report`)
+
+Отдельно от ежемесячного НПД-отчёта (`send_previous_month_payments_report_task`, данные Express Pay API, 1-го числа в 12:00). Ондеманд-отчёт считается по **локальной БД** (`Invoice`), суммы по `created_at` (дата выставления, `Europe/Minsk`), только счета с `provider_invoice_no`.
+
+```text
+/report в служебном форуме (TELEGRAM_FORUM_CHAT_ID) → inline-кнопки периода
+  → telegram-bot: rate limit (Redis SET NX EX 10) → XADD в TELEGRAM_COMMAND_STREAM (`telegram:commands`)
+  → Celery beat (каждые 5 с) process_telegram_command_stream_task, group TELEGRAM_COMMAND_CONSUMER_GROUP
+  → apps/payments/invoice_report.py → NotificationOutbox (payments_invoice_period_report_admin)
+  → обычный путь outbound-стрима → тема notifications
+```
+
+- Бот — единственный источник команд; HTTP-эндпоинтов и ORM в контейнере бота нет.
+- Команда и callback принимаются только из чата `TELEGRAM_FORUM_CHAT_ID`; в личке и чужих чатах игнорируются.
+- Дедупа «уже отправляли» нет: каждый успешный запрос создаёт новое сообщение; частые нажатия гасит rate limit бота.
+- Необработанная (упавшая) команда не ACK-ается и повторяется; записи старше 10 минут отбрасываются.
+
 ---
 
 ## Хранение файлов

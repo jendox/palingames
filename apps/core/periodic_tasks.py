@@ -41,6 +41,13 @@ DEFAULT_PERIODIC_TASKS: tuple[PeriodicTaskSpec, ...] = (
         period=IntervalSchedule.MINUTES,
     ),
     PeriodicTaskSpec(
+        name="Process Telegram bot commands",
+        task="apps.notifications.tasks.process_telegram_command_stream_task",
+        schedule_kind="interval",
+        every=5,
+        period=IntervalSchedule.SECONDS,
+    ),
+    PeriodicTaskSpec(
         name="Reap stuck Telegram outbox deliveries",
         task="apps.notifications.tasks.reap_stuck_telegram_outbox_deliveries_task",
         schedule_kind="interval",
