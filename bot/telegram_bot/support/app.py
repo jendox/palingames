@@ -15,6 +15,7 @@ from bot.telegram_bot.config import Settings
 from bot.telegram_bot.logging_setup import log_event
 from bot.telegram_bot.outbound.consumer import run_outbound_consumer
 from bot.telegram_bot.support.handlers import router
+from bot.telegram_bot.support.report import router as report_router
 
 logger = logging.getLogger("telegram.support")
 
@@ -137,6 +138,8 @@ def _create_support_app(
     settings: Settings,
 ) -> None:
     dp = Dispatcher()
+    # Report router first: /report must not be swallowed by the support staff-reply handler.
+    dp.include_router(report_router)
     dp.include_router(router)
     dp["redis"] = redis
 

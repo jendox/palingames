@@ -232,6 +232,21 @@ def _send_payments_monthly_report_admin_telegram_notification(
     )
 
 
+def _send_payments_invoice_period_report_admin_telegram_notification(
+    *,
+    outbox: NotificationOutbox,
+    payload: NotificationPayload,
+) -> None:
+    destination = TelegramDestination(payload["destination"])
+    send_telegram_message(
+        destination=destination,
+        text=payload["report_text"],
+        source="outbox",
+        correlation_id=str(outbox.id),
+        parse_mode="HTML",
+    )
+
+
 def _send_invoice_payment_reminder_user_notification(
     *,
     outbox: NotificationOutbox,
@@ -270,6 +285,8 @@ NOTIFICATION_HANDLERS: dict[tuple[NotificationOutbox.Channel, NotificationType],
         _send_auth_account_email_notification,
     (NotificationOutbox.Channel.TELEGRAM, NotificationType.PAYMENTS_MONTHLY_REPORT_ADMIN):
         _send_payments_monthly_report_admin_telegram_notification,
+    (NotificationOutbox.Channel.TELEGRAM, NotificationType.PAYMENTS_INVOICE_PERIOD_REPORT_ADMIN):
+        _send_payments_invoice_period_report_admin_telegram_notification,
     (NotificationOutbox.Channel.EMAIL, NotificationType.INVOICE_PAYMENT_REMINDER_USER):
         _send_invoice_payment_reminder_user_notification,
 }

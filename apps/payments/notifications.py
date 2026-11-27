@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import date, datetime
 
 from django.contrib.contenttypes.models import ContentType
@@ -341,3 +342,56 @@ def notify_payments_monthly_report_admin_telegram(
     if failed:
         raise RuntimeError("payments monthly report enqueue incomplete")
     return result
+
+
+def notify_payments_invoice_period_report_admin_telegram(
+    *,
+    period: str,
+    period_start: datetime | None,
+    period_end: datetime | None,
+    report_text: str,
+    now: datetime | None = None,
+) -> bool:
+    """Enqueue an on-demand invoice report. Intentionally has no "already sent" dedupe."""
+    reason = get_telegram_destination_skip_reason(TelegramDestination.NOTIFICATIONS)
+    if reason is not None:
+        log_event(
+            logger,
+            logging.WARNING,
+            "payments_invoice_period_report_admin_telegram.enqueue_skipped",
+            reason=reason,
+            period=period,
+        )
+        return False
+
+    now = now or timezone.now()
+    try:
+        enqueue_telegram_notification(
+            notification_type=NotificationType.PAYMENTS_INVOICE_PERIOD_REPORT_ADMIN,
+            destination=TelegramDestination.NOTIFICATIONS,
+            recipient=f"invoice_period_report:{period}:{int(now.timestamp())}:{uuid.uuid4().hex[:8]}",
+            payload={
+                "report_text": report_text,
+                "period": period,
+                "period_start": period_start.isoformat() if period_start else None,
+                "period_end": period_end.isoformat() if period_end else None,
+            },
+            target=None,
+        )
+    except Exception:
+        log_event(
+            logger,
+            logging.ERROR,
+            "payments_invoice_period_report_admin_telegram.enqueue_failed",
+            exc_info=True,
+            period=period,
+        )
+        raise
+
+    log_event(
+        logger,
+        logging.INFO,
+        "payments_invoice_period_report_admin_telegram.enqueued",
+        period=period,
+    )
+    return True
